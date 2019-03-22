@@ -259,3 +259,6 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+/Testmodell_Masterarbeit/model
+/Testmodell_Masterarbeit/runs
+/Testmodell_Masterarbeit/events.out.tfevents.1553265612.JARVIS
