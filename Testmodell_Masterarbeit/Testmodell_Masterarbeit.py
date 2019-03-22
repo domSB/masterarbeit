@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from collections import deque
+import pickle
 
 class StockSimulation:
     def __init__(self, sales, start_stock):
@@ -43,13 +44,14 @@ class StockSimulation:
         new_state = np.append(self.sim_stock, self.sales_forecast).reshape(5, 5)
         return reward, self.current_day == self.days - 1, new_state
 
-sales = np.array([[1,1,1,1,1], [1,1,1,1,2], [1,1,1,1,3], [1,1,1,1,4], [1,1,1,1,5], [1,1,1,1,6], [1,1,1,1,7], [1,1,1,1,8]])
-start_stock = np.array([5,5,5,5,5])
+
+with open("./data/sales.pickle", "rb") as file:
+    sales = pickle.load(file)
+
+with open("./data/inventory.pickle", "rb") as file:
+    start_stock = pickle.load(file)
 
 simulation = StockSimulation(sales, start_stock)
-
-
-
 
 
 
