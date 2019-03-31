@@ -10,6 +10,8 @@ action_size = 5
 learning_rate = 0.0002
 max_steps = 312
 
+run = "10"
+
 ### Training Hyperparameter
 total_epochs = 600
 batch_size = 64
@@ -68,7 +70,7 @@ class StockSimulation:
             reward -= -1
         if self.sim_stock > 0:
             reward += 1 / self.sim_stock
-        self.sim_stock += np.argmax(action)
+        self.sim_stock += action
         
         if self.current_day + 4 < self.days:
             self.sales_forecast.append(self.sales[self.current_day + 4])
@@ -95,25 +97,31 @@ class DQNetwork(tf.keras.Model):
 
             """1. Dense Layer"""
             self.dense_1 = tf.layers.Dense(
-                units = 32,
+                units = 24,
                 activation = tf.nn.relu,
                 name="dense_1"
                 )(self.inputs_)
 
             """2. Dense Layer"""
             self.dense_2 = tf.layers.Dense(
-                units = 64,
+                units = 48,
                 activation = tf.nn.relu,
                 name="dense_2"
                 )(self.dense_1)
 
             """3. Dense Layer"""
-            self.q_pred = tf.layers.Dense(
-                units = 5,
-                activation = tf.nn.softmax,
+            self.dense_3 = tf.layers.Dense(
+                units = 96,
+                activation = tf.nn.relu,
                 name="dense_3"
                 )(self.dense_2)
 
+            """4. Dense Layer"""
+            self.q_pred = tf.layers.Dense(
+                units = 5,
+                activation = tf.nn.softmax,
+                name="dense_4"
+                )(self.dense_3)
 
             # Q ist der verhergesagte Q Wert
 
@@ -191,7 +199,8 @@ for i in range(pretrain_lenght):
         state = new_state
 
 with tf.Session() as sess:
-    writer = tf.summary.FileWriter("./runs/3", sess.graph)
+    log_dir = "./runs/" + run
+    writer = tf.summary.FileWriter(log_dir, sess.graph)
     writer.add_graph(tf.get_default_graph())
     tf.summary.scalar("Loss", net.loss)
     merged = tf.summary.merge_all()
@@ -278,7 +287,8 @@ with tf.Session() as sess:
         # Modell alle 5 epochn speichern
         if epoch % 5 == 0:
             try:
-                save_path = saver.save(sess, "./model/checkpoints/3/model.ckpt")
+                save_dir = "./model/checkpoints/" + run + "/model.ckpt"
+                save_path = saver.save(sess, save_dir)
                 print("Model saved")
             except:
                 print("Saving skipped")
