@@ -15,7 +15,8 @@ class DQN:
 
     def create_model(self):
         model = keras.Sequential()
-        model.add(keras.layers.Dense(24, input_dim=state_shape, activation="relu"))
+        # model.add(keras.layers.Input(shape=(state_shape, )))
+        model.add(keras.layers.Dense(24, input_dim = state_shape, activation="relu"))
         model.add(keras.layers.Dense(48, activation="relu"))
         model.add(keras.layers.Dense(96, activation="relu"))
         model.add(keras.layers.Dense(action_space)) # Qs werden nicht standardisiert, da keine Custom Loss Funtion. So funktioniert Standard MSE
@@ -35,10 +36,13 @@ class DQN:
         actions = [sample[1] for sample in samples]
         rewards = [sample[2] for sample in samples]
         new_states = [sample[3] for sample in samples]
+        new_states = np.array(new_states)
+        states = np.array(states)
         dones = [sample[4] for sample in samples]
-        Qs_new_states = self.target_model.predict(new_states)
         targets = self.target_model.predict(states)
-
+        Qs_new_states = self.target_model.predict(new_states)
+        
+        target_Qs_batch = []
         for i in range(batch_size):
             terminal = dones[i]
 
@@ -53,7 +57,7 @@ class DQN:
 
         targets = np.array([each for each in target_Qs_batch])
 
-        self.model.fit(states, targets, epochs=1, verbose=1)
+        self.model.fit(states, targets, epochs=1, verbose=0)
 
     def target_train(self):
         weights = self.model.get_weights()
@@ -68,7 +72,7 @@ class DQN:
         epsilon = np.max([epsilon, epsilon_min])
         if random.random() < epsilon:
             return random.sample(possible_actions, 1)[0]
-        return np.argmax(self.model.predict(state)[0])
+        return np.argmax(self.model.predict(state.reshape(1, 5))[0])
 
 class StockSimulation:
     def __init__(self, sales, start_stock):
@@ -131,11 +135,12 @@ def main():
     global_steps = 0
     for epoch in range(epochs):
         state = simulation.reset()
-        
+        current_rewards = []
         while True:
             action = agent.act(state)
             global_steps += 1
             reward, done, new_state = simulation.make_action(action)
+            current_rewards.append(reward)
             agent.remember(state, action, reward, new_state, done)
             agent.replay()
             if global_steps % update_target_network == 0:
@@ -144,6 +149,10 @@ def main():
             state = new_state
 
             if done:
+                mean_reward = np.mean(current_rewards)
+                sum_reward = np.sum(current_rewards)
+                print("Epoche {}".format(epoch))
+                print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(mean_reward, sum_reward, epsilon))
                 break
 
        
@@ -152,12 +161,12 @@ if __name__ == "__main__":
     gamma = 0.95
     epsilon = 1.0
     epsilon_min = 0.01
-    epsilon_decay = 0.995
-    learning_rate = 0.01
+    epsilon_decay = 0.9997
+    learning_rate = 0.001
     tau = 0.05
     batch_size = 32
 
-    epochs = 2
+    epochs = 200
 
     update_target_network = 1000
 
