@@ -1,8 +1,14 @@
-import keras
-from collections import deque
-import numpy as np
+# import os
+# os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
 import random
+from collections import deque
 import pickle
+
+import numpy as np
+
+import keras
+
+
 
 
 
@@ -102,12 +108,17 @@ class StockSimulation:
         action = np.array(action).astype(np.uint8)
         reward = 0.0
         self.sim_stock -= self.sales[self.current_day]
+                
         if self.sim_stock < 0:
-            reward -= -1
-        if self.sim_stock > 0:
-            reward += 1 / self.sim_stock
-        self.sim_stock += action
+            reward = np.expm1(self.sim_stock/2)
+            # Nichtnegativität des Bestandes
+            self.sim_stock = 0
+        if self.sim_stock >= 0:
+            reward = np.exp(-self.sim_stock/5)
         
+        # Morgen:  Bestellung kommt an
+        self.sim_stock += action
+
         if self.current_day + 4 < self.days:
             self.sales_forecast.append(self.sales[self.current_day + 4])
         else:
@@ -157,8 +168,8 @@ def main():
 
        
 if __name__ == "__main__":
-    memory_size = 2000
-    gamma = 0.95
+    memory_size = 300
+    gamma = 1
     epsilon = 1.0
     epsilon_min = 0.01
     epsilon_decay = 0.9997
@@ -166,7 +177,7 @@ if __name__ == "__main__":
     tau = 0.05
     batch_size = 32
 
-    epochs = 200
+    epochs = 100
 
     update_target_network = 1000
 
