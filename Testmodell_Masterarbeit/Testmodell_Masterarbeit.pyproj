@@ -22,6 +22,10 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="data.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="keras_implementation_echtdaten.py" />
     <Compile Include="keras_implementation.py">
       <SubType>Code</SubType>
     </Compile>
