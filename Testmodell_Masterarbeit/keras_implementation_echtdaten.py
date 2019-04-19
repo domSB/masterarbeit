@@ -82,22 +82,34 @@ class DQN:
         return np.argmax(self.model.predict(state.reshape(1, 5))[0])
 
 class StockSimulation:
-    def __init__(self, sales, start_stock):
-        assert type(sales) == np.ndarray, "Wrong type for sales"
-        assert type(start_stock) == np.ndarray, "Wrong type for start_stock"
-        self.sales = sales[:,single_product] # Zum üben nur 1 Produkt
-        self.start_stock = start_stock[single_product]
-        self.days = len(sales)
-        self.current_day = 0
-        self.current_product = 0
-        self.sim_stock = start_stock[single_product].copy()
-        self.product_count = 1
+    def __init__(self, df):
+        assert type(df) == pd.core.frame.DataFrame, "Wrong type for DataFrame"
+        assert "Datum" in df.columns, "Datumsspalte fehlt"
+        assert "Artikel" in df.columns, "Artikelnummer Spalte fehlt"
+        assert "Warengruppe" in df.columns, "Warengruppe Spalte fehlt"
+        assert "Wochentag" in df.columns, "Wochentag Spalte fehlt"
+        assert "Jahrestag" in df.columns, "Jahrestag Spalte fehlt"
+        assert "Jahr" in df.columns, "Jahr Spalte fehlt"
+        assert "Absatz" in df.columns, "Absatz Spalte fehlt"
+        assert "OrderLeadTime" in df.columns, "OrderLeadTime Spalte fehlt"
+        assert np.array_equal(np.sort(df["Wochentag"].unique()), np.arange(0,6)), "Keine 6 Tage Woche"
+
+        self.df = df.copy()
+        self.produkte = self.df["Artikel"].unique()
+        self.warengruppen = self.df["Warengruppe"].unique()
+        self.wochentage = np.arange(0,6)
+        # Anfangsbestand wird zufällig gewählt, für bessere Exploration und Verhindung von lokalen Maxima 
+        self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
+        self.tage = len(df["Datum"].unique())
+        self.aktueller_tag = None
+        self.aktuelles_produkt = None
 
     def reset(self):
-        self.sim_stock = self.start_stock.copy()
-        self.current_day = 0
-        self.current_product = 0
-        self.sales_forecast = deque(maxlen=4)
+        self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
+        self.bestand = self.anfangsbestand.copy()
+        self.aktueller_tag = 0
+        self.aktuelles_produkt = 0
+        self.vorhersage = deque(maxlen=4)
         for i in range(4):
             self.sales_forecast.append(self.sales[i])
         new_state = np.append(self.start_stock, self.sales_forecast).reshape(5)
@@ -130,13 +142,39 @@ class StockSimulation:
 
 def load_simulation():
     df = pd.read_pickle('F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implemenation/Echtdaten/altforweiler.pkl')
-    #with open("./data/sales.pickle", "rb") as file:
-    #    sales = pickle.load(file)
+    df = df.drop(columns=['ABTEILUNGSNUMMER'])
+    # Warengruppen auswählen
+    # 13 Frischmilch
+    # 14 Joghurt
+    # 69 Tabak
+    # 8 Obst Allgemein
+    df = df[df['WARENGRUPPENNUMMER'].isin([13, 14, 69, 8])]
+    df["Wochentag"] = df["DATUM_BELEG"].apply(lambda x:x.dayofweek)
+    df["Jahrestag"] = df["DATUM_BELEG"].apply(lambda x:x.dayofyear)
+    df["Jahr"] = df["DATUM_BELEG"].apply(lambda x:x.year)
+       
+    df = df.sort_values(by=["DATUM_BELEG", "WARENGRUPPENNUMMER","ARTIKELNUMMER"], ascending=[True, True, True]).reset_index(drop=True)
 
-    #with open("./data/inventory.pickle", "rb") as file:
-    #    start_stock = pickle.load(file)
+    df = df.rename(index=str, columns={"DATUM_BELEG": "Datum", "ARTIKELNUMMER": "Artikel", "Tagesabsatz": "Absatz", "WARENGRUPPENNUMMER": "Warengruppe"})
 
-    simulation = StockSimulation(sales, start_stock)
+    # Fürs erste
+    df["OrderLeadTime"] = 1
+
+    # train und test
+    test_data = df[df["Jahr"]==2019].reset_index(drop=True)
+    train_data = df[df["Jahr"]==2018].reset_index(drop=True)
+    
+    ### 
+    #
+    # pd.set_option('display.max_columns', 500)
+    #
+    ###
+
+    haufigkeit = simulation.df.groupby(by=["Datum"])["Artikel"].value_counts()
+    haufigkeit.where(haufigkeit>1).dropna() # Müsste null sein. Umsätze müssen immer auf Tagesbasis aggregiert sein.
+    
+
+    simulation = StockSimulation(train_data)
 
     return simulation
 

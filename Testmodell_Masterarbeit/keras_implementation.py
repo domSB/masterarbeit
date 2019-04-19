@@ -169,7 +169,7 @@ def main():
        
 if __name__ == "__main__":
     memory_size = 300
-    gamma = 1
+    gamma = 0.5
     epsilon = 1.0
     epsilon_min = 0.01
     epsilon_decay = 0.9997
@@ -177,9 +177,9 @@ if __name__ == "__main__":
     tau = 0.05
     batch_size = 32
 
-    epochs = 100
+    epochs = 30
 
-    update_target_network = 1000
+    update_target_network = 30
 
     single_product = 4
 
