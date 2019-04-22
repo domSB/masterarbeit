@@ -141,21 +141,21 @@ class StockSimulation:
         return reward, self.current_day == self.days - 1, new_state
 
 def load_simulation():
-    df = pd.read_pickle('F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implemenation/Echtdaten/altforweiler.pkl')
-    df = df.drop(columns=['ABTEILUNGSNUMMER'])
+    df = pd.read_pickle('F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implemenation/Echtdaten/4 absatz_altforweiler.pkl')
+    df = df.drop(columns=['Abteilung'])
     # Warengruppen auswählen
     # 13 Frischmilch
     # 14 Joghurt
     # 69 Tabak
     # 8 Obst Allgemein
-    df = df[df['WARENGRUPPENNUMMER'].isin([13, 14, 69, 8])]
-    df["Wochentag"] = df["DATUM_BELEG"].apply(lambda x:x.dayofweek)
-    df["Jahrestag"] = df["DATUM_BELEG"].apply(lambda x:x.dayofyear)
-    df["Jahr"] = df["DATUM_BELEG"].apply(lambda x:x.year)
+    df = df[df['Warengruppe'].isin([13, 14, 69, 8])]
+    df["Wochentag"] = df["Datum"].apply(lambda x:x.dayofweek)
+    df["Jahrestag"] = df["Datum"].apply(lambda x:x.dayofyear)
+    df["Jahr"] = df["Datum"].apply(lambda x:x.year)
        
-    df = df.sort_values(by=["DATUM_BELEG", "WARENGRUPPENNUMMER","ARTIKELNUMMER"], ascending=[True, True, True]).reset_index(drop=True)
+    df = df.sort_values(by=["Datum", "Warengruppe","Artikel"], ascending=[True, True, True]).reset_index(drop=True)
 
-    df = df.rename(index=str, columns={"DATUM_BELEG": "Datum", "ARTIKELNUMMER": "Artikel", "Tagesabsatz": "Absatz", "WARENGRUPPENNUMMER": "Warengruppe"})
+    # df = df.rename(index=str, columns={"DATUM_BELEG": "Datum", "ARTIKELNUMMER": "Artikel", "Tagesabsatz": "Absatz", "WARENGRUPPENNUMMER": "Warengruppe"})
 
     # Fürs erste
     df["OrderLeadTime"] = 1
@@ -169,12 +169,12 @@ def load_simulation():
     # pd.set_option('display.max_columns', 500)
     #
     ###
-
-    haufigkeit = simulation.df.groupby(by=["Datum"])["Artikel"].value_counts()
-    haufigkeit.where(haufigkeit>1).dropna() # Müsste null sein. Umsätze müssen immer auf Tagesbasis aggregiert sein.
     
 
     simulation = StockSimulation(train_data)
+
+    haufigkeit = simulation.df.groupby(by=["Datum"])["Artikel"].value_counts()
+    haufigkeit.where(haufigkeit>1).dropna() # Müsste null sein. Umsätze müssen immer auf Tagesbasis aggregiert sein.
 
     return simulation
 
