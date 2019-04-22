@@ -84,7 +84,6 @@ class DQN:
 class StockSimulation:
     def __init__(self, df):
         assert type(df) == pd.core.frame.DataFrame, "Wrong type for DataFrame"
-        assert "Datum" in df.columns, "Datumsspalte fehlt"
         assert "Artikel" in df.columns, "Artikelnummer Spalte fehlt"
         assert "Warengruppe" in df.columns, "Warengruppe Spalte fehlt"
         assert "Wochentag" in df.columns, "Wochentag Spalte fehlt"
@@ -97,6 +96,7 @@ class StockSimulation:
         self.df = df.copy()
         self.produkte = self.df["Artikel"].unique()
         self.warengruppen = self.df["Warengruppe"].unique()
+        self.anz_wg = len(self.warengruppen)
         self.wochentage = np.arange(0,6)
         # Anfangsbestand wird zufällig gewählt, für bessere Exploration und Verhindung von lokalen Maxima 
         self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
@@ -105,82 +105,133 @@ class StockSimulation:
         self.aktuelles_produkt = None
 
     def reset(self):
+        """ 
+        Neuer State ist ein Numpy Array
+        *Bestand
+        *Wochentag
+        *Warengruppe
+
+        ** Absatz t+1 (echte Tage)
+        ** Absatz t+2
+
+        """
         self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
         self.bestand = self.anfangsbestand.copy()
-        self.aktueller_tag = 0
-        self.aktuelles_produkt = 0
-        self.vorhersage = deque(maxlen=4)
-        for i in range(4):
-            self.sales_forecast.append(self.sales[i])
-        new_state = np.append(self.start_stock, self.sales_forecast).reshape(5)
+        datum, artikel = self.df.iloc[0].name
+        self.aktueller_tag = datum - pd.DateOffset(n=1)
+        self.vergange_tage = 0
+        self.aktuelles_produkt = artikel
+        self.verkaufstage_aktuelles_produkt = self.df.loc[(slice(None), self.aktuelles_produkt),["Datum"]].copy().reset_index(drop=True)
+        wochentag, warengruppe = self.df.loc[(self.aktueller_tag + pd.DateOffset(n=1), self.aktuelles_produkt),["Wochentag","Warengruppe"]].to_numpy(copy=True)
+        warengruppe = keras.utils.to_categorical(warengruppe, num_classes=self.anz_wg)
+        self.aktuelle_warengruppe = warengruppe
+        wochentag = keras.utils.to_categorical(wochentag, num_classes=6)
+      
+
+        new_state = np.concatenate([self.bestand.loc[self.aktuelles_produkt].to_numpy(copy=True), wochentag, warengruppe])
+
+
         return new_state
 
     def make_action(self, action):
-        # assert len(action) == self.product_count, "len(actions) doesn't match lenght of product stock"
-        assert self.current_day < self.days - 1 , "epoch is finished. Do Reset."
-        action = np.array(action).astype(np.uint8)
-        reward = 0.0
-        self.sim_stock -= self.sales[self.current_day]
-                
-        if self.sim_stock < 0:
-            reward = np.expm1(self.sim_stock/2)
-            # Nichtnegativität des Bestandes
-            self.sim_stock = 0
-        if self.sim_stock >= 0:
-            reward = np.exp(-self.sim_stock/5)
+        self.aktueller_tag += pd.DateOffset(n=1)
+        if self.aktueller_tag.dayofweek == 6: # Sonntag
+            self.aktueller_tag += pd.DateOffset(n=1)
         
-        # Morgen:  Bestellung kommt an
-        self.sim_stock += action
+        self.vergange_tage += 1
 
-        if self.current_day + 4 < self.days:
-            self.sales_forecast.append(self.sales[self.current_day + 4])
+        action = np.array(action).astype(np.uint8)
+
+        # Action ist die Bestellte Menge an Artikeln
+        print(self.aktueller_tag == self.verkaufstage_aktuelles_produkt.iloc[0])
+        # Checken, ob heute Absatz vorhanden:
+        if (self.aktueller_tag == self.verkaufstage_aktuelles_produkt.iloc[0]).bool():
+            print("Juhu Absatz")
+            
+            # Vormittag: Verkauf wird getätigt
+            tages_absatz = self.df.loc[(self.aktueller_tag, self.aktuelles_produkt),"Absatz"]
+            self.bestand.loc[self.aktuelles_produkt] -= tages_absatz
+            self.verkaufstage_aktuelles_produkt = self.verkaufstage_aktuelles_produkt.drop(index=self.verkaufstage_aktuelles_produkt.iloc[0].name)
         else:
-            self.sales_forecast.append(np.zeros(1).astype(int))
-        new_state = np.append(self.sim_stock, self.sales_forecast).reshape(5)
-        self.current_day += 1
-        return reward, self.current_day == self.days - 1, new_state
+            print("Tag ohne Absatz")
+        
+        # Nachmittag: Bestellung kommt an
+        self.bestand.loc[self.aktuelles_produkt] += action
 
-def load_simulation():
-    df = pd.read_pickle('F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implemenation/Echtdaten/4 absatz_altforweiler.pkl')
-    df = df.drop(columns=['Abteilung'])
-    # Warengruppen auswählen
-    # 13 Frischmilch
-    # 14 Joghurt
-    # 69 Tabak
-    # 8 Obst Allgemein
-    df = df[df['Warengruppe'].isin([13, 14, 69, 8])]
+        # Abend: Bestand wird bewertet
+        if (self.bestand.loc[self.aktuelles_produkt] >= 0).bool():
+            print("Pos Bestand")
+            reward = np.exp(-self.bestand.loc[self.aktuelles_produkt]/5)
+        if (self.bestand.loc[self.aktuelles_produkt] < 0).bool():
+            print("Neg Bestand")
+            reward = np.expm1(self.bestand.loc[self.aktuelles_produkt]/2)
+            # Nichtnegativität des Bestandes
+            self.bestand.loc[self.aktuelles_produkt] = 0
+
+
+        reward = reward.to_numpy().astype(np.float64)[0]
+
+        wochentag = self.aktueller_tag.dayofweek
+        wochentag = keras.utils.to_categorical(wochentag, num_classes=6)
+        
+        new_state = np.concatenate([self.bestand.loc[self.aktuelles_produkt].to_numpy(copy=True), wochentag, self.aktuelle_warengruppe])
+
+
+        if self.vergange_tage == self.tage:
+            artikel_fertig = True
+        else:
+            artikel_fertig = False
+
+        
+        return reward, artikel_fertig, new_state
+
+def load_simulation(path):
+
+    df = pd.read_csv(
+        path, 
+        names=["Zeile", "Datum", "Artikel", "Absatz", "Warengruppe", "Abteilung"], 
+        header=0, 
+        parse_dates=[1], 
+        index_col=[1, 2],
+        memory_map=True
+        )
+    df.dropna(how='any', inplace=True)
+    df["Warengruppe"] = df["Warengruppe"].astype(np.uint8)
+    # df = df.drop(columns=['Abteilung', 'Zeile'])
+    warengruppen = [8, 13, 14, 69 ]
+    df = df[df['Warengruppe'].isin(warengruppen)]
+    for i, wg in enumerate(warengruppen):
+        df.loc[df.Warengruppe == wg, "Warengruppe"] = i
+    df["Datum"] = df.index.get_level_values('Datum')
+    df["Artikel"] = df.index.get_level_values('Artikel').astype(np.int32)
     df["Wochentag"] = df["Datum"].apply(lambda x:x.dayofweek)
     df["Jahrestag"] = df["Datum"].apply(lambda x:x.dayofyear)
     df["Jahr"] = df["Datum"].apply(lambda x:x.year)
-       
-    df = df.sort_values(by=["Datum", "Warengruppe","Artikel"], ascending=[True, True, True]).reset_index(drop=True)
-
-    # df = df.rename(index=str, columns={"DATUM_BELEG": "Datum", "ARTIKELNUMMER": "Artikel", "Tagesabsatz": "Absatz", "WARENGRUPPENNUMMER": "Warengruppe"})
+    # df = df.drop(columns=['Datum'])
+    df = df.sort_index()
 
     # Fürs erste
     df["OrderLeadTime"] = 1
 
-    # train und test
-    test_data = df[df["Jahr"]==2019].reset_index(drop=True)
-    train_data = df[df["Jahr"]==2018].reset_index(drop=True)
-    
-    ### 
-    #
-    # pd.set_option('display.max_columns', 500)
-    #
-    ###
-    
+    test_data = df[df["Jahr"]==2019]
+    train_data = df[df["Jahr"]==2018]
+
+    # Warengruppen auswählen
+    # 13 Frischmilch
+    # 14 Joghurt
+    # 69 Tabak
+    # 8 Obst Allgemen
 
     simulation = StockSimulation(train_data)
 
-    haufigkeit = simulation.df.groupby(by=["Datum"])["Artikel"].value_counts()
-    haufigkeit.where(haufigkeit>1).dropna() # Müsste null sein. Umsätze müssen immer auf Tagesbasis aggregiert sein.
+    # haufigkeit = simulation.df.groupby(by=["Datum"])["Artikel"].value_counts()
+    # haufigkeit.where(haufigkeit>1).dropna() # Müsste null sein. Umsätze müssen immer auf Tagesbasis aggregiert sein.
 
     return simulation
 
 def main():
 
-    simulation = load_simulation()
+    simulation = load_simulation('F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implemenation/Echtdaten/3 absatz_altforweiler.csv')
 
     agent = DQN()
     global_steps = 0
