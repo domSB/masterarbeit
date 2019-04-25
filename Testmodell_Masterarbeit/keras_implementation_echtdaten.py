@@ -1,5 +1,7 @@
 # import os
 # os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
+from simulation import StockSimulation
+
 import random
 from collections import deque
 import pickle
@@ -8,6 +10,9 @@ import numpy as np
 import pandas as pd
 
 import keras
+
+
+import cProfile
 
 
 
@@ -79,114 +84,10 @@ class DQN:
         epsilon = np.max([epsilon, epsilon_min])
         if random.random() < epsilon:
             return random.sample(possible_actions, 1)[0]
-        return np.argmax(self.model.predict(state.reshape(1, 5))[0])
-
-class StockSimulation:
-    def __init__(self, df):
-        assert type(df) == pd.core.frame.DataFrame, "Wrong type for DataFrame"
-        assert "Artikel" in df.columns, "Artikelnummer Spalte fehlt"
-        assert "Warengruppe" in df.columns, "Warengruppe Spalte fehlt"
-        assert "Wochentag" in df.columns, "Wochentag Spalte fehlt"
-        assert "Jahrestag" in df.columns, "Jahrestag Spalte fehlt"
-        assert "Jahr" in df.columns, "Jahr Spalte fehlt"
-        assert "Absatz" in df.columns, "Absatz Spalte fehlt"
-        assert "OrderLeadTime" in df.columns, "OrderLeadTime Spalte fehlt"
-        assert np.array_equal(np.sort(df["Wochentag"].unique()), np.arange(0,6)), "Keine 6 Tage Woche"
-
-        self.df = df.copy()
-        self.produkte = self.df["Artikel"].unique()
-        self.warengruppen = self.df["Warengruppe"].unique()
-        self.anz_wg = len(self.warengruppen)
-        self.wochentage = np.arange(0,6)
-        # Anfangsbestand wird zufällig gewählt, für bessere Exploration und Verhindung von lokalen Maxima 
-        self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
-        self.tage = len(df["Datum"].unique())
-        self.aktueller_tag = None
-        self.aktuelles_produkt = None
-
-    def reset(self):
-        """ 
-        Neuer State ist ein Numpy Array
-        *Bestand
-        *Wochentag
-        *Warengruppe
-
-        ** Absatz t+1 (echte Tage)
-        ** Absatz t+2
-
-        """
-        self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
-        self.bestand = self.anfangsbestand.copy()
-        datum, artikel = self.df.iloc[0].name
-        self.aktueller_tag = datum - pd.DateOffset(n=1)
-        self.vergange_tage = 0
-        self.aktuelles_produkt = artikel
-        self.verkaufstage_aktuelles_produkt = self.df.loc[(slice(None), self.aktuelles_produkt),["Datum"]].copy().reset_index(drop=True)
-        wochentag, warengruppe = self.df.loc[(self.aktueller_tag + pd.DateOffset(n=1), self.aktuelles_produkt),["Wochentag","Warengruppe"]].to_numpy(copy=True)
-        warengruppe = keras.utils.to_categorical(warengruppe, num_classes=self.anz_wg)
-        self.aktuelle_warengruppe = warengruppe
-        wochentag = keras.utils.to_categorical(wochentag, num_classes=6)
-      
-
-        new_state = np.concatenate([self.bestand.loc[self.aktuelles_produkt].to_numpy(copy=True), wochentag, warengruppe])
+        return np.argmax(self.model.predict(state.reshape(1, state_shape))[0])
 
 
-        return new_state
-
-    def make_action(self, action):
-        self.aktueller_tag += pd.DateOffset(n=1)
-        if self.aktueller_tag.dayofweek == 6: # Sonntag
-            self.aktueller_tag += pd.DateOffset(n=1)
-        
-        self.vergange_tage += 1
-
-        action = np.array(action).astype(np.uint8)
-
-        # Action ist die Bestellte Menge an Artikeln
-        print(self.aktueller_tag == self.verkaufstage_aktuelles_produkt.iloc[0])
-        # Checken, ob heute Absatz vorhanden:
-        if (self.aktueller_tag == self.verkaufstage_aktuelles_produkt.iloc[0]).bool():
-            print("Juhu Absatz")
-            
-            # Vormittag: Verkauf wird getätigt
-            tages_absatz = self.df.loc[(self.aktueller_tag, self.aktuelles_produkt),"Absatz"]
-            self.bestand.loc[self.aktuelles_produkt] -= tages_absatz
-            self.verkaufstage_aktuelles_produkt = self.verkaufstage_aktuelles_produkt.drop(index=self.verkaufstage_aktuelles_produkt.iloc[0].name)
-        else:
-            print("Tag ohne Absatz")
-        
-        # Nachmittag: Bestellung kommt an
-        self.bestand.loc[self.aktuelles_produkt] += action
-
-        # Abend: Bestand wird bewertet
-        if (self.bestand.loc[self.aktuelles_produkt] >= 0).bool():
-            print("Pos Bestand")
-            reward = np.exp(-self.bestand.loc[self.aktuelles_produkt]/5)
-        if (self.bestand.loc[self.aktuelles_produkt] < 0).bool():
-            print("Neg Bestand")
-            reward = np.expm1(self.bestand.loc[self.aktuelles_produkt]/2)
-            # Nichtnegativität des Bestandes
-            self.bestand.loc[self.aktuelles_produkt] = 0
-
-
-        reward = reward.to_numpy().astype(np.float64)[0]
-
-        wochentag = self.aktueller_tag.dayofweek
-        wochentag = keras.utils.to_categorical(wochentag, num_classes=6)
-        
-        new_state = np.concatenate([self.bestand.loc[self.aktuelles_produkt].to_numpy(copy=True), wochentag, self.aktuelle_warengruppe])
-
-
-        if self.vergange_tage == self.tage:
-            artikel_fertig = True
-        else:
-            artikel_fertig = False
-
-        
-        return reward, artikel_fertig, new_state
-
-def load_simulation(path):
-
+def load_dataframe(path):
     df = pd.read_csv(
         path, 
         names=["Zeile", "Datum", "Artikel", "Absatz", "Warengruppe", "Abteilung"], 
@@ -198,6 +99,12 @@ def load_simulation(path):
     df.dropna(how='any', inplace=True)
     df["Warengruppe"] = df["Warengruppe"].astype(np.uint8)
     # df = df.drop(columns=['Abteilung', 'Zeile'])
+    # Warengruppen auswählen
+    # 13 Frischmilch
+    # 14 Joghurt
+    # 69 Tabak
+    # 8 Obst Allgemen
+
     warengruppen = [8, 13, 14, 69 ]
     df = df[df['Warengruppe'].isin(warengruppen)]
     for i, wg in enumerate(warengruppen):
@@ -209,30 +116,27 @@ def load_simulation(path):
     df["Jahr"] = df["Datum"].apply(lambda x:x.year)
     # df = df.drop(columns=['Datum'])
     df = df.sort_index()
-
+    
     # Fürs erste
     df["OrderLeadTime"] = 1
-
+    
     test_data = df[df["Jahr"]==2019]
     train_data = df[df["Jahr"]==2018]
+    return test_data, train_data
 
-    # Warengruppen auswählen
-    # 13 Frischmilch
-    # 14 Joghurt
-    # 69 Tabak
-    # 8 Obst Allgemen
+def load_simulation(train_data, test_data):
 
-    simulation = StockSimulation(train_data)
+    simulation = StockSimulation(train_data, sample_produkte)
+    test_env = StockSimulation(test_data, sample_produkte)
 
-    # haufigkeit = simulation.df.groupby(by=["Datum"])["Artikel"].value_counts()
-    # haufigkeit.where(haufigkeit>1).dropna() # Müsste null sein. Umsätze müssen immer auf Tagesbasis aggregiert sein.
-
-    return simulation
+    return simulation, test_env
 
 def main():
+    test_data, train_data = load_dataframe('F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implemenation/Echtdaten/3 absatz_altforweiler.csv')
 
-    simulation = load_simulation('F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implemenation/Echtdaten/3 absatz_altforweiler.csv')
+    simulation, test_env = load_simulation(train_data, test_data)
 
+    print("Laden fertig")
     agent = DQN()
     global_steps = 0
     for epoch in range(epochs):
@@ -241,16 +145,21 @@ def main():
         while True:
             action = agent.act(state)
             global_steps += 1
-            reward, done, new_state = simulation.make_action(action)
+            reward, artikel_fertig, new_state, state_neuer_artikel, episode_fertig = simulation.make_action(action)
             current_rewards.append(reward)
-            agent.remember(state, action, reward, new_state, done)
-            agent.replay()
+            agent.remember(state, action, reward, new_state, episode_fertig)
+            if global_steps % n_step == 0:
+                agent.replay()
+            
             if global_steps % update_target_network == 0:
                 agent.target_train()
 
-            state = new_state
+            if artikel_fertig:
+                state = state_neuer_artikel
+            else:
+                state = new_state
 
-            if done:
+            if episode_fertig:
                 mean_reward = np.mean(current_rewards)
                 sum_reward = np.sum(current_rewards)
                 print("Epoche {}".format(epoch))
@@ -259,28 +168,50 @@ def main():
 
        
 if __name__ == "__main__":
-    memory_size = 300
+    memory_size = 12000
     gamma = 1
     epsilon = 1.0
     epsilon_min = 0.01
-    epsilon_decay = 0.9997
-    learning_rate = 0.001
+    epsilon_decay = 0.9999
+    learning_rate = 0.0001
     tau = 0.05
-    batch_size = 32
+    batch_size = 512
+    n_step = 64
 
-    epochs = 100
+    epochs = 30
 
     update_target_network = 1000
 
-    single_product = 4
+    sample_produkte = 50
 
-    state_shape = 5
-    action_space = 5
+    #single_product = 4
+
+    state_shape = 11
+    action_space = 10
 
     order_none = 0
     order_one = 1
     order_two = 2
     order_tree = 3
     order_four = 4
-    possible_actions = [order_none, order_one, order_two, order_tree, order_four]
+    order_five = 5
+    order_six = 6
+    order_seven = 7
+    order_eight = 8
+    order_nine = 9
+
+    possible_actions = [
+        order_none, 
+        order_one, 
+        order_two, 
+        order_tree, 
+        order_four, 
+        order_five, 
+        order_six, 
+        order_seven, 
+        order_eight, 
+        order_nine
+        ]
     main()
+    
+    
