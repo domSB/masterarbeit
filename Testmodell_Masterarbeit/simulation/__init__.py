@@ -1,7 +1,7 @@
 # normaler Datafram
 import pandas as pd
 import numpy as np
-import keras
+from keras.utils import to_categorical
 from tqdm import tqdm
 import multiprocessing
 
@@ -75,7 +75,7 @@ class StockSimulation:
         for artikel in tqdm(self.df["Artikel"].unique()):
             art_df, wg, olt = copy_data_to_cal_df(self.df, cal_df.copy(), artikel)
             self.absatz_data[artikel] = art_df
-            wg = keras.utils.to_categorical(wg, num_classes=self.anz_wg)
+            wg = to_categorical(wg, num_classes=self.anz_wg)
             self.static_state_data[artikel] = {"Warengruppe":wg, "OrderLeadTime": olt}
 
 
@@ -115,7 +115,7 @@ class StockSimulation:
         else:
             wochentag = 5
 
-        wochentag = keras.utils.to_categorical(wochentag, num_classes=6)
+        wochentag = to_categorical(wochentag, num_classes=6)
 
 
         new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg])
@@ -151,7 +151,7 @@ class StockSimulation:
 
         # reward = reward.to_numpy().astype(np.float64)[0]
 
-        wochentag = keras.utils.to_categorical(wochentag, num_classes=6)
+        wochentag = to_categorical(wochentag, num_classes=6)
         
         new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg])
 
@@ -175,7 +175,7 @@ class StockSimulation:
                 self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
                 self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
                 absatz, wochentag = self.akt_prod_absatz.loc[self.aktueller_tag+1,["Absatz", "Wochentag"]]
-                wochentag = keras.utils.to_categorical(wochentag, num_classes=6)
+                wochentag = to_categorical(wochentag, num_classes=6)
                 state_neuer_artikel = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg])
             
         else:

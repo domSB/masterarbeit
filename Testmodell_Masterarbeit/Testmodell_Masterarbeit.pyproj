@@ -29,6 +29,9 @@
     <Compile Include="keras_implementation.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="network\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="simulation\__init__.py">
       <SubType>Code</SubType>
     </Compile>
@@ -38,6 +41,7 @@
     <InterpreterReference Include="CondaEnv|CondaEnv|masterarbeit" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="network\" />
     <Folder Include="simulation\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />

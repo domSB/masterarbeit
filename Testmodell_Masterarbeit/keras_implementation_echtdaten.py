@@ -1,91 +1,11 @@
-# import os
-# os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
-from simulation import StockSimulation
 
-import random
-from collections import deque
-import pickle
+from simulation import StockSimulation
+from network import DQN
 
 import numpy as np
 import pandas as pd
 
-import keras
-
-
 import cProfile
-
-
-
-
-
-class DQN:
-    def __init__(self):
-        self.memory = deque(maxlen=memory_size)
-        self.model = self.create_model()
-
-        self.target_model = self.create_model()
-
-    def create_model(self):
-        model = keras.Sequential()
-        # model.add(keras.layers.Input(shape=(state_shape, )))
-        model.add(keras.layers.Dense(24, input_dim = state_shape, activation="relu"))
-        model.add(keras.layers.Dense(48, activation="relu"))
-        model.add(keras.layers.Dense(96, activation="relu"))
-        model.add(keras.layers.Dense(action_space)) # Qs werden nicht standardisiert, da keine Custom Loss Funtion. So funktioniert Standard MSE
-        model.compile(optimizer=keras.optimizers.Adam(lr=learning_rate), loss="mse")
-        return model
-
-    def remember(self, state, action, reward, new_state, done):
-        self.memory.append([state, action, reward, new_state, done])
-
-    def replay(self):
-        if len(self.memory) < batch_size:
-            return
-
-        samples = random.sample(self.memory, batch_size)
-
-        states = [sample[0] for sample in samples]
-        actions = [sample[1] for sample in samples]
-        rewards = [sample[2] for sample in samples]
-        new_states = [sample[3] for sample in samples]
-        new_states = np.array(new_states)
-        states = np.array(states)
-        dones = [sample[4] for sample in samples]
-        targets = self.target_model.predict(states)
-        Qs_new_states = self.target_model.predict(new_states)
-        
-        target_Qs_batch = []
-        for i in range(batch_size):
-            terminal = dones[i]
-
-            if terminal:
-                updated_target = targets[i]
-                updated_target[actions[i]] = rewards[i]
-                target_Qs_batch.append(updated_target)
-            else:
-                updated_target = targets[i]
-                updated_target[actions[i]] = rewards[i] + gamma * np.max(Qs_new_states[i])
-                target_Qs_batch.append(updated_target)
-
-        targets = np.array([each for each in target_Qs_batch])
-
-        self.model.fit(states, targets, epochs=1, verbose=0)
-
-    def target_train(self):
-        weights = self.model.get_weights()
-        target_weights = self.target_model.get_weights()
-        for i in range(len(target_weights)):
-            target_weights[i] = weights[i]
-        self.target_model.set_weights(target_weights)
-
-    def act(self, state):
-        global epsilon, epsilon_decay, epsilon_min
-        epsilon *= epsilon_decay
-        epsilon = np.max([epsilon, epsilon_min])
-        if random.random() < epsilon:
-            return random.sample(possible_actions, 1)[0]
-        return np.argmax(self.model.predict(state.reshape(1, state_shape))[0])
-
 
 def load_dataframe(path):
     df = pd.read_csv(
@@ -137,8 +57,19 @@ def main():
     simulation, test_env = load_simulation(train_data, test_data)
 
     print("Laden fertig")
-    agent = DQN()
+    agent = DQN(
+        memory_size, 
+        state_shape, 
+        action_space, 
+        gamma,
+        learning_rate, 
+        batch_size, 
+        epsilon, 
+        epsilon_decay, 
+        epsilon_min, 
+        possible_actions)
     global_steps = 0
+    stats = []
     for epoch in range(epochs):
         state = simulation.reset()
         current_rewards = []
@@ -149,7 +80,8 @@ def main():
             current_rewards.append(reward)
             agent.remember(state, action, reward, new_state, episode_fertig)
             if global_steps % n_step == 0:
-                agent.replay()
+                history = agent.replay()
+                print(history)
             
             if global_steps % update_target_network == 0:
                 agent.target_train()
@@ -168,8 +100,8 @@ def main():
 
        
 if __name__ == "__main__":
-    memory_size = 12000
-    gamma = 1
+    memory_size = 120000
+    gamma = 0.5
     epsilon = 1.0
     epsilon_min = 0.01
     epsilon_decay = 0.9999
@@ -178,11 +110,11 @@ if __name__ == "__main__":
     batch_size = 512
     n_step = 64
 
-    epochs = 30
+    epochs = 20
 
     update_target_network = 1000
 
-    sample_produkte = 50
+    sample_produkte = 500
 
     #single_product = 4
 

@@ -263,3 +263,5 @@ __pycache__/
 /Testmodell_Masterarbeit/runs
 /Testmodell_Masterarbeit/events.out.tfevents.1553265612.JARVIS
 /Testmodell_Masterarbeit/profile.cprof
+/Testmodell_Masterarbeit/logs
+/Testmodell_Masterarbeit/profile2.cprof
