@@ -5,6 +5,7 @@ from network import DQN
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import tensorflow as tf
 
 import cProfile
 
@@ -83,9 +84,17 @@ def main():
             if global_steps % n_step == 0:
                 history = agent.replay()
                 if history:
-                    stats["loss"].append(history["loss"])
-                    stats["acc"].append(history["acc"])
-                    stats["rew"].append(np.sum(current_rewards))
+                    curr_loss = history["loss"][0]
+                    curr_acc = history["acc"][0]
+                    curr_rew = np.sum(current_rewards)
+                    stats["loss"].append(curr_loss)
+                    stats["acc"].append(curr_acc)
+                    stats["rew"].append(curr_rew)
+                    # print(curr_loss, curr_acc, curr_rew)
+                    ergebnis = agent.sess.run([agent.reward.assign(curr_rew), agent.loss.assign(curr_loss), agent.accuracy.assign(curr_acc)])
+                    print(ergebnis)
+                    summary = agent.sess.run(agent.merged)
+                    agent.writer.add_summary(summary)
             
             if global_steps % update_target_network == 0:
                 agent.target_train()
@@ -101,6 +110,8 @@ def main():
                 print("Epoche {}".format(epoch))
                 print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(mean_reward, sum_reward, epsilon))
                 break
+    agent.writer.close()
+    agent.sess.close()
     f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
     for stat in stats:
         stats[stat] = np.array(stats[stat]).reshape(-1)
@@ -129,7 +140,7 @@ if __name__ == "__main__":
 
     update_target_network = 1000
 
-    sample_produkte = 500
+    sample_produkte = 5
 
     #single_product = 4
 
