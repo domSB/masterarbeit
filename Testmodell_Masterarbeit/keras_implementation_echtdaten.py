@@ -87,14 +87,15 @@ def main():
                     curr_loss = history["loss"][0]
                     curr_acc = history["acc"][0]
                     curr_rew = np.sum(current_rewards)
+                    curr_mean_rew = np.mean_reward(current_rewards)
                     stats["loss"].append(curr_loss)
                     stats["acc"].append(curr_acc)
                     stats["rew"].append(curr_rew)
-                    # print(curr_loss, curr_acc, curr_rew)
-                    ergebnis = agent.sess.run([agent.reward.assign(curr_rew), agent.loss.assign(curr_loss), agent.accuracy.assign(curr_acc)])
-                    print(ergebnis)
-                    summary = agent.sess.run(agent.merged)
-                    agent.writer.add_summary(summary)
+
+                    if global_steps % (n_step*log_frequency) == 0:
+                        agent.sess.run([agent.reward.assign(curr_rew), agent.reward_mean.assign(curr_mean_rew), agent.loss.assign(curr_loss), agent.accuracy.assign(curr_acc)])
+                        summary = agent.sess.run(agent.merged)
+                        agent.writer.add_summary(summary)
             
             if global_steps % update_target_network == 0:
                 agent.target_train()
@@ -135,6 +136,7 @@ if __name__ == "__main__":
     tau = 0.05
     batch_size = 512
     n_step = 64
+    log_frequency = 100 # jeder 100te n_step
 
     epochs = 200
 

@@ -33,12 +33,14 @@ class DQN:
         self.sess = tf.Session()
         self.writer = tf.summary.FileWriter(self.logdir, self.sess.graph)
         self.reward = tf.Variable(0.0, trainable=False, name="vReward")
+        self.reward_mean = tf.Variable(0.0, trainable=False, name="vMeanReward")
         self.loss = tf.Variable(0.0, trainable=False, name="vLoss")
         self.accuracy = tf.Variable(0.0, trainable=False, name="vMSE")
         self.summary_reward = tf.summary.scalar("Reward", self.reward)
+        self.summary_reward_mean = tf.summary.scalar("MeanReward", self.reward_mean)
         self.summary_loss = tf.summary.scalar("Loss", self.loss)
         self.summary_mse = tf.summary.scalar("Accuracy", self.accuracy)
-        self.merged = tf.summary.merge([self.summary_reward, self.summary_loss, self.summary_mse])
+        self.merged = tf.summary.merge([self.summary_reward, self.summary_reward_mean ,self.summary_loss, self.summary_mse])
 
     def create_model(self):
         model = Sequential()
