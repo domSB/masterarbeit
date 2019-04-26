@@ -136,11 +136,11 @@ if __name__ == "__main__":
     batch_size = 512
     n_step = 64
 
-    epochs = 2
+    epochs = 200
 
     update_target_network = 1000
 
-    sample_produkte = 5
+    sample_produkte = 500
 
     #single_product = 4
 

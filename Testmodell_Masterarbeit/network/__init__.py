@@ -119,58 +119,6 @@ class DQN:
         return np.argmax(self.model.predict(state.reshape(1, self.state_shape))[0])
 
 
-#import tensorflow as tf
-
-
-
-
-
-#a = tf.constant(15, name="a")
-#b = tf.constant(5, name="b")
-
-
-
-#y = tf.placeholder(tf.int64, shape=[1])
-#c = tf.Variable(y, name="Scalar")
-
-
-#tf.reset_default_graph()
-#writer = tf.summary.FileWriter("./logs/graphs")
-
-#with tf.Session() as sess:
-#    sess.run(tf.global_variables_initializer())
-#    curr_rew = 18
-#    tensor_curr_rew = tf.convert_to_tensor(curr_rew, dtype=tf.int64, name="Wert_Reward")
-#    summary = tf.summary.scalar("Rewart", tensor_curr_rew)
-#    sum = sess.run(summary)
-#    writer.add_summary(sum)
-#    tf.reset_default_graph()
-
-#    sess.run(tf.global_variables_initializer())
-#    curr_rew = 20
-#    tensor_curr_rew = tf.convert_to_tensor(curr_rew, dtype=tf.int64, name="Wert_Reward")
-#    summary = tf.summary.scalar("Rewart", tensor_curr_rew)
-#    sum = sess.run(summary)
-#    writer.add_summary(sum)
-
-
-#sess = tf.Session()
-
-#writer = tf.summary.FileWriter("./logs/neu", sess.graph)
-
-#reward = tf.Variable(0.0, trainable=False, name="vReward")
-#loss = tf.Variable(0.0, trainable=False, name="vLoss")
-#mse = tf.Variable(0.0, trainable=False, name="vMSE")
-#summary_reward = tf.summary.scalar("Reward", reward)
-#summary_loss = tf.summary.scalar("Loss", loss)
-#summary_mse = tf.summary.scalar("MeanSquaredError", mse)
-#merged = tf.summary.merge([summary_reward, summary_loss, summary_mse])
-#a = 10
-#sess.run([reward.assign(a), loss.assign(1), mse.assign(100)])
-#summary = sess.run(merged)
-#writer.add_summary(summary)
-
-
 
 
 
