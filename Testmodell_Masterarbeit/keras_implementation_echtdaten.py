@@ -110,7 +110,7 @@ if __name__ == "__main__":
     batch_size = 512
     n_step = 64
 
-    epochs = 20
+    epochs = 2
 
     update_target_network = 1000
 

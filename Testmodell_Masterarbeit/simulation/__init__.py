@@ -11,7 +11,7 @@ def create_df_with_calender(year):
     sonntag = pd.tseries.offsets.CustomBusinessDay(weekmask='Sun')
     start = str(year) + '-01-01'
     stop = str(year) + '-12-31'
-    kalender = pd.date_range(start, stop, freq=werktag)
+    kalender = pd.date_range(start, stop, freq="d")
     platzhalter = [[0, x.dayofweek] for x in kalender]
     kalender = [x.dayofyear for x in kalender]
 
@@ -32,6 +32,9 @@ def copy_data_to_cal_df(big_df, cal_df, artikel):
     s.set_axis(s["Jahrestag"], inplace=True)
     cal_df.Absatz = s.Absatz
     cal_df = cal_df.fillna(0)
+    # Versuch mit Numpy
+    cal_df = cal_df.to_numpy(copy=True)
+
     #for i in s.index.get_values():
     #    cal_df.loc[i,"Absatz"] = s.loc[i, "Absatz"]
     return cal_df, wg, olt
@@ -108,7 +111,7 @@ class StockSimulation:
         self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
         self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
 
-        absatz, wochentag = self.akt_prod_absatz.loc[self.aktueller_tag+1,["Absatz", "Wochentag"]]
+        absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag]
 
         if wochentag > 0:
             wochentag -= 1
@@ -132,7 +135,7 @@ class StockSimulation:
 
         action = np.array(action).astype(np.uint8)
 
-        absatz, wochentag = self.akt_prod_absatz.loc[self.aktueller_tag,["Absatz", "Wochentag"]]
+        absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag -1]
         # Action ist die Bestellte Menge an Artikeln
         # Tagsüber Absatz abziehen:
         self.akt_prod_bestand -= absatz
@@ -174,7 +177,7 @@ class StockSimulation:
                 self.akt_prod_absatz = self.absatz_data[self.aktuelles_produkt]
                 self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
                 self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
-                absatz, wochentag = self.akt_prod_absatz.loc[self.aktueller_tag+1,["Absatz", "Wochentag"]]
+                absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag]
                 wochentag = to_categorical(wochentag, num_classes=6)
                 state_neuer_artikel = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg])
             
