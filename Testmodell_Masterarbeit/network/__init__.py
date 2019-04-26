@@ -34,7 +34,11 @@ class DQN:
         model.add(Dense(48, activation="relu"))
         model.add(Dense(96, activation="relu"))
         model.add(Dense(self.action_space)) # Qs werden nicht standardisiert, da keine Custom Loss Funtion. So funktioniert Standard MSE
-        model.compile(Adam(lr=self.learning_rate), loss="mse")
+        model.compile(
+            optimizer = Adam(lr=self.learning_rate), 
+            loss="mse",
+            metrics=["acc"]
+            )
         return model
 
     def remember(self, state, action, reward, new_state, done):

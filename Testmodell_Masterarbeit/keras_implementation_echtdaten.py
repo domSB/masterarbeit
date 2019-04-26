@@ -4,6 +4,7 @@ from network import DQN
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 import cProfile
 
@@ -69,7 +70,7 @@ def main():
         epsilon_min, 
         possible_actions)
     global_steps = 0
-    stats = []
+    stats = {"loss": [],"acc": [], "rew":[]}
     for epoch in range(epochs):
         state = simulation.reset()
         current_rewards = []
@@ -81,7 +82,10 @@ def main():
             agent.remember(state, action, reward, new_state, episode_fertig)
             if global_steps % n_step == 0:
                 history = agent.replay()
-                print(history)
+                if history:
+                    stats["loss"].append(history["loss"])
+                    stats["acc"].append(history["acc"])
+                    stats["rew"].append(np.sum(current_rewards))
             
             if global_steps % update_target_network == 0:
                 agent.target_train()
@@ -97,6 +101,17 @@ def main():
                 print("Epoche {}".format(epoch))
                 print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(mean_reward, sum_reward, epsilon))
                 break
+    f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+    for stat in stats:
+        stats[stat] = np.array(stats[stat]).reshape(-1)
+    ax1.plot(stats["loss"])
+    ax1.set_title("Loss")
+    ax2.plot(stats["acc"])
+    ax2.set_title("Accuracy")
+    ax3.plot(stats["rew"])
+    ax3.set(title = "Reward", xlabel="Batches")
+    
+    plt.show()
 
        
 if __name__ == "__main__":
