@@ -86,11 +86,8 @@ def main():
                 if history:
                     curr_loss = history["loss"][0]
                     curr_acc = history["acc"][0]
-                    curr_rew = np.sum(current_rewards)
-                    curr_mean_rew = np.mean_reward(current_rewards)
                     stats["loss"].append(curr_loss)
                     stats["acc"].append(curr_acc)
-                    stats["rew"].append(curr_rew)
 
                     if global_steps % (n_step*log_frequency) == 0:
                         agent.sess.run([agent.reward.assign(curr_rew), agent.reward_mean.assign(curr_mean_rew), agent.loss.assign(curr_loss), agent.accuracy.assign(curr_acc)])
@@ -106,10 +103,13 @@ def main():
                 state = new_state
 
             if episode_fertig:
-                mean_reward = np.mean(current_rewards)
-                sum_reward = np.sum(current_rewards)
+                curr_rew = np.sum(current_rewards)
+                curr_mean_rew = np.mean(current_rewards)
+                agent.sess.run([agent.reward.assign(curr_rew), agent.reward_mean.assign(curr_mean_rew), agent.loss.assign(curr_loss), agent.accuracy.assign(curr_acc)])
+                summary = agent.sess.run(agent.merged)
+                agent.writer.add_summary(summary)
                 print("Epoche {}".format(epoch))
-                print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(mean_reward, sum_reward, epsilon))
+                print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(curr_mean_rew, curr_rew, agent.epsilon))
                 break
     agent.writer.close()
     agent.sess.close()
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     epsilon = 1.0
     epsilon_min = 0.01
     epsilon_decay = 0.9999
-    learning_rate = 0.001
+    learning_rate = 0.0001
     tau = 0.05
     batch_size = 512
     n_step = 64
@@ -142,7 +142,7 @@ if __name__ == "__main__":
 
     update_target_network = 1000
 
-    sample_produkte = 500
+    sample_produkte = 50
 
     #single_product = 4
 
