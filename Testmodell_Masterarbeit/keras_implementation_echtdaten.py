@@ -132,7 +132,7 @@ if __name__ == "__main__":
     epsilon = 1.0
     epsilon_min = 0.01
     epsilon_decay = 0.9999
-    learning_rate = 0.0001
+    learning_rate = 0.001
     tau = 0.05
     batch_size = 512
     n_step = 64
