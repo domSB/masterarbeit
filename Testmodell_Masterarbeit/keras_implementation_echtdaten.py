@@ -153,11 +153,11 @@ if __name__ == "__main__":
     n_step = 64
     log_frequency = 100 # jeder 100te n_step
 
-    epochs = 2
+    epochs = 600
 
     update_target_network = 1000
 
-    sample_produkte = 5
+    sample_produkte = 50
 
     #single_product = 4
 
