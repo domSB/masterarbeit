@@ -62,7 +62,8 @@ def load_sales(path):
 def load_simulation(train_data, test_data, prices):
 
     simulation = StockSimulation(train_data, sample_produkte, prices)
-    test_env = StockSimulation(test_data, sample_produkte, prices)
+    #test_env = StockSimulation(test_data, sample_produkte, prices)
+    test_env = None
 
     return simulation, test_env
 

@@ -60,7 +60,9 @@ class StockSimulation:
         #
         #
         # Nur Beispielprodukte, damit es schneller geht
-        self.produkte = self.df["Artikel"].sample(self.sample_produkte).unique()
+        alle_produkte = self.df["Artikel"].unique()
+        np.random.shuffle(alle_produkte)
+        self.produkte = alle_produkte[0:self.sample_produkte]
         self.warengruppen = self.df["Warengruppe"].unique()
         self.anz_wg = len(self.warengruppen)
         self.wochentage = np.arange(0,6)
@@ -111,7 +113,9 @@ class StockSimulation:
 
         """
         self.episode_fertig = False
-        self.produkte = self.df["Artikel"].sample(self.sample_produkte).unique()
+        alle_produkte = self.df["Artikel"].unique()
+        np.random.shuffle(alle_produkte)
+        self.produkte = alle_produkte[0:self.sample_produkte]
         self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
         self.bestand = self.anfangsbestand.copy()
         artikel = self.produkte[0]
@@ -119,7 +123,7 @@ class StockSimulation:
         self.aktueller_tag = 0
         self.vergangene_tage = 0
         self.aktuelles_produkt = artikel
-        self.akt_prod_bestand = self.bestand.loc[self.aktuelles_produkt].copy()[0]
+        self.akt_prod_bestand = self.bestand.loc[self.aktuelles_produkt][0]
         self.akt_prod_absatz = self.absatz_data[self.aktuelles_produkt]
         self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
         self.akt_prod_preis = self.static_state_data[self.aktuelles_produkt]["Preis"]
