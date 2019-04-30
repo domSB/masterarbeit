@@ -2,6 +2,7 @@
 from simulation import StockSimulation
 from network import DQN
 
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,7 +10,19 @@ import tensorflow as tf
 
 import cProfile
 
-def load_dataframe(path):
+def load_prices(path):
+    df = pd.read_csv(
+        path, 
+        names=["Zeile", "Preis","Artikelnummer","Datum"],
+        header=0,
+        index_col="Artikelnummer", 
+        memory_map=True
+        )
+    df = df.sort_index()
+    df = df.drop(columns=["Zeile"])
+    return df
+
+def load_sales(path):
     df = pd.read_csv(
         path, 
         names=["Zeile", "Datum", "Artikel", "Absatz", "Warengruppe", "Abteilung"], 
@@ -46,17 +59,21 @@ def load_dataframe(path):
     train_data = df[df["Jahr"]==2018]
     return test_data, train_data
 
-def load_simulation(train_data, test_data):
+def load_simulation(train_data, test_data, prices):
 
-    simulation = StockSimulation(train_data, sample_produkte)
-    test_env = StockSimulation(test_data, sample_produkte)
+    simulation = StockSimulation(train_data, sample_produkte, prices)
+    test_env = StockSimulation(test_data, sample_produkte, prices)
 
     return simulation, test_env
 
 def main():
-    test_data, train_data = load_dataframe('F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implemenation/Echtdaten/3 absatz_altforweiler.csv')
+    data_dir = 'F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implementation/Echtdaten'
 
-    simulation, test_env = load_simulation(train_data, test_data)
+    prices = load_prices(os.path.join(data_dir, '3 preise_altforweiler.csv'))
+
+    test_data, train_data = load_sales(os.path.join(data_dir, '3 absatz_altforweiler.csv'))
+
+    simulation, test_env = load_simulation(train_data, test_data, prices)
 
     print("Laden fertig")
     agent = DQN(
@@ -136,15 +153,15 @@ if __name__ == "__main__":
     n_step = 64
     log_frequency = 100 # jeder 100te n_step
 
-    epochs = 500
+    epochs = 2
 
     update_target_network = 1000
 
-    sample_produkte = 50
+    sample_produkte = 5
 
     #single_product = 4
 
-    state_shape = 11
+    state_shape = 12
     action_space = 10
 
     order_none = 0

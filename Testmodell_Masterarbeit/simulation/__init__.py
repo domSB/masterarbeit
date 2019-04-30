@@ -43,7 +43,7 @@ def copy_data_to_cal_df(big_df, cal_df, artikel):
 
 
 class StockSimulation:
-    def __init__(self, df, sample_produkte):
+    def __init__(self, df, sample_produkte, preise):
         assert type(df) == pd.core.frame.DataFrame, "Wrong type for DataFrame"
         assert "Artikel" in df.columns, "Artikelnummer Spalte fehlt"
         assert "Warengruppe" in df.columns, "Warengruppe Spalte fehlt"
@@ -79,7 +79,20 @@ class StockSimulation:
             art_df, wg, olt = copy_data_to_cal_df(self.df, cal_df.copy(), artikel)
             self.absatz_data[artikel] = art_df
             wg = to_categorical(wg, num_classes=self.anz_wg)
-            self.static_state_data[artikel] = {"Warengruppe":wg, "OrderLeadTime": olt}
+            try:
+                artikel_preis = preise.loc[artikel]
+            except KeyError as error:
+                artikel_preis = 0
+                print(error)
+            if type(artikel_preis) == pd.core.frame.DataFrame:
+                artikel_preis = np.array([artikel_preis[artikel_preis.Datum == max(artikel_preis.Datum)]["Preis"].iat[0]])
+            elif type(artikel_preis) == pd.core.series.Series:
+                artikel_preis = np.array([artikel_preis["Preis"]])
+            elif type(artikel_preis) == int:
+                np.array([artikel_preis])
+            else:
+                raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
+            self.static_state_data[artikel] = {"Warengruppe":wg, "OrderLeadTime": olt, "Preis": artikel_preis}
 
 
 
@@ -109,6 +122,7 @@ class StockSimulation:
         self.akt_prod_bestand = self.bestand.loc[self.aktuelles_produkt].copy()[0]
         self.akt_prod_absatz = self.absatz_data[self.aktuelles_produkt]
         self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
+        self.akt_prod_preis = self.static_state_data[self.aktuelles_produkt]["Preis"]
         self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
 
         absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag]
@@ -121,7 +135,7 @@ class StockSimulation:
         wochentag = to_categorical(wochentag, num_classes=6)
 
 
-        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg])
+        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
 
 
         return new_state
@@ -156,7 +170,7 @@ class StockSimulation:
 
         wochentag = to_categorical(wochentag, num_classes=6)
         
-        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg])
+        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
 
         #Hier
 
@@ -179,7 +193,7 @@ class StockSimulation:
                 self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
                 absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag]
                 wochentag = to_categorical(wochentag, num_classes=6)
-                state_neuer_artikel = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg])
+                state_neuer_artikel = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
             
         else:
             artikel_fertig = False
