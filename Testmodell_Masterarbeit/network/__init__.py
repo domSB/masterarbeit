@@ -45,9 +45,9 @@ class DQN:
     def create_model(self):
         model = Sequential()
         # model.add(keras.layers.Input(shape=(state_shape, )))
-        model.add(Dense(24, input_dim = self.state_shape, activation="relu"))
-        model.add(Dense(48, activation="relu"))
-        model.add(Dense(96, activation="relu"))
+        model.add(Dense(64, input_dim = self.state_shape, activation="relu"))
+        model.add(Dense(128, activation="relu"))
+        model.add(Dense(256, activation="relu"))
         model.add(Dense(self.action_space)) # Qs werden nicht standardisiert, da keine Custom Loss Funtion. So funktioniert Standard MSE
         model.compile(
             optimizer = Adam(lr=self.learning_rate), 
