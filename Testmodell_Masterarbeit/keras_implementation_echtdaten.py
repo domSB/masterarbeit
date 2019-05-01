@@ -143,7 +143,7 @@ def main():
 
        
 if __name__ == "__main__":
-    memory_size = 120000
+    memory_size = 1200000
     gamma = 0.5
     epsilon = 1.0
     epsilon_min = 0.01
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     update_target_network = 1000
 
-    sample_produkte = 50
+    sample_produkte = 500
 
     #single_product = 4
 
