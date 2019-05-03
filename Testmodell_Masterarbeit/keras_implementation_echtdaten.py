@@ -121,8 +121,11 @@ def main():
                 curr_acc = history["acc"][0]
                 curr_rew = np.sum(current_rewards)
                 curr_mean_rew = np.mean(current_rewards)
+                print("Hier")
                 agent.sess.run([agent.reward.assign(curr_rew), agent.reward_mean.assign(curr_mean_rew), agent.loss.assign(curr_loss), agent.accuracy.assign(curr_acc)])
+                print("Da")
                 summary = agent.sess.run(agent.merged)
+                print("Dort")
                 agent.writer.add_summary(summary, epoch)
                 print("Epoche {}".format(epoch))
                 print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(curr_mean_rew, curr_rew, agent.epsilon))
@@ -154,11 +157,11 @@ if __name__ == "__main__":
     n_step = 64
     log_frequency = 100 # jeder 100te n_step
 
-    epochs = 600
+    epochs = 2
 
     update_target_network = 1000
 
-    sample_produkte = 500
+    sample_produkte = 10
 
     #single_product = 4
 

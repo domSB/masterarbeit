@@ -139,7 +139,7 @@ class StockSimulation:
         wochentag = to_categorical(wochentag, num_classes=6)
 
         try:
-            new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
+            new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis]).astype('float32')
         except ValueError:
             print("Bestand: ", [self.akt_prod_bestand], "\nWochentag" ,wochentag, "\nWarengruppe", self.akt_prod_wg, "\nPreis", self.akt_prod_preis)
 
@@ -175,7 +175,7 @@ class StockSimulation:
 
         wochentag = to_categorical(wochentag, num_classes=6)
         
-        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
+        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis]).astype('float32')
 
         #Hier
 

@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>5a2f043b-2d6c-41e5-878e-5642a9915297</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>keras_implementation_echtdaten.py</StartupFile>
+    <StartupFile>multithread.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -29,6 +29,18 @@
     <Compile Include="keras_implementation.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lstm_implementation.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="model\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="module\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="multithread.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="network\__init__.py">
       <SubType>Code</SubType>
     </Compile>
@@ -41,6 +53,8 @@
     <InterpreterReference Include="CondaEnv|CondaEnv|masterarbeit" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="model\" />
+    <Folder Include="module\" />
     <Folder Include="network\" />
     <Folder Include="simulation\" />
   </ItemGroup>

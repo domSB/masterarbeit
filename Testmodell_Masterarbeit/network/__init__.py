@@ -3,12 +3,13 @@ import numpy as np
 import random
 from collections import deque
 
-from keras import Sequential
-from keras.layers import Dense
-from keras.optimizers import Adam
-from keras.callbacks import TensorBoard
+from tensorflow.keras import Model, Input
+from tensorflow.keras.layers import Dense, LSTM
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import TensorBoard
 
-import tensorflow as tf
+from tensorflow import summary, Variable, Session
+from tensorflow.train import RMSPropOptimizer
 
 import datetime
 
@@ -30,30 +31,27 @@ class DQN:
         self.model = self.create_model()
         self.logdir = "./logs/" + datetime.datetime.today().date().__str__() + "-"+ datetime.datetime.today().time().__str__()[:8].replace(":",".")
         self.target_model = self.create_model()
-        self.sess = tf.Session()
-        self.writer = tf.summary.FileWriter(self.logdir, self.sess.graph)
-        self.reward = tf.Variable(0.0, trainable=False, name="vReward")
-        self.reward_mean = tf.Variable(0.0, trainable=False, name="vMeanReward")
-        self.loss = tf.Variable(0.0, trainable=False, name="vLoss")
-        self.accuracy = tf.Variable(0.0, trainable=False, name="vMSE")
-        self.summary_reward = tf.summary.scalar("Reward", self.reward)
-        self.summary_reward_mean = tf.summary.scalar("MeanReward", self.reward_mean)
-        self.summary_loss = tf.summary.scalar("Loss", self.loss)
-        self.summary_mse = tf.summary.scalar("Accuracy", self.accuracy)
-        self.merged = tf.summary.merge([self.summary_reward, self.summary_reward_mean ,self.summary_loss, self.summary_mse])
+        self.sess = Session()
+        self.writer = summary.FileWriter(self.logdir, self.sess.graph)
+        self.reward = Variable(0.0, trainable=False, name="vReward")
+        self.reward_mean = Variable(0.0, trainable=False, name="vMeanReward")
+        self.loss = Variable(0.0, trainable=False, name="vLoss")
+        self.accuracy = Variable(0.0, trainable=False, name="vMSE")
+        self.summary_reward = summary.scalar("Reward", self.reward)
+        self.summary_reward_mean = summary.scalar("MeanReward", self.reward_mean)
+        self.summary_loss = summary.scalar("Loss", self.loss)
+        self.summary_mse = summary.scalar("Accuracy", self.accuracy)
+        self.merged = summary.merge([self.summary_reward, self.summary_reward_mean ,self.summary_loss, self.summary_mse])
 
     def create_model(self):
-        model = Sequential()
-        # model.add(keras.layers.Input(shape=(state_shape, )))
-        model.add(Dense(64, input_dim = self.state_shape, activation="relu"))
-        model.add(Dense(128, activation="relu"))
-        model.add(Dense(256, activation="relu"))
-        model.add(Dense(self.action_space)) # Qs werden nicht standardisiert, da keine Custom Loss Funtion. So funktioniert Standard MSE
-        model.compile(
-            optimizer = Adam(lr=self.learning_rate), 
-            loss="mse",
-            metrics=["acc"]
-            )
+        inputs = Input(shape=(self.state_shape,))
+        x = Dense(64, activation='relu')(inputs)
+        x = Dense(128, activation='relu')(x)
+        x = Dense(256, activation='relu')(x)
+        predictions = Dense(self.action_space, activation='relu')(x)
+        model = Model(inputs=inputs, outputs=predictions)
+        model.compile(optimizer=RMSPropOptimizer(self.learning_rate), loss='mse', metrics=["accuracy"])
+        
         return model
 
     def remember(self, state, action, reward, new_state, done):
