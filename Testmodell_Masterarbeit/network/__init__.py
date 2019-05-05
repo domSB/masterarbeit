@@ -16,7 +16,7 @@ import datetime
 
 
 class DQN:
-    def __init__(self, memory_size, state_shape, action_space, gamma, learning_rate, batch_size, epsilon, epsilon_decay, epsilon_min, possible_actions):
+    def __init__(self, memory_size, state_shape, action_space, gamma, learning_rate, batch_size, epsilon, epsilon_decay, epsilon_min, possible_actions, time_series_lenght):
         self.memory_size = memory_size
         self.state_shape = state_shape
         self.action_space = action_space
@@ -27,6 +27,7 @@ class DQN:
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
         self.possible_actions = possible_actions
+        self.time_series_lenght = time_series_lenght
         self.memory = deque(maxlen=memory_size)
         self.model = self.create_model()
         self.logdir = "./logs/" + datetime.datetime.today().date().__str__() + "-"+ datetime.datetime.today().time().__str__()[:8].replace(":",".")
@@ -44,8 +45,8 @@ class DQN:
         self.merged = summary.merge([self.summary_reward, self.summary_reward_mean ,self.summary_loss, self.summary_mse])
 
     def create_model(self):
-        inputs = Input(shape=(self.state_shape,))
-        x = Dense(64, activation='relu')(inputs)
+        inputs = Input(shape=(self.time_series_lenght, self.state_shape))
+        x = LSTM(64, activation='relu')(inputs)
         x = Dense(128, activation='relu')(x)
         x = Dense(256, activation='relu')(x)
         predictions = Dense(self.action_space, activation='relu')(x)
@@ -116,7 +117,7 @@ class DQN:
         self.epsilon = np.max([self.epsilon, self.epsilon_min])
         if random.random() < self.epsilon:
             return random.sample(self.possible_actions, 1)[0]
-        return np.argmax(self.model.predict(state.reshape(1, self.state_shape))[0])
+        return np.argmax(self.model.predict(state.reshape(1, self.time_series_lenght, self.state_shape))[0])
 
 
 

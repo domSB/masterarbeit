@@ -30,6 +30,8 @@ sample_produkte = 10
 state_shape = 12
 action_space = 10
 
+time_series_lenght = 10
+
 order_none = 0
 order_one = 1
 order_two = 2
@@ -54,6 +56,16 @@ possible_actions = [
     order_nine
     ]
 
+def load_weather(path):
+    df = pd.read_csv(
+        path, 
+        index_col="date", 
+        memory_map=True
+
+        )
+    df = df.drop(columns="Unnamed: 0")
+    df = df.sort_index()
+    # pd.to_datetime(df["Datum"]*24*3600, unit='s') liefert richtiges Datum
 
 def load_prices(path):
     df = pd.read_csv(
@@ -111,7 +123,7 @@ prices = load_prices(os.path.join(data_dir, '3 preise_altforweiler.csv'))
 
 test_data, train_data = load_sales(os.path.join(data_dir, '3 absatz_altforweiler.csv'))
 
-simulation = StockSimulation(train_data, sample_produkte, prices)
+simulation = StockSimulation(train_data, sample_produkte, prices, time_series_lenght)
 
 agent = DQN(
     memory_size, 
@@ -123,7 +135,9 @@ agent = DQN(
     epsilon, 
     epsilon_decay, 
     epsilon_min, 
-    possible_actions)
+    possible_actions, 
+    time_series_lenght
+    )
 
 global_steps = 0
 stats = {"loss": [],"acc": [], "rew":[]}

@@ -4,6 +4,7 @@ import numpy as np
 from keras.utils import to_categorical
 from tqdm import tqdm
 import multiprocessing
+from collections import deque
 
 # für einen Artikel in einem Jahr
 def create_df_with_calender(year):
@@ -43,7 +44,7 @@ def copy_data_to_cal_df(big_df, cal_df, artikel):
 
 
 class StockSimulation:
-    def __init__(self, df, sample_produkte, preise):
+    def __init__(self, df, sample_produkte, preise, time_series_lenght):
         assert type(df) == pd.core.frame.DataFrame, "Wrong type for DataFrame"
         assert "Artikel" in df.columns, "Artikelnummer Spalte fehlt"
         assert "Warengruppe" in df.columns, "Warengruppe Spalte fehlt"
@@ -70,6 +71,7 @@ class StockSimulation:
         self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
         self.tage = 365
         self.jahre = self.df["Jahr"].unique()
+        self.time_series_lenght = time_series_lenght
 
         #vorerst
         assert len(self.jahre) == 1
@@ -122,6 +124,7 @@ class StockSimulation:
         self.erster_tag = 0
         self.aktueller_tag = 0
         self.vergangene_tage = 0
+        self.artikel_fertig = False
         self.aktuelles_produkt = artikel
         self.akt_prod_bestand = self.bestand.loc[self.aktuelles_produkt][0]
         self.akt_prod_absatz = self.absatz_data[self.aktuelles_produkt]
@@ -139,11 +142,14 @@ class StockSimulation:
         wochentag = to_categorical(wochentag, num_classes=6)
 
         try:
-            new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis]).astype('float32')
+            new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
         except ValueError:
             print("Bestand: ", [self.akt_prod_bestand], "\nWochentag" ,wochentag, "\nWarengruppe", self.akt_prod_wg, "\nPreis", self.akt_prod_preis)
 
-        return new_state
+        self.time_series_state = deque(maxlen=self.time_series_lenght)
+        for _ in range(self.time_series_lenght):
+            self.time_series_state.append(new_state)
+        return np.array(self.time_series_state)
 
     def make_action(self, action):
         self.aktueller_tag += 1
@@ -175,12 +181,17 @@ class StockSimulation:
 
         wochentag = to_categorical(wochentag, num_classes=6)
         
-        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis]).astype('float32')
+        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
+
+        if self.artikel_fertig:
+            self.time_series_state = self.time_series_state_neuer_artikel
+
+        self.time_series_state.append(new_state)
 
         #Hier
 
         if self.aktueller_tag == self.tage:
-            artikel_fertig = True
+            self.artikel_fertig = True
             self.aktueller_tag = self.erster_tag
             self.vergangene_tage = 0
             i_von_akt_produkt = np.where(self.produkte == self.aktuelles_produkt)
@@ -199,10 +210,13 @@ class StockSimulation:
                 absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag]
                 wochentag = to_categorical(wochentag, num_classes=6)
                 state_neuer_artikel = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
+                self.time_series_state_neuer_artikel = deque(maxlen=self.time_series_lenght)
+                for _ in range(self.time_series_lenght):
+                    self.time_series_state_neuer_artikel.append(new_state)
             
         else:
-            artikel_fertig = False
-            state_neuer_artikel = None
+            self.artikel_fertig = False
+            self.time_series_state_neuer_artikel = None
 
         
-        return reward, artikel_fertig, new_state, state_neuer_artikel, self.episode_fertig
+        return reward, self.artikel_fertig, np.array(self.time_series_state), np.array(self.time_series_state_neuer_artikel), self.episode_fertig
