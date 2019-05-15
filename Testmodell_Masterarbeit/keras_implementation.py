@@ -15,19 +15,19 @@ gamma = 0.5
 epsilon = 1.0
 epsilon_min = 0.01
 epsilon_decay = 0.9999
-learning_rate = 0.00003
+learning_rate = 0.0001
 tau = 0.05
-batch_size = 512
+batch_size = 32
 n_step = 64
 log_frequency = 100 # jeder 100te n_step
 
-epochs = 2
+epochs = 3
 
 update_target_network = 1000
 
 sample_produkte = 10
 
-state_shape = 12
+state_shape = 26
 action_space = 10
 
 time_series_lenght = 10
@@ -65,8 +65,13 @@ def load_weather(path):
         )
     df = df.drop(columns="Unnamed: 0")
     df = df.sort_index()
-    # pd.to_datetime(df["Datum"]*24*3600, unit='s') liefert richtiges Datum
-
+    df["Datum"] = df.index.get_values()
+    df["Datum"] = pd.to_datetime(df["Datum"]*24*3600, unit='s')
+    df = df[df.Datum.dt.year.isin([2018,2019])]
+    # df = df[df.Datum.dt.dayofweek != 6]
+    df = df.drop(columns=["Datum", "HauptGruppe", "NebenGruppe"]).to_numpy(copy=True)
+    return df
+    
 def load_prices(path):
     df = pd.read_csv(
         path, 
@@ -121,9 +126,11 @@ data_dir = 'F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbe
 
 prices = load_prices(os.path.join(data_dir, '3 preise_altforweiler.csv'))
 
+wetter = load_weather(os.path.join(data_dir, '2 wetter_saarlouis.csv'))
+
 test_data, train_data = load_sales(os.path.join(data_dir, '3 absatz_altforweiler.csv'))
 
-simulation = StockSimulation(train_data, sample_produkte, prices, time_series_lenght)
+simulation = StockSimulation(train_data, sample_produkte, prices, wetter, time_series_lenght)
 
 agent = DQN(
     memory_size, 

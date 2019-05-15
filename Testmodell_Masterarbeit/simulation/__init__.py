@@ -44,7 +44,7 @@ def copy_data_to_cal_df(big_df, cal_df, artikel):
 
 
 class StockSimulation:
-    def __init__(self, df, sample_produkte, preise, time_series_lenght):
+    def __init__(self, df, sample_produkte, preise, wetter, time_series_lenght):
         assert type(df) == pd.core.frame.DataFrame, "Wrong type for DataFrame"
         assert "Artikel" in df.columns, "Artikelnummer Spalte fehlt"
         assert "Warengruppe" in df.columns, "Warengruppe Spalte fehlt"
@@ -67,6 +67,8 @@ class StockSimulation:
         self.warengruppen = self.df["Warengruppe"].unique()
         self.anz_wg = len(self.warengruppen)
         self.wochentage = np.arange(0,6)
+
+        self.wetter = wetter
         # Anfangsbestand wird zufällig gewählt, für bessere Exploration und Verhindung von lokalen Maxima 
         self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
         self.tage = 365
@@ -142,7 +144,7 @@ class StockSimulation:
         wochentag = to_categorical(wochentag, num_classes=6)
 
         try:
-            new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
+            new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis, self.wetter[self.aktueller_tag], self.wetter[self.aktueller_tag+1]])
         except ValueError:
             print("Bestand: ", [self.akt_prod_bestand], "\nWochentag" ,wochentag, "\nWarengruppe", self.akt_prod_wg, "\nPreis", self.akt_prod_preis)
 
@@ -181,7 +183,7 @@ class StockSimulation:
 
         wochentag = to_categorical(wochentag, num_classes=6)
         
-        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
+        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis, self.wetter[self.aktueller_tag], self.wetter[self.aktueller_tag+1]])
 
         if self.artikel_fertig:
             self.time_series_state = self.time_series_state_neuer_artikel
@@ -209,7 +211,7 @@ class StockSimulation:
                 self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
                 absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag]
                 wochentag = to_categorical(wochentag, num_classes=6)
-                state_neuer_artikel = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis])
+                state_neuer_artikel = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis, self.wetter[self.aktueller_tag], self.wetter[self.aktueller_tag+1]])
                 self.time_series_state_neuer_artikel = deque(maxlen=self.time_series_lenght)
                 for _ in range(self.time_series_lenght):
                     self.time_series_state_neuer_artikel.append(new_state)

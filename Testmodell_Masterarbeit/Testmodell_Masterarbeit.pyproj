@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>5a2f043b-2d6c-41e5-878e-5642a9915297</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>multithread.py</StartupFile>
+    <StartupFile>keras_implementation.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
