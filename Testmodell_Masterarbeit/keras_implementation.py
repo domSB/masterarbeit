@@ -21,11 +21,11 @@ batch_size = 32
 n_step = 64
 log_frequency = 100 # jeder 100te n_step
 
-epochs = 3
+epochs = 100
 
 update_target_network = 1000
 
-sample_produkte = 10
+sample_produkte = 20
 
 state_shape = 26
 action_space = 10

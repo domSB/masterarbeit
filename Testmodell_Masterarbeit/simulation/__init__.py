@@ -95,7 +95,7 @@ class StockSimulation:
             elif type(artikel_preis) == pd.core.series.Series:
                 artikel_preis = np.array([artikel_preis["Preis"]])
             elif type(artikel_preis) == int:
-                np.array([artikel_preis])
+                artikel_preis = np.array([artikel_preis])
             else:
                 raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
             self.static_state_data[artikel] = {"Warengruppe":wg, "OrderLeadTime": olt, "Preis": artikel_preis}
@@ -143,11 +143,8 @@ class StockSimulation:
 
         wochentag = to_categorical(wochentag, num_classes=6)
 
-        try:
-            new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis, self.wetter[self.aktueller_tag], self.wetter[self.aktueller_tag+1]])
-        except ValueError:
-            print("Bestand: ", [self.akt_prod_bestand], "\nWochentag" ,wochentag, "\nWarengruppe", self.akt_prod_wg, "\nPreis", self.akt_prod_preis)
-
+        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis, self.wetter[self.aktueller_tag], self.wetter[self.aktueller_tag+1]])
+        
         self.time_series_state = deque(maxlen=self.time_series_lenght)
         for _ in range(self.time_series_lenght):
             self.time_series_state.append(new_state)
