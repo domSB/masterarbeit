@@ -5,11 +5,10 @@ from collections import deque
 
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense, LSTM
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras.callbacks import TensorBoard
 
 from tensorflow import summary, Variable, Session
-from tensorflow.train import RMSPropOptimizer
 
 import datetime
 
@@ -51,7 +50,7 @@ class DQN:
         x = Dense(256, activation='relu')(x)
         predictions = Dense(self.action_space, activation='relu')(x)
         model = Model(inputs=inputs, outputs=predictions)
-        model.compile(optimizer=RMSPropOptimizer(self.learning_rate), loss='mse', metrics=["accuracy"])
+        model.compile(optimizer=RMSprop(lr=self.learning_rate), loss='mse', metrics=["accuracy"])
         
         return model
 

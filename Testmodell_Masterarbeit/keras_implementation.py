@@ -184,6 +184,7 @@ for epoch in range(epochs):
             agent.writer.add_summary(summary, epoch)
             print("Epoche {}".format(epoch))
             print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(curr_mean_rew, curr_rew, agent.epsilon))
+            agent.target_model.save("model/model.h5")
             break
 agent.writer.close()
 agent.sess.close()
