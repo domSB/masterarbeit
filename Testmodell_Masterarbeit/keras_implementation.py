@@ -21,13 +21,13 @@ batch_size = 32
 n_step = 64
 log_frequency = 100 # jeder 100te n_step
 
-epochs = 300
+epochs = 3
 
 update_target_network = 1000
 
-sample_produkte = 20
+# sample_produkte = 20
 
-state_shape = 27
+state_shape = 24
 action_space = 10
 
 time_series_lenght = 10
@@ -77,14 +77,15 @@ agent = DQN(
 global_steps = 0
 stats = {"loss": [],"acc": [], "rew":[]}
 for epoch in range(epochs):
-    state = simulation.reset()
+    state, info = simulation.reset()
+    print(info)
     current_rewards = []
     while True:
         action = agent.act(state)
         global_steps += 1
-        reward, artikel_fertig, new_state, state_neuer_artikel, episode_fertig = simulation.make_action(action)
+        reward, fertig, new_state= simulation.make_action(action)
         current_rewards.append(reward)
-        agent.remember(state, action, reward, new_state, episode_fertig)
+        agent.remember(state, action, reward, new_state, fertig)
         if global_steps % n_step == 0:
             history = agent.replay()
             if history:
@@ -96,12 +97,9 @@ for epoch in range(epochs):
         if global_steps % update_target_network == 0:
             agent.target_train()
 
-        if artikel_fertig:
-            state = state_neuer_artikel
-        else:
-            state = new_state
+        state = new_state
 
-        if episode_fertig:
+        if fertig:
             history = agent.replay()
             curr_loss = history["loss"][0]
             curr_acc = history["acc"][0]

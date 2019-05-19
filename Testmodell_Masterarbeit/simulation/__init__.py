@@ -197,7 +197,7 @@ class StockSimulation:
         self.time_series_state = deque(maxlen=self.time_series_lenght)
         for _ in range(self.time_series_lenght):
             self.time_series_state.append(new_state)
-        return np.array(self.time_series_state)
+        return np.array(self.time_series_state), {"Artikel": self.aktuelles_produkt}
 
     def make_action(self, action):
         if self.fertig == True:
