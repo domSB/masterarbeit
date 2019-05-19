@@ -8,21 +8,22 @@ from collections import deque
 import os
 
 
-def load_weather(path):
+def load_weather(path, start, ende):
     df = pd.read_csv(
         path, 
         index_col="date", 
         memory_map=True
 
         )
-    df = df.drop(columns="Unnamed: 0")
-    df = df.sort_index()
-    df["Datum"] = df.index.get_values()
-    df["Datum"] = pd.to_datetime(df["Datum"]*24*3600, unit='s')
-    df = df[df.Datum.dt.year.isin([2018,2019])]
+    df = df.drop(columns=["Unnamed: 0", "HauptGruppe", "NebenGruppe"])
+    # df = df.sort_index()
+    # df["Datum"] = df.index.get_values()
+    # df["Datum"] = pd.to_datetime(df["Datum"]*24*3600, unit='s')
+    # df = df[df.Datum.dt.year.isin([2018,2019])]
     # df = df[df.Datum.dt.dayofweek != 6]
-    df = df.drop(columns=["Datum", "HauptGruppe", "NebenGruppe"]).to_numpy(copy=True)
-    return df
+    df = df[df.index.isin(range(start, ende +3))]
+    # Plus 2 Tage, da Wetter von morgen und übermorgen
+    return df.to_numpy()
     
 def load_prices(path):
     df = pd.read_csv(
@@ -82,15 +83,11 @@ def load_sales(path):
 
 def copy_data_to_numpy(big_df, artikel, start, end):
     """Returns a numpy array with lenght = self.kalendertage. Days without Sales are filled with zeros"""
-    
-    
     s = big_df[big_df.Artikel == artikel].copy()
     s.set_index(s.UNIXTag, inplace=True)
-    wg = s.iloc[0][["Warengruppe"]]
+    wg = s.iloc[0][["Warengruppe"]][0]
     s = s.drop(columns=["Datum", "Artikel", "Warengruppe", "Jahr", "UNIXTag"])
     s = s.reindex(range(int(start), int(end+1)), fill_value=0)
-    if artikel == 5550:
-        print(s.columns)
 
     return s.to_numpy(), wg
 
@@ -106,22 +103,21 @@ class StockSimulation:
         
         
         """
-        preise = load_prices(os.path.join(data_dir, '3 preise_altforweiler.csv'))
-
-        wetter = load_weather(os.path.join(data_dir, '2 wetter_saarlouis.csv'))
 
         test_data, train_data = load_sales(os.path.join(data_dir, '3 absatz_altforweiler.csv'))
 
         self.df = train_data
 
-        self.start_tag = min(train_data["UNIXTag"])
-        self.end_tag = max(train_data["UNIXTag"])
+        self.start_tag = int(min(train_data["UNIXTag"]))
+        self.end_tag = int(max(train_data["UNIXTag"]))
         self.kalender_tage = self.end_tag - self.start_tag + 1
+
+        preise = load_prices(os.path.join(data_dir, '3 preise_altforweiler.csv'))
+
+        self.wetter = load_weather(os.path.join(data_dir, '2 wetter_saarlouis.csv'), self.start_tag, self.end_tag)
         
         self.warengruppen = self.df["Warengruppe"].unique()
         self.anz_wg = len(self.warengruppen)
-
-        self.wetter = wetter
 
         self.anfangsbestand = np.random.randint(0,10)
 
@@ -135,6 +131,7 @@ class StockSimulation:
             art_df, wg = copy_data_to_numpy(self.df, artikel, self.start_tag, self.end_tag)
             self.absatz_data[artikel] = art_df
             wg = to_categorical(wg, num_classes=self.anz_wg)
+
             artikel_preis = preise.loc[artikel]
 
             if type(artikel_preis) == pd.core.frame.DataFrame:
@@ -147,10 +144,21 @@ class StockSimulation:
                 raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
             self.static_state_data[artikel] = {"Warengruppe":wg, "OrderLeadTime": olt, "Preis": artikel_preis}
 
-
-
         self.aktueller_tag = self.start_tag
         self.aktuelles_produkt = self.df["Artikel"].sample(1).to_numpy()[0]
+
+    def create_new_state(self, wochentag):
+        new_state = np.concatenate(
+            [
+                np.array([self.akt_prod_bestand]), 
+                wochentag, 
+                self.akt_prod_wg, 
+                self.akt_prod_preis, 
+                self.wetter[self.vergangene_tage], 
+                self.wetter[self.vergangene_tage+1]
+                ]
+            )
+        return new_state
 
     def reset(self):
         """ 
@@ -163,34 +171,28 @@ class StockSimulation:
         ** Absatz t+2
 
         """
-        self.episode_fertig = False
-        alle_produkte = self.df["Artikel"].unique()
-        np.random.shuffle(alle_produkte)
-        self.produkte = alle_produkte[0:self.sample_produkte]
-        self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
-        self.bestand = self.anfangsbestand.copy()
-        artikel = self.produkte[0]
-        self.erster_tag = 0
-        self.aktueller_tag = 0
+        self.fertig = False
+
+        self.anfangsbestand = np.random.randint(0,10)
+
+        self.aktueller_tag = self.start_tag
         self.vergangene_tage = 0
-        self.artikel_fertig = False
-        self.aktuelles_produkt = artikel
-        self.akt_prod_bestand = self.bestand.loc[self.aktuelles_produkt][0]
+        
+        self.aktuelles_produkt = self.df["Artikel"].sample(1).to_numpy()[0]
+
+        self.akt_prod_bestand = self.anfangsbestand
         self.akt_prod_absatz = self.absatz_data[self.aktuelles_produkt]
         self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
         self.akt_prod_preis = self.static_state_data[self.aktuelles_produkt]["Preis"]
         self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
 
-        absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag]
+        absatz = self.akt_prod_absatz[self.vergangene_tage]
 
-        if wochentag > 0:
-            wochentag -= 1
-        else:
-            wochentag = 5
+        wochentag = self.aktueller_tag % 7
 
-        wochentag = to_categorical(wochentag, num_classes=6)
+        wochentag = to_categorical(wochentag, num_classes=7)
 
-        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis, self.wetter[self.aktueller_tag], self.wetter[self.aktueller_tag+1]])
+        new_state = self.create_new_state(wochentag)
         
         self.time_series_state = deque(maxlen=self.time_series_lenght)
         for _ in range(self.time_series_lenght):
@@ -198,15 +200,20 @@ class StockSimulation:
         return np.array(self.time_series_state)
 
     def make_action(self, action):
+        if self.fertig == True:
+            raise AssertionError("Simulation für diesen Artikel fertig. Simulation zurücksetzen")
+
+        absatz = self.akt_prod_absatz[self.vergangene_tage][0]
+
         self.aktueller_tag += 1
-        if self.aktueller_tag % 7 == 0: # Sonntag, anpassen, wenn mehrere Jahre, die nicht mit Montag anfangen
-            self.aktueller_tag += 1
-        
         self.vergangene_tage += 1
 
-        action = np.array(action).astype(np.uint8)
+        if self.aktueller_tag % 7 == 3: # Sonntag
+            self.aktueller_tag += 1
+            self.vergangene_tage += 1
+        
+        wochentag = self.aktueller_tag % 7
 
-        absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag -1]
         # Action ist die Bestellte Menge an Artikeln
         # Tagsüber Absatz abziehen:
         self.akt_prod_bestand -= absatz
@@ -222,47 +229,22 @@ class StockSimulation:
             # Nichtnegativität des Bestandes
             self.akt_prod_bestand = 0
 
-
-        # reward = reward.to_numpy().astype(np.float64)[0]
-
-        wochentag = to_categorical(wochentag, num_classes=6)
+        wochentag = to_categorical(wochentag, num_classes=7)
         
-        new_state = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis, self.wetter[self.aktueller_tag], self.wetter[self.aktueller_tag+1]])
-
-        if self.artikel_fertig:
-            self.time_series_state = self.time_series_state_neuer_artikel
+        new_state = self.create_new_state(wochentag)
 
         self.time_series_state.append(new_state)
 
-        #Hier
-
-        if self.aktueller_tag == self.tage:
-            self.artikel_fertig = True
-            self.aktueller_tag = self.erster_tag
-            self.vergangene_tage = 0
-            i_von_akt_produkt = np.where(self.produkte == self.aktuelles_produkt)
-            verbleibende_produkte = np.delete(self.produkte, i_von_akt_produkt)
-            if len(verbleibende_produkte) == 0:
-                self.episode_fertig = True
-                state_neuer_artikel = None
-            else:
-                self.produkte = verbleibende_produkte
-                self.aktuelles_produkt = self.produkte[0].copy()
-                print("Verbleibende Produkte: ", self.produkte.shape[0])
-                self.akt_prod_bestand = self.bestand.loc[self.aktuelles_produkt].copy()[0]
-                self.akt_prod_absatz = self.absatz_data[self.aktuelles_produkt]
-                self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
-                self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
-                absatz, wochentag = self.akt_prod_absatz[self.aktueller_tag]
-                wochentag = to_categorical(wochentag, num_classes=6)
-                state_neuer_artikel = np.concatenate([[self.akt_prod_bestand], wochentag, self.akt_prod_wg, self.akt_prod_preis, self.wetter[self.aktueller_tag], self.wetter[self.aktueller_tag+1]])
-                self.time_series_state_neuer_artikel = deque(maxlen=self.time_series_lenght)
-                for _ in range(self.time_series_lenght):
-                    self.time_series_state_neuer_artikel.append(new_state)
-            
-        else:
-            self.artikel_fertig = False
-            self.time_series_state_neuer_artikel = None
-
+        if self.vergangene_tage == self.kalender_tage -1:
+            self.fertig = True
         
-        return reward, self.artikel_fertig, np.array(self.time_series_state), np.array(self.time_series_state_neuer_artikel), self.episode_fertig
+        return reward, self.fertig, np.array(self.time_series_state)
+
+def test(simulation, lenght):
+    for i in range(lenght):
+        print("Run {}".format(i))
+        state = simulation.reset()
+        done = False
+        while not done:
+            reward, done, state = simulation.make_action(3)
+

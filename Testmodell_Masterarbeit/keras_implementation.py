@@ -27,7 +27,7 @@ update_target_network = 1000
 
 sample_produkte = 20
 
-state_shape = 26
+state_shape = 27
 action_space = 10
 
 time_series_lenght = 10
