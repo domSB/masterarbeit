@@ -56,81 +56,9 @@ possible_actions = [
     order_nine
     ]
 
-def load_weather(path):
-    df = pd.read_csv(
-        path, 
-        index_col="date", 
-        memory_map=True
-
-        )
-    df = df.drop(columns="Unnamed: 0")
-    df = df.sort_index()
-    df["Datum"] = df.index.get_values()
-    df["Datum"] = pd.to_datetime(df["Datum"]*24*3600, unit='s')
-    df = df[df.Datum.dt.year.isin([2018,2019])]
-    # df = df[df.Datum.dt.dayofweek != 6]
-    df = df.drop(columns=["Datum", "HauptGruppe", "NebenGruppe"]).to_numpy(copy=True)
-    return df
-    
-def load_prices(path):
-    df = pd.read_csv(
-        path, 
-        names=["Zeile", "Preis","Artikelnummer","Datum"],
-        header=0,
-        index_col="Artikelnummer", 
-        memory_map=True
-        )
-    df = df.sort_index()
-    df = df.drop(columns=["Zeile"])
-    return df
-
-def load_sales(path):
-    df = pd.read_csv(
-        path, 
-        names=["Zeile", "Datum", "Artikel", "Absatz", "Warengruppe", "Abteilung"], 
-        header=0, 
-        parse_dates=[1], 
-        index_col=[1, 2],
-        memory_map=True
-        )
-    df.dropna(how='any', inplace=True)
-    df["Warengruppe"] = df["Warengruppe"].astype(np.uint8)
-    # df = df.drop(columns=['Abteilung', 'Zeile'])
-    # Warengruppen auswählen
-    # 13 Frischmilch
-    # 14 Joghurt
-    # 69 Tabak
-    # 8 Obst Allgemen
-
-    warengruppen = [8, 13, 14, 69 ]
-    df = df[df['Warengruppe'].isin(warengruppen)]
-    for i, wg in enumerate(warengruppen):
-        df.loc[df.Warengruppe == wg, "Warengruppe"] = i
-    df["Datum"] = df.index.get_level_values('Datum')
-    df["Artikel"] = df.index.get_level_values('Artikel').astype(np.int32)
-    df["Wochentag"] = df["Datum"].apply(lambda x:x.dayofweek)
-    df["Jahrestag"] = df["Datum"].apply(lambda x:x.dayofyear)
-    df["Jahr"] = df["Datum"].apply(lambda x:x.year)
-    # df = df.drop(columns=['Datum'])
-    df = df.sort_index()
-    
-    # Fürs erste
-    df["OrderLeadTime"] = 1
-    
-    test_data = df[df["Jahr"]==2019]
-    train_data = df[df["Jahr"]==2018]
-    return test_data, train_data
-
-
 data_dir = 'F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implementation/Echtdaten'
 
-prices = load_prices(os.path.join(data_dir, '3 preise_altforweiler.csv'))
-
-wetter = load_weather(os.path.join(data_dir, '2 wetter_saarlouis.csv'))
-
-test_data, train_data = load_sales(os.path.join(data_dir, '3 absatz_altforweiler.csv'))
-
-simulation = StockSimulation(train_data, sample_produkte, prices, wetter, time_series_lenght)
+simulation = StockSimulation(data_dir, time_series_lenght)
 
 agent = DQN(
     memory_size, 

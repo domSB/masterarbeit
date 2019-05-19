@@ -5,91 +5,138 @@ from keras.utils import to_categorical
 from tqdm import tqdm
 import multiprocessing
 from collections import deque
+import os
 
-# für einen Artikel in einem Jahr
-def create_df_with_calender(year):
-    werktag = pd.tseries.offsets.CustomBusinessDay(weekmask='Mon Tue Wed Thu Fri Sat')
-    sonntag = pd.tseries.offsets.CustomBusinessDay(weekmask='Sun')
-    start = str(year) + '-01-01'
-    stop = str(year) + '-12-31'
-    kalender = pd.date_range(start, stop, freq="d")
-    platzhalter = [[0, x.dayofweek] for x in kalender]
-    kalender = [x.dayofyear for x in kalender]
 
-    new_df = pd.DataFrame(data= platzhalter, index=kalender, columns=["Absatz","Wochentag"])
+def load_weather(path):
+    df = pd.read_csv(
+        path, 
+        index_col="date", 
+        memory_map=True
 
-    sonntage = pd.date_range(start, stop, freq=sonntag)
-    sontage = [x.dayofyear for x in sonntage]
+        )
+    df = df.drop(columns="Unnamed: 0")
+    df = df.sort_index()
+    df["Datum"] = df.index.get_values()
+    df["Datum"] = pd.to_datetime(df["Datum"]*24*3600, unit='s')
+    df = df[df.Datum.dt.year.isin([2018,2019])]
+    # df = df[df.Datum.dt.dayofweek != 6]
+    df = df.drop(columns=["Datum", "HauptGruppe", "NebenGruppe"]).to_numpy(copy=True)
+    return df
+    
+def load_prices(path):
+    df = pd.read_csv(
+        path, 
+        names=["Zeile", "Preis","Artikelnummer","Datum"],
+        header=0,
+        index_col="Artikelnummer", 
+        memory_map=True
+        )
+    df = df.sort_index()
+    df = df.drop(columns=["Zeile"])
+    return df
 
-    return new_df, sonntage
+def load_sales(path):
+    #TODO: Statische Artikelinfo aus der Absatztabelle rausnehmen. (Warengruppe, Abteilung)
+    """
+     for artikel in train_data["Artikel"].unique():
+         warengruppen.append([artikel, train_data.loc[(slice(None), slice(5550,5550)),:].iloc[0].Warengruppe])
+    """
 
-def copy_data_to_cal_df(big_df, cal_df, artikel):
-    """Returns a copy of new_df"""
+    df = pd.read_csv(
+        path, 
+        names=["Zeile", "Datum", "Artikel", "Absatz", "Warengruppe", "Abteilung"], 
+        header=0, 
+        parse_dates=[1], 
+        index_col=[1, 2],
+        memory_map=True
+        )
+    df.dropna(how='any', inplace=True)
+    df["Warengruppe"] = df["Warengruppe"].astype(np.uint8)
+    df = df.drop(columns=['Abteilung', 'Zeile'])
+    # Warengruppen auswählen
+    # 13 Frischmilch
+    # 14 Joghurt
+    # 69 Tabak
+    # 8 Obst Allgemen
+
+    # warengruppen = [8, 13, 14, 69 ]
+    warengruppen = [8]
+    df = df[df['Warengruppe'].isin(warengruppen)]
+    for i, wg in enumerate(warengruppen):
+        df.loc[df.Warengruppe == wg, "Warengruppe"] = i
+    df["Datum"] = df.index.get_level_values('Datum')
+    df["Artikel"] = df.index.get_level_values('Artikel').astype(np.int32)
+    # df["Wochentag"] = df["Datum"].apply(lambda x:x.dayofweek)
+    # df["Jahrestag"] = df["Datum"].apply(lambda x:x.dayofyear)
+    df["UNIXTag"] = df["Datum"].astype(np.int64)/(1000000000 * 24 * 3600)
+    df["Jahr"] = df["Datum"].apply(lambda x:x.year)
+    # df = df.drop(columns=['Datum'])
+    df = df.sort_index()
+    
+    
+    test_data = df[df["Jahr"]==2019]
+    train_data = df[df["Jahr"]==2018]
+    return test_data, train_data
+
+
+def copy_data_to_numpy(big_df, artikel, start, end):
+    """Returns a numpy array with lenght = self.kalendertage. Days without Sales are filled with zeros"""
+    
     
     s = big_df[big_df.Artikel == artikel].copy()
-    s = s.reset_index(drop=True)
-    wg, olt = s.iloc[0][["Warengruppe", "OrderLeadTime"]]
-    s = s.drop(columns=["Zeile", "Abteilung", "Datum", "Artikel", "Warengruppe", "Jahr", "OrderLeadTime"])
-    s.set_axis(s["Jahrestag"], inplace=True)
-    cal_df.Absatz = s.Absatz
-    cal_df = cal_df.fillna(0)
-    # Versuch mit Numpy
-    cal_df = cal_df.to_numpy(copy=True)
+    s.set_index(s.UNIXTag, inplace=True)
+    wg = s.iloc[0][["Warengruppe"]]
+    s = s.drop(columns=["Datum", "Artikel", "Warengruppe", "Jahr", "UNIXTag"])
+    s = s.reindex(range(int(start), int(end+1)), fill_value=0)
+    if artikel == 5550:
+        print(s.columns)
 
-    #for i in s.index.get_values():
-    #    cal_df.loc[i,"Absatz"] = s.loc[i, "Absatz"]
-    return cal_df, wg, olt
+    return s.to_numpy(), wg
 
 
 
 
 class StockSimulation:
-    def __init__(self, df, sample_produkte, preise, wetter, time_series_lenght):
-        assert type(df) == pd.core.frame.DataFrame, "Wrong type for DataFrame"
-        assert "Artikel" in df.columns, "Artikelnummer Spalte fehlt"
-        assert "Warengruppe" in df.columns, "Warengruppe Spalte fehlt"
-        assert "Wochentag" in df.columns, "Wochentag Spalte fehlt"
-        assert "Jahrestag" in df.columns, "Jahrestag Spalte fehlt"
-        assert "Jahr" in df.columns, "Jahr Spalte fehlt"
-        assert "Absatz" in df.columns, "Absatz Spalte fehlt"
-        assert "OrderLeadTime" in df.columns, "OrderLeadTime Spalte fehlt"
-        assert np.array_equal(np.sort(df["Wochentag"].unique()), np.arange(0,6)), "Keine 6 Tage Woche"
+    def __init__(self, data_dir, time_series_lenght):
+        """
+        Lädt Daten selbstständig aus Data_dir und erstellt das Simulationsmodell. 
+        1. Episode entspricht einem Durchlauf mit einem Artikel.
+        
+        
+        
+        """
+        preise = load_prices(os.path.join(data_dir, '3 preise_altforweiler.csv'))
 
-        self.df = df.copy()
-        self.sample_produkte = sample_produkte
-        # self.produkte = self.df["Artikel"].unique()
-        #
-        #
-        # Nur Beispielprodukte, damit es schneller geht
-        alle_produkte = self.df["Artikel"].unique()
-        np.random.shuffle(alle_produkte)
-        self.produkte = alle_produkte[0:self.sample_produkte]
+        wetter = load_weather(os.path.join(data_dir, '2 wetter_saarlouis.csv'))
+
+        test_data, train_data = load_sales(os.path.join(data_dir, '3 absatz_altforweiler.csv'))
+
+        self.df = train_data
+
+        self.start_tag = min(train_data["UNIXTag"])
+        self.end_tag = max(train_data["UNIXTag"])
+        self.kalender_tage = self.end_tag - self.start_tag + 1
+        
         self.warengruppen = self.df["Warengruppe"].unique()
         self.anz_wg = len(self.warengruppen)
-        self.wochentage = np.arange(0,6)
 
         self.wetter = wetter
-        # Anfangsbestand wird zufällig gewählt, für bessere Exploration und Verhindung von lokalen Maxima 
-        self.anfangsbestand = pd.DataFrame(np.random.randint(0,10, len(self.produkte)), index=self.produkte)
-        self.tage = 365
-        self.jahre = self.df["Jahr"].unique()
+
+        self.anfangsbestand = np.random.randint(0,10)
+
         self.time_series_lenght = time_series_lenght
 
-        #vorerst
-        assert len(self.jahre) == 1
-        cal_df, sonntage = create_df_with_calender(2018)
-        self.cal_df = cal_df
+        olt = 1
+
         self.absatz_data = {}
         self.static_state_data = {}
         for artikel in tqdm(self.df["Artikel"].unique()):
-            art_df, wg, olt = copy_data_to_cal_df(self.df, cal_df.copy(), artikel)
+            art_df, wg = copy_data_to_numpy(self.df, artikel, self.start_tag, self.end_tag)
             self.absatz_data[artikel] = art_df
             wg = to_categorical(wg, num_classes=self.anz_wg)
-            try:
-                artikel_preis = preise.loc[artikel]
-            except KeyError as error:
-                artikel_preis = 0
-                print(error)
+            artikel_preis = preise.loc[artikel]
+
             if type(artikel_preis) == pd.core.frame.DataFrame:
                 artikel_preis = np.array([artikel_preis[artikel_preis.Datum == max(artikel_preis.Datum)]["Preis"].iat[0]])
             elif type(artikel_preis) == pd.core.series.Series:
@@ -102,8 +149,8 @@ class StockSimulation:
 
 
 
-        self.aktueller_tag = None
-        self.aktuelles_produkt = None
+        self.aktueller_tag = self.start_tag
+        self.aktuelles_produkt = self.df["Artikel"].sample(1).to_numpy()[0]
 
     def reset(self):
         """ 
