@@ -21,7 +21,7 @@ batch_size = 32
 n_step = 64
 log_frequency = 100 # jeder 100te n_step
 
-epochs = 3
+epochs = 3000
 
 update_target_network = 1000
 
