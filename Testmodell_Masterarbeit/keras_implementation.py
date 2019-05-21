@@ -23,7 +23,7 @@ log_frequency = 100 # jeder 100te n_step
 
 epochs = 10000
 
-update_target_network = batch_size * 10
+update_target_network = batch_size * 100
 
 # sample_produkte = 20
 
