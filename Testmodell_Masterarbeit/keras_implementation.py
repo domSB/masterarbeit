@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 import cProfile
 
-memory_size = 1200000
+memory_size = 364*500
 gamma = 0.5
 epsilon = 1.0
 epsilon_min = 0.01
@@ -21,9 +21,9 @@ batch_size = 32
 n_step = 64
 log_frequency = 100 # jeder 100te n_step
 
-epochs = 3000
+epochs = 10000
 
-update_target_network = 1000
+update_target_network = batch_size * 10
 
 # sample_produkte = 20
 
