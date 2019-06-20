@@ -1,8 +1,9 @@
-import numpy as np
-
 import random
+import os
+import datetime
 from collections import deque
 
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense, LSTM
@@ -11,7 +12,6 @@ from tensorflow.keras.callbacks import TensorBoard
 
 from tensorflow import summary, Variable, Session
 
-import datetime
 
 
 
@@ -46,6 +46,7 @@ class DQN:
                       + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
         self.modeldir = "./model/" + datetime.datetime.today().date().__str__() + "-" \
                       + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
+        os.mkdir(self.modeldir)
         self.target_model = self.create_model("Target")
         self.sess = Session(config=tf.ConfigProto(log_device_placement=False))
         self.writer = summary.FileWriter(self.logdir, self.sess.graph)
@@ -131,10 +132,10 @@ class DQN:
         return np.argmax(predictions)
     
     def save(self):
-        self.target_model.save("model/model.h5")
+        self.target_model.save(os.path.join(self.modeldir, "model.h5"))
     
-    def load(self):
-        model = load_model("model/model.h5")
+    def load(self, path):
+        model = load_model(path)
         self.target_model = model
         self.model = model
 

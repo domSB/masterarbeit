@@ -28,9 +28,6 @@
     <Compile Include="model\__init__.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="module\__init__.py">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="regression.py">
       <SubType>Code</SubType>
     </Compile>
@@ -49,7 +46,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="model\" />
-    <Folder Include="module\" />
     <Folder Include="network\" />
     <Folder Include="simulation\" />
   </ItemGroup>
