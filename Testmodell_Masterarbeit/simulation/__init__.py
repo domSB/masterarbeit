@@ -100,10 +100,8 @@ class StockSimulation:
         Lädt Daten selbstständig aus Data_dir und erstellt das Simulationsmodell. 
         1. Episode entspricht einem Durchlauf mit einem Artikel.
         
-        
-        
         """
-
+        #TODO: Laden der Absatzdaten an neue .csv-Dateien anpassen
         test_data, train_data = load_sales(os.path.join(data_dir, '3 absatz_altforweiler.csv'))
 
         self.df = train_data
@@ -123,7 +121,15 @@ class StockSimulation:
 
         self.time_series_lenght = time_series_lenght
 
-        olt = 1
+        olt = 1  # Fürs erste
+        self.fertig = None
+        self.vergangene_tage = None
+        self.akt_prod_bestand = None
+        self.akt_prod_absatz = None
+        self.akt_prod_wg = None
+        self.akt_prod_preis = None
+        self.akt_prod_olt = None
+        self.time_series_state = None
 
         self.absatz_data = {}
         self.static_state_data = {}
@@ -135,7 +141,9 @@ class StockSimulation:
             artikel_preis = preise.loc[artikel]
 
             if type(artikel_preis) == pd.core.frame.DataFrame:
-                artikel_preis = np.array([artikel_preis[artikel_preis.Datum == max(artikel_preis.Datum)]["Preis"].iat[0]])
+                artikel_preis = np.array(
+                    [artikel_preis[artikel_preis.Datum == max(artikel_preis.Datum)]["Preis"].iat[0]]
+                )
             elif type(artikel_preis) == pd.core.series.Series:
                 artikel_preis = np.array([artikel_preis["Preis"]])
             elif type(artikel_preis) == int:
@@ -162,31 +170,19 @@ class StockSimulation:
 
     def reset(self):
         """ 
-        Neuer State ist ein Numpy Array
-        *Bestand
-        *Wochentag
-        *Warengruppe
-
-        ** Absatz t+1 (echte Tage)
-        ** Absatz t+2
 
         """
+        #TODO: Festen Artikel setzen lassen, damit die Simulation deterministisch für diverse Artikel genutzt werden kann.
         self.fertig = False
-
-        self.anfangsbestand = np.random.randint(0,10)
-
+        self.anfangsbestand = np.random.randint(0, 10)
         self.aktueller_tag = self.start_tag
         self.vergangene_tage = 0
-        
         self.aktuelles_produkt = self.df["Artikel"].sample(1).to_numpy()[0]
-
         self.akt_prod_bestand = self.anfangsbestand
         self.akt_prod_absatz = self.absatz_data[self.aktuelles_produkt]
         self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
         self.akt_prod_preis = self.static_state_data[self.aktuelles_produkt]["Preis"]
         self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
-
-        absatz = self.akt_prod_absatz[self.vergangene_tage]
 
         wochentag = self.aktueller_tag % 7
 
@@ -200,7 +196,7 @@ class StockSimulation:
         return np.array(self.time_series_state), {"Artikel": self.aktuelles_produkt}
 
     def make_action(self, action):
-        if self.fertig == True:
+        if self.fertig:
             raise AssertionError("Simulation für diesen Artikel fertig. Simulation zurücksetzen")
 
         absatz = self.akt_prod_absatz[self.vergangene_tage][0]
@@ -214,6 +210,8 @@ class StockSimulation:
         
         wochentag = self.aktueller_tag % 7
 
+        #TODO: OrderLeadTime durch eine action-Deque realisieren
+
         # Action ist die Bestellte Menge an Artikeln
         # Tagsüber Absatz abziehen:
         self.akt_prod_bestand -= absatz
@@ -222,10 +220,10 @@ class StockSimulation:
         self.akt_prod_bestand += action
 
         # Abend: Bestand wird bewertet
-        if self.akt_prod_bestand >= 0:
-            reward = np.exp(-self.akt_prod_bestand/5)
-        if self.akt_prod_bestand < 0:
-            reward = np.expm1(self.akt_prod_bestand/2)
+        if self.akt_prod_bestand >= 1:
+            reward = np.exp((-self.akt_prod_bestand+1)/5)
+        else:
+            reward = np.exp((self.akt_prod_bestand-1)*1.5-1)
             # Nichtnegativität des Bestandes
             self.akt_prod_bestand = 0
 

@@ -266,3 +266,5 @@ __pycache__/
 /Testmodell_Masterarbeit/logs
 /Testmodell_Masterarbeit/profile2.cprof
 /Testmodell_Masterarbeit/profile3.cprof
+/Testmodell_Masterarbeit/data/1 Absatz.csv
+*.pstat

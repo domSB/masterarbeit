@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>5a2f043b-2d6c-41e5-878e-5642a9915297</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>keras_implementation.py</StartupFile>
+    <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -22,14 +22,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="data.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="keras_implementation_echtdaten.py" />
-    <Compile Include="keras_implementation.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lstm_implementation.py">
+    <Compile Include="main.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="model\__init__.py">
@@ -38,7 +31,10 @@
     <Compile Include="module\__init__.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="multithread.py">
+    <Compile Include="regression.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="test_new_features.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="network\__init__.py">
@@ -47,7 +43,6 @@
     <Compile Include="simulation\__init__.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Testmodell_Masterarbeit.py" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="CondaEnv|CondaEnv|masterarbeit" />
