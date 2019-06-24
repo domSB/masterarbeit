@@ -13,6 +13,8 @@ import cProfile
 do_train = True
 
 use_saved_model = False
+use_pickled = True
+save_pickled = False
 
 memory_size = 364*1000
 gamma = 0.5
@@ -23,11 +25,11 @@ learning_rate = 0.0001
 batch_size = 32
 n_step = 64
 
-epochs = 21
+epochs = 100
 
 update_target_network = batch_size * 100
 
-state_shape = 24
+state_shape = 27
 action_space = 10
 
 time_series_lenght = 10
@@ -60,16 +62,9 @@ possible_actions = [
 
 """ Initialize Objects """
 #region Initilize
-try:
-    os.environ["OS"] == "Windows_NT"
-    # Bin am eigenen Desktop
-    data_dir = 'F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implementation/Echtdaten'
-    #TODO: Daten auch auf dem Desktop im ./data Directory ablegen, für Einheitlichkeit.
-except KeyError:
-    # Bin auf der EC2 Linux Maschine 
-    data_dir = './data'
+data_dir = 'data'
 
-simulation = StockSimulation(data_dir, time_series_lenght)
+simulation = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, True)
 
 agent = DQN(
     memory_size, 
@@ -124,8 +119,18 @@ if do_train:
                 curr_acc = history["acc"][0]
                 curr_rew = np.sum(current_rewards)
                 curr_mean_rew = np.mean(current_rewards)
-                agent.sess.run([agent.reward.assign(curr_rew), agent.reward_mean.assign(curr_mean_rew), agent.loss.assign(curr_loss), agent.accuracy.assign(curr_acc)])
-                tf_summary = agent.sess.run(agent.merged)
+                tf_summary = agent.sess.run(
+                    agent.merged, 
+                    feed_dict={
+                        agent.reward : curr_rew,
+                        agent.reward_mean: curr_mean_rew,
+                        agent.loss: curr_loss, 
+                        agent.accuracy: curr_acc,
+                        agent.rewards: current_rewards,
+                        agent.theo_bestand: simulation.stat_theo_bestand,
+                        agent.fakt_bestand: simulation.stat_fakt_bestand
+                        }
+                    )
                 agent.writer.add_summary(tf_summary, epoch)
                 if epoch % 10 == 0:
                     print("Epoche {}".format(epoch))

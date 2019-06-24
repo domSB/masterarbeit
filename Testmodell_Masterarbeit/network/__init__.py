@@ -51,20 +51,29 @@ class DQN:
         self.sess = Session(config=tf.ConfigProto(log_device_placement=False))
         self.writer = summary.FileWriter(self.logdir, self.sess.graph)
         with tf.name_scope("Eigene_Variablen"):
-            self.reward = Variable(0.0, trainable=False, name="vReward")
-            self.reward_mean = Variable(0.0, trainable=False, name="vMeanReward")
-            self.loss = Variable(0.0, trainable=False, name="vLoss")
-            self.accuracy = Variable(0.0, trainable=False, name="vMSE")
+            self.reward = tf.placeholder(tf.float32)
+            self.reward_mean = tf.placeholder(tf.float32)
+            self.loss = tf.placeholder(tf.float32)
+            self.accuracy = tf.placeholder(tf.float32)
+            self.rewards = tf.placeholder(tf.float32, shape=None)
+            self.theo_bestand = tf.placeholder(tf.float32, shape=None)
+            self.fakt_bestand = tf.placeholder(tf.float32, shape=None)
         self.summary_reward = summary.scalar("Reward", self.reward)
         self.summary_reward_mean = summary.scalar("MeanReward", self.reward_mean)
         self.summary_loss = summary.scalar("Loss", self.loss)
         self.summary_mse = summary.scalar("Accuracy", self.accuracy)
+        self.summary_rewards = summary.histogram("Rewards", self.rewards)
+        self.summary_theo_bestand = summary.histogram("TheoretischerBestand", self.theo_bestand)
+        self.summary_fakt_bestand = summary.histogram("FaktischerBestand", self.fakt_bestand)
         self.merged = summary.merge(
             [
                 self.summary_reward, 
                 self.summary_reward_mean, 
                 self.summary_loss, 
-                self.summary_mse
+                self.summary_mse,
+                self.summary_rewards,
+                self.summary_theo_bestand,
+                self.summary_fakt_bestand
             ])
 
     def create_model(self, name):
