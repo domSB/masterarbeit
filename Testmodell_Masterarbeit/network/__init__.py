@@ -58,6 +58,7 @@ class DQN:
             self.rewards = tf.placeholder(tf.float32, shape=None)
             self.theo_bestand = tf.placeholder(tf.float32, shape=None)
             self.fakt_bestand = tf.placeholder(tf.float32, shape=None)
+            self.actions = tf.placeholder(tf.float32, shape=None)
         self.summary_reward = summary.scalar("Reward", self.reward)
         self.summary_reward_mean = summary.scalar("MeanReward", self.reward_mean)
         self.summary_loss = summary.scalar("Loss", self.loss)
@@ -65,6 +66,7 @@ class DQN:
         self.summary_rewards = summary.histogram("Rewards", self.rewards)
         self.summary_theo_bestand = summary.histogram("TheoretischerBestand", self.theo_bestand)
         self.summary_fakt_bestand = summary.histogram("FaktischerBestand", self.fakt_bestand)
+        self.summary_actions = summary.histogram("Actions", self.actions)
         self.merged = summary.merge(
             [
                 self.summary_reward, 
@@ -73,7 +75,8 @@ class DQN:
                 self.summary_mse,
                 self.summary_rewards,
                 self.summary_theo_bestand,
-                self.summary_fakt_bestand
+                self.summary_fakt_bestand,
+                self.summary_actions
             ])
 
     def create_model(self, name):
