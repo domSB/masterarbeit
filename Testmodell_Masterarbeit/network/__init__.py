@@ -82,6 +82,7 @@ class DQN:
     def create_model(self, name):
         #TODO: Struktur dynamisch gestalten, damit eine Klasse für alle Tests nutzbar.
         with tf.name_scope(name):
+            #TODO: Weigth Regulization und Dropout-Layer einfügen
             inputs = Input(shape=(self.time_series_length, self.state_shape))
             x = LSTM(32, activation='relu', name="LSTM")(inputs)
             x = Dense(32, activation='relu', name="Dense_1")(x)

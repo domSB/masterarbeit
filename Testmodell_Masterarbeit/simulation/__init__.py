@@ -312,8 +312,10 @@ class StockSimulation:
         self.akt_prod_bestand -= absatz
         self.stat_theo_bestand.append(self.akt_prod_bestand)
 
-        if self.akt_prod_bestand >= 1:
-            reward = np.exp((-self.akt_prod_bestand+1)/5)
+        if self.akt_prod_bestand >= 27.5:
+            reward = 0.004992 - (self.akt_prod_bestand-27.5)/1000
+        elif self.akt_prod_bestand >= 1:
+            reward = np.exp((1-self.akt_prod_bestand)/5)
         else:
             reward = np.exp((self.akt_prod_bestand-1)*1.5)-1
             # Nichtnegativität des Bestandes
