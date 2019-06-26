@@ -21,11 +21,11 @@ gamma = 0.5
 epsilon = 1.0
 epsilon_min = 0.01
 epsilon_decay = 0.99995
-learning_rate = 0.0001
+learning_rate = 0.001
 batch_size = 32
 n_step = 64
 
-epochs = 21
+epochs = 100
 
 update_target_network = batch_size * 100
 
