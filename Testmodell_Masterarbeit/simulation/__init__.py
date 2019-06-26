@@ -83,7 +83,8 @@ def load_sales(path, artikel_maske):
         temp_test = test.loc[(slice(markt,markt),slice(None),slice(None)),:]
 
         #
-        # Die Timeline ist je Markt unterschiedlich. Mit neuen Daten testen, ob SQL-Script Error oder andere Fehlerherkunft.
+        # Die Timeline ist je Markt unterschiedlich. 
+        # Mit neuen Daten testen, ob SQL-Script Error oder andere Fehlerherkunft.
         #
 
         print("ping .")
@@ -136,7 +137,7 @@ class StockSimulation:
         artikel_maske = self.artikelstamm[self.artikelstamm.Warengruppe.isin(warengruppen_maske)].index.values
 
         if is_trainer:
-            # FÜr schnelleres Debuggen, wenn sich die Daten nicht ändern.
+            # FÜr schnelleres Ausführen, wenn sich die Daten nicht ändern.
             if use_pickled:
                 with open("data/train_data.pickle", "rb") as file:
                     train_data = pickle.load(file)
@@ -223,7 +224,11 @@ class StockSimulation:
                 artikel_preis = np.array([artikel_preis])
             else:
                 raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
-            self.static_state_data[artikel] = {"Warengruppe": warengruppen_state, "OrderLeadTime": olt, "Preis": artikel_preis}
+            self.static_state_data[artikel] = {
+                "Warengruppe": warengruppen_state, 
+                "OrderLeadTime": olt, 
+                "Preis": artikel_preis
+                }
 
         self.aktueller_tag = self.start_tag
         
@@ -232,7 +237,10 @@ class StockSimulation:
         return self.test_data, self.timeline_for_validator
 
     def del_test_data(self):
-        """ Methode, um die Testdaten aus dem Trainer zu löschen, sobald diese in eine neue Instanz der Simulation kopiert wurden."""
+        """ 
+        Methode, um die Testdaten aus dem Trainer zu löschen, 
+        sobald diese in eine neue Instanz der Simulation kopiert wurden.
+        """
         del self.test_data
         del self.timeline_for_validator
         return
@@ -252,7 +260,8 @@ class StockSimulation:
 
     def reset(self, artikel=None, markt=None):
         """ 
-        Methode für das Zurücksetzen der Simulation. Parameter artikel ist optional. Falls weggelassen, wird ein Artikel zufällig gewählt (Für Training).
+        Methode für das Zurücksetzen der Simulation. Parameter artikel ist optional. 
+        Falls weggelassen, wird ein Artikel zufällig gewählt (Für Training).
         Für eine Evaluation des Agenten, können eigene Artikel festgesetzt werden.
         """
         self.fertig = False
@@ -268,7 +277,7 @@ class StockSimulation:
             self.aktuelles_produkt = np.random.choice(self.artikel, 1)[0]
         
         if markt:
-            assert markt in self.maerkte, "Simulation kennt diesen Artikel nicht."
+            assert markt in self.maerkte, "Simulation kennt diesen Markt nicht."
             self.aktueller_markt = markt
         else:
             self.aktueller_markt = np.random.choice(self.maerkte, 1)[0]
@@ -334,8 +343,6 @@ class StockSimulation:
         if self.vergangene_tage == self.kalender_tage -1:
             self.fertig = True
 
-        # Infos
-        
         return reward, self.fertig, np.array(self.time_series_state)
 
 def test(simulation, lenght):
