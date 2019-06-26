@@ -53,6 +53,8 @@ class DQN:
         with tf.name_scope("Eigene_Variablen"):
             self.reward = tf.placeholder(tf.float32)
             self.reward_mean = tf.placeholder(tf.float32)
+            self.reward_max = tf.placeholder(tf.float32)
+            self.reward_min = tf.placeholder(tf.float32)
             self.loss = tf.placeholder(tf.float32)
             self.accuracy = tf.placeholder(tf.float32)
             self.rewards = tf.placeholder(tf.float32, shape=None)
@@ -61,6 +63,8 @@ class DQN:
             self.actions = tf.placeholder(tf.float32, shape=None)
         self.summary_reward = summary.scalar("Reward", self.reward)
         self.summary_reward_mean = summary.scalar("MeanReward", self.reward_mean)
+        self.summary_reward_max = summary.scalar("MaxReward", self.reward_max)
+        self.summary_reward_min = summary.scalar("MinReward", self.reward_min)
         self.summary_loss = summary.scalar("Loss", self.loss)
         self.summary_mse = summary.scalar("Accuracy", self.accuracy)
         self.summary_rewards = summary.histogram("Rewards", self.rewards)
@@ -71,6 +75,8 @@ class DQN:
             [
                 self.summary_reward, 
                 self.summary_reward_mean, 
+                self.summary_reward_max, 
+                self.summary_reward_min, 
                 self.summary_loss, 
                 self.summary_mse,
                 self.summary_rewards,

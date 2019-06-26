@@ -16,7 +16,7 @@ use_saved_model = False
 use_pickled = True
 save_pickled = False
 
-memory_size = 364*3000
+memory_size = 364*2*1000
 gamma = 0.7
 epsilon = 1.0
 epsilon_min = 0.01
@@ -25,7 +25,7 @@ learning_rate = 0.001
 batch_size = 32
 n_step = 64
 
-epochs = 1000
+epochs = 5000
 
 update_target_network = batch_size * 100
 
@@ -121,11 +121,15 @@ if do_train:
                 curr_acc = history["acc"][0]
                 curr_rew = np.sum(current_rewards)
                 curr_mean_rew = np.mean(current_rewards)
+                curr_max_rew = np.max(current_rewards)
+                curr_min_rew = np.min(current_rewards)
                 tf_summary = agent.sess.run(
                     agent.merged, 
                     feed_dict={
                         agent.reward : curr_rew,
                         agent.reward_mean: curr_mean_rew,
+                        agent.reward_max: curr_max_rew,
+                        agent.reward_min: curr_min_rew,
                         agent.loss: curr_loss, 
                         agent.accuracy: curr_acc,
                         agent.rewards: current_rewards,
