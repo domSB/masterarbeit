@@ -48,29 +48,44 @@ class DQN:
                       + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
         os.mkdir(self.modeldir)
         self.target_model = self.create_model("Target")
-        self.sess = Session(config=tf.ConfigProto(log_device_placement=False))
-        self.writer = summary.FileWriter(self.logdir, self.sess.graph)
+
         with tf.name_scope("Eigene_Variablen"):
-            self.reward = tf.placeholder(tf.float32)
-            self.reward_mean = tf.placeholder(tf.float32)
-            self.reward_max = tf.placeholder(tf.float32)
-            self.reward_min = tf.placeholder(tf.float32)
-            self.loss = tf.placeholder(tf.float32)
-            self.accuracy = tf.placeholder(tf.float32)
-            self.rewards = tf.placeholder(tf.float32, shape=None)
-            self.theo_bestand = tf.placeholder(tf.float32, shape=None)
-            self.fakt_bestand = tf.placeholder(tf.float32, shape=None)
-            self.actions = tf.placeholder(tf.float32, shape=None)
-        self.summary_reward = summary.scalar("Reward", self.reward)
-        self.summary_reward_mean = summary.scalar("MeanReward", self.reward_mean)
-        self.summary_reward_max = summary.scalar("MaxReward", self.reward_max)
-        self.summary_reward_min = summary.scalar("MinReward", self.reward_min)
-        self.summary_loss = summary.scalar("Loss", self.loss)
-        self.summary_mse = summary.scalar("Accuracy", self.accuracy)
-        self.summary_rewards = summary.histogram("Rewards", self.rewards)
-        self.summary_theo_bestand = summary.histogram("TheoretischerBestand", self.theo_bestand)
-        self.summary_fakt_bestand = summary.histogram("FaktischerBestand", self.fakt_bestand)
-        self.summary_actions = summary.histogram("Actions", self.actions)
+            self.rewards = tf.placeholder(tf.float32, shape=None, name="Rewards")
+
+            self.reward_max = tf.get_variable("Max", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.reward_max_op = self.reward_max.assign(tf.math.reduce_max(self.rewards))
+
+            self.reward_min = tf.get_variable("Min", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.reward_min_op = self.reward_min.assign(tf.math.reduce_min(self.rewards))
+
+            self.reward_mean = tf.get_variable("Mean", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.reward_mean_op = self.reward_mean.assign(tf.math.reduce_mean(self.rewards))
+            
+            self.reward_sum = tf.get_variable("Sum", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.reward_sum_op = self.reward_sum.assign(tf.math.reduce_sum(self.rewards))
+
+            self.loss = tf.placeholder(tf.float32, name="Loss")
+            self.accuracy = tf.placeholder(tf.float32, name="Accuracy")
+
+            self.theo_bestand = tf.placeholder(tf.float32, shape=None, name="TheoBestand")
+            self.fakt_bestand = tf.placeholder(tf.float32, shape=None, name="FaktBestand")
+            self.actions = tf.placeholder(tf.float32, shape=None, name="Actions")
+            self.tf_epsilon = tf.placeholder(tf.float32, shape=None, name="Epsilon")
+        with tf.name_scope("Reward_Stats"):
+            self.summary_rewards = summary.histogram("Rewards", self.rewards)
+            self.summary_reward = summary.scalar("Sum", self.reward_sum_op)
+            self.summary_reward_mean = summary.scalar("Mean", self.reward_mean_op)
+            self.summary_reward_max = summary.scalar("Max", self.reward_max_op)
+            self.summary_reward_min = summary.scalar("Min", self.reward_min_op)
+
+        with tf.name_scope("Bestand_Stats"):
+            self.summary_actions = summary.histogram("Actions", self.actions)
+            self.summary_theo_bestand = summary.histogram("TheoretischerBestand", self.theo_bestand)
+            self.summary_fakt_bestand = summary.histogram("FaktischerBestand", self.fakt_bestand)
+        with tf.name_scope("Model_Stats"):
+            self.summary_loss = summary.scalar("Loss", self.loss)
+            self.summary_mse = summary.scalar("Accuracy", self.accuracy)
+            self.summary_epsilon = summary.scalar("Epsilon", self.tf_epsilon)
         self.merged = summary.merge(
             [
                 self.summary_reward, 
@@ -82,8 +97,11 @@ class DQN:
                 self.summary_rewards,
                 self.summary_theo_bestand,
                 self.summary_fakt_bestand,
-                self.summary_actions
+                self.summary_actions,
+                self.summary_epsilon
             ])
+        self.sess = Session(config=tf.ConfigProto(log_device_placement=False))
+        self.writer = summary.FileWriter(self.logdir, self.sess.graph)
 
     def create_model(self, name):
         #TODO: Struktur dynamisch gestalten, damit eine Klasse für alle Tests nutzbar.

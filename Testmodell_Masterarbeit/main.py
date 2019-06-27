@@ -11,21 +11,21 @@ import cProfile
 """ Hyperparameters """
 #region  Hyperparameter
 do_train = True
-use_model_path = os.path.join('model', '2019-06-26-22.25.13', 'model.h5')
-use_saved_model = False
+use_model_path = os.path.join('model', 'Version1', 'model.h5')
+use_saved_model = True
 use_pickled = True
 save_pickled = False
 
 memory_size = 364*2*200
 gamma = 0.7
-epsilon = 1.0
+epsilon = 0.01
 epsilon_min = 0.01
-epsilon_decay = 0.99995
-learning_rate = 0.001
-batch_size = 32
+epsilon_decay = 0.999
+learning_rate = 0.0001
+batch_size = 64
 n_step = 64
 
-epochs = 2000
+epochs = 1000
 
 update_target_network = batch_size * 100
 
@@ -120,31 +120,26 @@ def train():
                 history = agent.replay()
                 curr_loss = history["loss"][0]
                 curr_acc = history["acc"][0]
-                curr_rew = np.sum(current_rewards)
-                curr_mean_rew = np.mean(current_rewards)
-                curr_max_rew = np.max(current_rewards)
-                curr_min_rew = np.min(current_rewards)
                 tf_summary = agent.sess.run(
                     agent.merged, 
                     feed_dict={
-                        agent.reward : curr_rew,
-                        agent.reward_mean: curr_mean_rew,
-                        agent.reward_max: curr_max_rew,
-                        agent.reward_min: curr_min_rew,
                         agent.loss: curr_loss, 
                         agent.accuracy: curr_acc,
                         agent.rewards: current_rewards,
                         agent.theo_bestand: simulation.stat_theo_bestand,
                         agent.fakt_bestand: simulation.stat_fakt_bestand,
-                        agent.actions: current_actions
+                        agent.actions: current_actions,
+                        agent.tf_epsilon: agent.epsilon
                         }
                     )
                 agent.writer.add_summary(tf_summary, epoch)
                 if epoch % 10 == 0:
                     print("Epoche {}".format(epoch))
-                    print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(curr_mean_rew, curr_rew, agent.epsilon))
+                    # print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(curr_mean_rew, curr_rew, agent.epsilon))
                     agent.save()
                     #TODO: Validate Model with a trial Period in a seperate Simulation
+                else:
+                    print('.')
                 break
     agent.writer.close()
     agent.sess.close()
