@@ -106,6 +106,9 @@ class DQN:
         if len(self.memory) < self.batch_size:
             return
 
+        self.epsilon *= self.epsilon_decay
+        self.epsilon = np.max([self.epsilon, self.epsilon_min])
+
         samples = random.sample(self.memory, self.batch_size)
 
         states = [sample[0] for sample in samples]
@@ -143,8 +146,6 @@ class DQN:
         self.target_model.set_weights(target_weights)
 
     def act(self, state):
-        self.epsilon *= self.epsilon_decay
-        self.epsilon = np.max([self.epsilon, self.epsilon_min])
         if random.random() < self.epsilon:
             return random.sample(self.possible_actions, 1)[0]
         predictions = self.model.predict(state.reshape(1, self.time_series_length, self.state_shape))[0]
@@ -154,7 +155,7 @@ class DQN:
         self.target_model.save(os.path.join(self.modeldir, "model.h5"))
     
     def load(self, path):
-        model = load_model(path)
+        model = tf.keras.models.load_model(path)
         self.target_model = model
         self.model = model
 

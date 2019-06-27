@@ -25,7 +25,7 @@ learning_rate = 0.001
 batch_size = 32
 n_step = 64
 
-epochs = 5000
+epochs = 50
 
 update_target_network = batch_size * 100
 
@@ -88,9 +88,10 @@ if use_saved_model:
 
 """ Training Loop """
 #region Training Loop
-if do_train:
+def train():
     global_steps = 0
     stats = {"loss": [],"acc": [], "rew":[]}
+    #TODO: Memory Buffer initial füllen, vor dem Trainingsloog.
     for epoch in range(epochs):
         state, info = simulation.reset()
         current_rewards = []
@@ -148,6 +149,8 @@ if do_train:
     agent.writer.close()
     agent.sess.close()
 
+# cProfile.run('train()', 'cpu_profile.pstat')
+train()
 #endregion
        
 
