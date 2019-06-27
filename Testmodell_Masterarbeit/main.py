@@ -11,12 +11,12 @@ import cProfile
 """ Hyperparameters """
 #region  Hyperparameter
 do_train = True
-
+use_model_path = os.path.join('model', '2019-06-26-22.25.13', 'model.h5')
 use_saved_model = False
 use_pickled = True
 save_pickled = False
 
-memory_size = 364*2*1000
+memory_size = 364*2*200
 gamma = 0.7
 epsilon = 1.0
 epsilon_min = 0.01
@@ -25,11 +25,11 @@ learning_rate = 0.001
 batch_size = 32
 n_step = 64
 
-epochs = 50
+epochs = 2000
 
 update_target_network = batch_size * 100
 
-state_shape = 27
+state_shape = 40
 action_space = 10
 
 time_series_lenght = 10
@@ -81,7 +81,7 @@ agent = DQN(
     )
 
 if use_saved_model:
-    agent.load()
+    agent.load(use_model_path)
     #TODO: Model laden ermöglichen. Derzeit Bug beim Laden. Eventuell nur Weights speichern.
 
 #endregion

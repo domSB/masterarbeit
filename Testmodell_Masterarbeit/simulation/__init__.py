@@ -134,7 +134,8 @@ class StockSimulation:
         # 69 Tabak
         # 8 Obst Allgemen
         warengruppen_maske = [8, 13, 14, 69 ]
-        artikel_maske = self.artikelstamm[self.artikelstamm.Warengruppe.isin(warengruppen_maske)].index.values
+        self.artikelstamm = self.artikelstamm[self.artikelstamm.Warengruppe.isin(warengruppen_maske)]
+        artikel_maske = self.artikelstamm.index.values
 
         if is_trainer:
             # FÜr schnelleres Ausführen, wenn sich die Daten nicht ändern.
@@ -188,7 +189,7 @@ class StockSimulation:
 
         self.time_series_lenght = time_series_lenght
 
-        olt = 1  # Fürs erste
+        olt = np.array([1])  # Fürs erste
         self.fertig = None
         self.anfangsbestand = None
         self.vergangene_tage = None
@@ -205,9 +206,35 @@ class StockSimulation:
 
         self.static_state_data = {}
         for artikel in tqdm(self.artikel):
-            warengruppennummer = self.artikelstamm.loc[artikel].Warengruppe
+            artikel_data = self.artikelstamm.loc[artikel]
+            warengruppennummer = artikel_data.Warengruppe
             warengruppen_index = self.warengruppen.index(warengruppennummer)
             warengruppen_state = to_categorical(warengruppen_index, num_classes=self.anz_wg)
+
+            eigenmarke = artikel_data.Eigenmarke
+            if eigenmarke == 0:
+                eigenmarke = -1
+            eigenmarke = np.array([eigenmarke])
+
+            gattungsmarke = artikel_data.GuG
+            if gattungsmarke == 0:
+                gattungsmarke = -1
+            gattungsmarke = np.array([gattungsmarke])
+
+            einheit = artikel_data.Einheit
+            einheit_state = to_categorical(einheit, num_classes=9)
+
+            mhd = artikel_data.MHD
+            if mhd < 8:
+                mhd_state = -1
+            elif mhd < 31:
+                mhd_state = 0
+            else:
+                mhd_state = 1
+            mhd_state = np.array([mhd_state])
+
+            ose = artikel_data.OSE
+            ose = np.array([ose])
 
             try:
                 artikel_preis = preise.loc[artikel]
@@ -224,11 +251,19 @@ class StockSimulation:
                 artikel_preis = np.array([artikel_preis])
             else:
                 raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
+
             self.static_state_data[artikel] = {
                 "Warengruppe": warengruppen_state, 
                 "OrderLeadTime": olt, 
-                "Preis": artikel_preis
+                "Preis": artikel_preis,
+                "Eigenmarke": eigenmarke,
+                "Gattungsmarke": gattungsmarke,
+                "Einheit": einheit_state,
+                "MHD": mhd_state,
+                "OSE": ose
                 }
+
+        del preise
 
         self.aktueller_tag = self.start_tag
         
@@ -248,14 +283,20 @@ class StockSimulation:
     def create_new_state(self, wochentag):
         new_state = np.concatenate(
             [
+                self.akt_prod_markt,
                 np.array([self.akt_prod_bestand]), 
                 wochentag, 
-                self.akt_prod_wg, 
+                self.akt_prod_wg,
+                self.akt_prod_eigenmarke,
+                self.akt_prod_gattungsmarke,
+                self.akt_prod_einheit,
+                self.akt_prod_mhd,
                 self.akt_prod_preis, 
                 self.wetter[self.vergangene_tage], 
                 self.wetter[self.vergangene_tage+1]
                 ]
             )
+
         return new_state
 
     def reset(self, artikel=None, markt=None):
@@ -287,6 +328,16 @@ class StockSimulation:
         self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
         self.akt_prod_preis = self.static_state_data[self.aktuelles_produkt]["Preis"]
         self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
+        self.akt_prod_eigenmarke = self.static_state_data[self.aktuelles_produkt]["Eigenmarke"]
+        self.akt_prod_gattungsmarke = self.static_state_data[self.aktuelles_produkt]["Gattungsmarke"]
+        self.akt_prod_einheit = self.static_state_data[self.aktuelles_produkt]["Einheit"]
+        self.akt_prod_mhd = self.static_state_data[self.aktuelles_produkt]["MHD"]
+
+
+        if self.aktueller_markt == 5:
+            self.akt_prod_markt = np.array([-1])
+        else:
+            self.akt_prod_markt = np.array([1])
 
         wochentag = self.aktueller_tag % 7
 
