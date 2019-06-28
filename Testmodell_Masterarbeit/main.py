@@ -11,21 +11,21 @@ import cProfile
 """ Hyperparameters """
 #region  Hyperparameter
 do_train = True
-use_model_path = os.path.join('model', 'Version1', 'model.h5')
+use_model_path = os.path.join('model', '2019-06-28-15.06.17', 'model.h5')
 use_saved_model = False
 use_pickled = True
 save_pickled = False
 
 memory_size = 364*2*200
 gamma = 0.7
-epsilon = 1
+epsilon = 0.01
 epsilon_min = 0.01
 epsilon_decay = 0.999
-learning_rate = 0.0001
+learning_rate = 0.001
 batch_size = 64
 n_step = 64
 
-epochs = 500
+epochs = 4000
 
 update_target_network = batch_size * 100
 
