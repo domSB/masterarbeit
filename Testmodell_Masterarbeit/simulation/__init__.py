@@ -135,7 +135,7 @@ class StockSimulation:
         # 8 Obst Allgemen
         warengruppen_maske = [8, 13, 14, 69 ]
         self.artikelstamm = self.artikelstamm[self.artikelstamm.Warengruppe.isin(warengruppen_maske)]
-        artikel_maske = self.artikelstamm.index.values
+        artikel_maske = np.unique(self.artikelstamm.index.values)
 
         if is_trainer:
             # FÜr schnelleres Ausführen, wenn sich die Daten nicht ändern.
@@ -178,10 +178,6 @@ class StockSimulation:
 
         self.wetter = load_weather(os.path.join(data_dir, '1 Wetter.csv'), self.start_tag, self.end_tag)
         
-        """
-        Bin bis hier hin gekommen
-
-        """
         self.warengruppen = warengruppen_maske
         self.anz_wg = len(self.warengruppen)
         self.artikel = artikel_maske
@@ -206,7 +202,7 @@ class StockSimulation:
 
         self.static_state_data = {}
         for artikel in tqdm(self.artikel):
-            artikel_data = self.artikelstamm.loc[artikel]
+            artikel_data = self.artikelstamm.loc[artikel].iloc[0] # Je Artikelindex 2 Einträge, da 2 BewegungsbaumIDs
             warengruppennummer = artikel_data.Warengruppe
             warengruppen_index = self.warengruppen.index(warengruppennummer)
             warengruppen_state = to_categorical(warengruppen_index, num_classes=self.anz_wg)

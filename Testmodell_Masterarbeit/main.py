@@ -12,20 +12,20 @@ import cProfile
 #region  Hyperparameter
 do_train = True
 use_model_path = os.path.join('model', 'Version1', 'model.h5')
-use_saved_model = True
+use_saved_model = False
 use_pickled = True
 save_pickled = False
 
 memory_size = 364*2*200
 gamma = 0.7
-epsilon = 0.01
+epsilon = 1
 epsilon_min = 0.01
 epsilon_decay = 0.999
 learning_rate = 0.0001
 batch_size = 64
 n_step = 64
 
-epochs = 1000
+epochs = 500
 
 update_target_network = batch_size * 100
 
@@ -66,6 +66,12 @@ data_dir = 'data'
 
 simulation = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, True)
 
+test_data, timeline = simulation.get_test_data()
+
+simulation.del_test_data()
+
+validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False, test_data, timeline)
+
 agent = DQN(
     memory_size, 
     state_shape, 
@@ -94,15 +100,27 @@ def train():
     #TODO: Memory Buffer initial füllen, vor dem Trainingsloog.
     for epoch in range(epochs):
         state, info = simulation.reset()
+        val_state, _ = validator.reset()
+        val_fertig = False
         current_rewards = []
+        current_val_rewards = []
         current_actions = []
         while True:
+            # Train
             action = agent.act(state)
             global_steps += 1
             reward, fertig, new_state= simulation.make_action(action)
             current_rewards.append(reward)
             current_actions.append(action)
             agent.remember(state, action, reward, new_state, fertig)
+
+            # Validate
+            if not val_fertig: # Validation Zeitraum ggf. kürzer oder gleichlang
+                val_action = agent.act(val_state)
+                val_reward, val_fertig, new_val_state= validator.make_action(val_action)
+                current_val_rewards.append(val_reward)
+                val_state = new_val_state
+
             if global_steps % n_step == 0:
                 history = agent.replay()
                 if history:
@@ -126,6 +144,7 @@ def train():
                         agent.loss: curr_loss, 
                         agent.accuracy: curr_acc,
                         agent.rewards: current_rewards,
+                        agent.val_rewards: current_val_rewards,
                         agent.theo_bestand: simulation.stat_theo_bestand,
                         agent.fakt_bestand: simulation.stat_fakt_bestand,
                         agent.actions: current_actions,

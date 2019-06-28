@@ -50,6 +50,7 @@ class DQN:
         self.target_model = self.create_model("Target")
 
         with tf.name_scope("Eigene_Variablen"):
+            #Training
             self.rewards = tf.placeholder(tf.float32, shape=None, name="Rewards")
 
             self.reward_max = tf.get_variable("Max", dtype=tf.float32, initializer=tf.constant(0.0))
@@ -64,6 +65,20 @@ class DQN:
             self.reward_sum = tf.get_variable("Sum", dtype=tf.float32, initializer=tf.constant(0.0))
             self.reward_sum_op = self.reward_sum.assign(tf.math.reduce_sum(self.rewards))
 
+            # Validation
+            self.val_rewards = tf.placeholder(tf.float32, shape=None, name="Val_Rewards")
+            self.val_reward_max = tf.get_variable("Val_Max", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.val_reward_max_op = self.val_reward_max.assign(tf.math.reduce_max(self.val_rewards))
+
+            self.val_reward_min = tf.get_variable("Val_Min", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.val_reward_min_op = self.val_reward_min.assign(tf.math.reduce_min(self.val_rewards))
+
+            self.val_reward_mean = tf.get_variable("Val_Mean", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.val_reward_mean_op = self.val_reward_mean.assign(tf.math.reduce_mean(self.val_rewards))
+            
+            self.val_reward_sum = tf.get_variable("Val_Sum", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.val_reward_sum_op = self.val_reward_sum.assign(tf.math.reduce_sum(self.val_rewards))
+
             self.loss = tf.placeholder(tf.float32, name="Loss")
             self.accuracy = tf.placeholder(tf.float32, name="Accuracy")
 
@@ -77,6 +92,12 @@ class DQN:
             self.summary_reward_mean = summary.scalar("Mean", self.reward_mean_op)
             self.summary_reward_max = summary.scalar("Max", self.reward_max_op)
             self.summary_reward_min = summary.scalar("Min", self.reward_min_op)
+        with tf.name_scope("Val_Reward_Stats"):
+            self.summary_val_rewards = summary.histogram("Rewards", self.val_rewards)
+            self.summary_val_reward = summary.scalar("Sum", self.val_reward_sum_op)
+            self.summary_val_reward_mean = summary.scalar("Mean", self.val_reward_mean_op)
+            self.summary_val_reward_max = summary.scalar("Max", self.val_reward_max_op)
+            self.summary_val_reward_min = summary.scalar("Min", self.val_reward_min_op)
 
         with tf.name_scope("Bestand_Stats"):
             self.summary_actions = summary.histogram("Actions", self.actions)
@@ -91,10 +112,15 @@ class DQN:
                 self.summary_reward, 
                 self.summary_reward_mean, 
                 self.summary_reward_max, 
-                self.summary_reward_min, 
+                self.summary_reward_min,
+                self.summary_val_reward, 
+                self.summary_val_reward_mean, 
+                self.summary_val_reward_max, 
+                self.summary_val_reward_min, 
                 self.summary_loss, 
                 self.summary_mse,
                 self.summary_rewards,
+                self.summary_val_rewards,
                 self.summary_theo_bestand,
                 self.summary_fakt_bestand,
                 self.summary_actions,
