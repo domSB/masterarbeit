@@ -18,7 +18,7 @@ save_pickled = False
 
 memory_size = 364*2*200
 gamma = 0.7
-epsilon = 0.01
+epsilon = 1
 epsilon_min = 0.01
 epsilon_decay = 0.999
 learning_rate = 0.001
@@ -27,7 +27,7 @@ n_step = 64
 
 epochs = 4000
 
-update_target_network = batch_size * 100
+update_target_network = batch_size * 25
 
 state_shape = 40
 action_space = 10
