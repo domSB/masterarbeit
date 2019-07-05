@@ -41,7 +41,7 @@ def load_prices(path):
     df = df.drop(columns=["Zeile"])
     return df
 
-def load_sales(path, artikel_maske):
+def load_sales(path, artikel_maske, is_trainer):
     #TODO: Statische Artikelinfo aus der Absatztabelle rausnehmen. (Warengruppe, Abteilung)
     """
      for artikel in train_data["Artikel"].unique():
@@ -102,8 +102,10 @@ def load_sales(path, artikel_maske):
                 timeline['Train']['Ende']
                 ) for artikel in artikel_maske}
         print("ping ...")
-
-    return test_data, train_data, timeline
+    if is_trainer:
+        return train_data, timeline['Train']
+    else:
+        return test_data, timeline['Test']
 
 
 def copy_data_to_numpy(big_df, artikel, start, end):
@@ -126,7 +128,6 @@ class StockSimulation:
         
         """
         #TODO: Laden der Absatzdaten an neue .csv-Dateien anpassen
-        self.artikelstamm = load_artikel(os.path.join(data_dir, '1 Artikelstamm.csv'))
 
         # Warengruppen auswählen
         # 13 Frischmilch
@@ -134,58 +135,127 @@ class StockSimulation:
         # 69 Tabak
         # 8 Obst Allgemen
         warengruppen_maske = [8, 13, 14, 69 ]
-        self.artikelstamm = self.artikelstamm[self.artikelstamm.Warengruppe.isin(warengruppen_maske)]
-        artikel_maske = np.unique(self.artikelstamm.index.values)
-
-        if is_trainer:
-            # FÜr schnelleres Ausführen, wenn sich die Daten nicht ändern.
-            if use_pickled:
-                with open("data/train_data.pickle", "rb") as file:
-                    train_data = pickle.load(file)
-
-                with open("data/test_data.pickle", "rb") as file:
-                    test_data = pickle.load(file)
-
-                with open("data/timeline.pickle", "rb") as file:
-                    timeline = pickle.load(file)
-            else:
-                test_data, train_data, timeline = load_sales(os.path.join(data_dir, '1 Absatz.csv'), artikel_maske)
-
-            if save_pickled:
-                with open("data/train_data.pickle", "wb") as file:
-                    pickle.dump(train_data, file)
-
-                with open("data/test_data.pickle", "wb") as file:
-                    pickle.dump(test_data, file)
-
-                with open("data/timeline.pickle", "wb") as file:
-                    pickle.dump(timeline, file)
-            self.absatz_data = train_data
-            self.start_tag =timeline['Train']['Start']
-            self.end_tag = timeline['Train']['Ende']
-            self.test_data = test_data
-            self.timeline_for_validator = timeline
-        else:
-            self.absatz_data = test_data
-            self.start_tag =timeline['Test']['Start']
-            self.end_tag = timeline['Test']['Ende']
-
-
-        self.kalender_tage = self.end_tag - self.start_tag + 1
-
-        preise = load_prices(os.path.join(data_dir, '1 Preise.csv'))
-        #TODO: 1 Preise.csv für Artikel aus Altenkessel anpassen
-
-        self.wetter = load_weather(os.path.join(data_dir, '1 Wetter.csv'), self.start_tag, self.end_tag)
-        
         self.warengruppen = warengruppen_maske
         self.anz_wg = len(self.warengruppen)
-        self.artikel = artikel_maske
+
+        if is_trainer:
+            filename = 'data/simulation.pickle'
+        else:
+            filename = 'data/validator.pickle'
+            # FÜr schnelleres Ausführen, wenn sich die Daten nicht ändern.
+
+        if use_pickled:
+            with open(filename, "rb") as file:
+                self.absatz_data = pickle.load(file)
+                timeline = pickle.load(file)
+                self.artikelstamm = pickle.load(file)
+                self.artikel = pickle.load(file)
+                self.wetter = pickle.load(file)
+                self.kalender_tage = pickle.load(file)
+                self.static_state_data = pickle.load(file)
+            self.start_tag =timeline['Start']
+            self.end_tag = timeline['Ende']
+            self.kalender_tage = self.end_tag - self.start_tag + 1
+        else:
+            self.artikelstamm = load_artikel(os.path.join(data_dir, '1 Artikelstamm.csv'))
+            self.artikelstamm = self.artikelstamm[self.artikelstamm.Warengruppe.isin(warengruppen_maske)]
+                
+            self.artikel = np.unique(self.artikelstamm.index.values)
+
+            self.absatz_data, timeline = load_sales(os.path.join(data_dir, '1 Absatz.csv'), self.artikel, is_trainer)
+
+            self.start_tag =timeline['Start']
+            self.end_tag = timeline['Ende']
+
+            #TODO: 1 Preise.csv für Artikel aus Altenkessel anpassen
+            preise = load_prices(os.path.join(data_dir, '1 Preise.csv'))
+
+            self.wetter = load_weather(os.path.join(data_dir, '1 Wetter.csv'), self.start_tag, self.end_tag)
+
+            self.kalender_tage = self.end_tag - self.start_tag + 1
+
+            olt = np.array([1])  # Fürs erste
+
+            """ Statische Artikel Informationen """
+            #region StatischeArtikelInformationen
+            self.static_state_data = {}
+            for artikel in tqdm(self.artikel):
+                artikel_data = self.artikelstamm.loc[artikel].iloc[0] # Je Artikelindex 2 Einträge, da 2 BewegungsbaumIDs
+                warengruppennummer = artikel_data.Warengruppe
+                warengruppen_index = self.warengruppen.index(warengruppennummer)
+                warengruppen_state = to_categorical(warengruppen_index, num_classes=self.anz_wg)
+
+                eigenmarke = artikel_data.Eigenmarke
+                if eigenmarke == 0:
+                    eigenmarke = -1
+                eigenmarke = np.array([eigenmarke])
+
+                gattungsmarke = artikel_data.GuG
+                if gattungsmarke == 0:
+                    gattungsmarke = -1
+                gattungsmarke = np.array([gattungsmarke])
+
+                einheit = artikel_data.Einheit
+                einheit_state = to_categorical(einheit, num_classes=9)
+
+                mhd = artikel_data.MHD
+                if mhd < 8:
+                    mhd_state = -1
+                elif mhd < 31:
+                    mhd_state = 0
+                else:
+                    mhd_state = 1
+                mhd_state = np.array([mhd_state])
+
+                ose = artikel_data.OSE
+                ose = np.array([ose])
+
+                try:
+                    artikel_preis = preise.loc[artikel]
+                except KeyError: # Weil .csv aktuell nur für einen Markt
+                    artikel_preis = 0
+                # Work Around aufgrund schlechter Ausgangsdaten
+                if type(artikel_preis) == pd.core.frame.DataFrame:
+                    artikel_preis = np.array(
+                        [artikel_preis[artikel_preis.Datum == max(artikel_preis.Datum)]["Preis"].iat[0]]
+                    )
+                elif type(artikel_preis) == pd.core.series.Series:
+                    artikel_preis = np.array([artikel_preis["Preis"]])
+                elif type(artikel_preis) == int:
+                    artikel_preis = np.array([artikel_preis])
+                else:
+                    raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
+
+                self.static_state_data[artikel] = {
+                    "Warengruppe": warengruppen_state, 
+                    "OrderLeadTime": olt, 
+                    "Preis": artikel_preis,
+                    "Eigenmarke": eigenmarke,
+                    "Gattungsmarke": gattungsmarke,
+                    "Einheit": einheit_state,
+                    "MHD": mhd_state,
+                    "OSE": ose
+                    }
+            #endregion
+            del preise
+
+        if save_pickled:
+            with open(filename, "wb") as file:
+                pickle.dump(self.absatz_data, file)
+                pickle.dump(timeline, file)
+                pickle.dump(self.artikelstamm, file)
+                pickle.dump(self.artikel, file)
+                pickle.dump(self.wetter, file)
+                pickle.dump(self.kalender_tage, file)
+                pickle.dump(self.static_state_data, file)
+        
+
+        
         self.maerkte = list(self.absatz_data.keys())
 
         self.time_series_lenght = time_series_lenght
 
-        olt = np.array([1])  # Fürs erste
+        
         self.fertig = None
         self.anfangsbestand = None
         self.vergangene_tage = None
@@ -200,81 +270,7 @@ class StockSimulation:
         self.stat_theo_bestand = None
         self.stat_fakt_bestand = None
 
-        self.static_state_data = {}
-        for artikel in tqdm(self.artikel):
-            artikel_data = self.artikelstamm.loc[artikel].iloc[0] # Je Artikelindex 2 Einträge, da 2 BewegungsbaumIDs
-            warengruppennummer = artikel_data.Warengruppe
-            warengruppen_index = self.warengruppen.index(warengruppennummer)
-            warengruppen_state = to_categorical(warengruppen_index, num_classes=self.anz_wg)
-
-            eigenmarke = artikel_data.Eigenmarke
-            if eigenmarke == 0:
-                eigenmarke = -1
-            eigenmarke = np.array([eigenmarke])
-
-            gattungsmarke = artikel_data.GuG
-            if gattungsmarke == 0:
-                gattungsmarke = -1
-            gattungsmarke = np.array([gattungsmarke])
-
-            einheit = artikel_data.Einheit
-            einheit_state = to_categorical(einheit, num_classes=9)
-
-            mhd = artikel_data.MHD
-            if mhd < 8:
-                mhd_state = -1
-            elif mhd < 31:
-                mhd_state = 0
-            else:
-                mhd_state = 1
-            mhd_state = np.array([mhd_state])
-
-            ose = artikel_data.OSE
-            ose = np.array([ose])
-
-            try:
-                artikel_preis = preise.loc[artikel]
-            except KeyError: # Weil .csv aktuell nur für einen Markt
-                artikel_preis = 0
-            # Work Around aufgrund schlechter Ausgangsdaten
-            if type(artikel_preis) == pd.core.frame.DataFrame:
-                artikel_preis = np.array(
-                    [artikel_preis[artikel_preis.Datum == max(artikel_preis.Datum)]["Preis"].iat[0]]
-                )
-            elif type(artikel_preis) == pd.core.series.Series:
-                artikel_preis = np.array([artikel_preis["Preis"]])
-            elif type(artikel_preis) == int:
-                artikel_preis = np.array([artikel_preis])
-            else:
-                raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
-
-            self.static_state_data[artikel] = {
-                "Warengruppe": warengruppen_state, 
-                "OrderLeadTime": olt, 
-                "Preis": artikel_preis,
-                "Eigenmarke": eigenmarke,
-                "Gattungsmarke": gattungsmarke,
-                "Einheit": einheit_state,
-                "MHD": mhd_state,
-                "OSE": ose
-                }
-
-        del preise
-
         self.aktueller_tag = self.start_tag
-        
-    def get_test_data(self):
-        """ Methode, um die Testdaten aus dem Trainer zu kopieren."""
-        return self.test_data, self.timeline_for_validator
-
-    def del_test_data(self):
-        """ 
-        Methode, um die Testdaten aus dem Trainer zu löschen, 
-        sobald diese in eine neue Instanz der Simulation kopiert wurden.
-        """
-        del self.test_data
-        del self.timeline_for_validator
-        return
 
     def create_new_state(self, wochentag):
         new_state = np.concatenate(

@@ -66,11 +66,11 @@ data_dir = 'data'
 
 simulation = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, True)
 
-test_data, timeline = simulation.get_test_data()
+# test_data, timeline = simulation.get_test_data()
 
-simulation.del_test_data()
+# simulation.del_test_data()
 
-validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False, test_data, timeline)
+validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False)
 
 agent = DQN(
     memory_size, 
