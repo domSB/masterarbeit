@@ -28,9 +28,6 @@
     <Compile Include="main.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="model\__init__.py">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="regression.py">
       <SubType>Code</SubType>
     </Compile>
@@ -48,7 +45,6 @@
     <InterpreterReference Include="CondaEnv|CondaEnv|masterarbeit" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="model\" />
     <Folder Include="network\" />
     <Folder Include="simulation\" />
   </ItemGroup>
