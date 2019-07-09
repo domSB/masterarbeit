@@ -29,6 +29,9 @@ Warenausgang = pd.read_csv(
     os.path.join(DATA_PATH, '99 Art_WA.csv')
     )
 
+Warenbestand = pd.read_csv(
+    os.path.join(DATA_PATH, '99 Art_WB.csv')
+    )
 Wareneingang['Datum'] =  pd.to_datetime(Wareneingang['Datum'], format='%Y-%m-%d')
 Warenausgang['Datum'] =  pd.to_datetime(Warenausgang['Datum'], format='%Y-%m-%d')
 
@@ -40,7 +43,15 @@ Wareneingang = Wareneingang.set_index(Wareneingang.Datum)
 
 
 date = datetime.datetime(2018,1,1)
-initialbestand = 10
+"""
+Initialbestand ist nicht ganz klar. Bei Inventur wird das Delta zwischen theoretischem Bestand und faktischem Bestand verbucht. 
+D.h. Bestandstabelle enhält faktischen Bestand zum Zeitpunkt der letzten INventur, plus Hinzurechnung und Abzüge aus Lieferung, Abschrift und Umsatz
+Theoretischer Bestand läuft jedoch teilsweise ins Minus. 
+"""
+we_gesamt = sum(Wareneingang.loc[date:Warenbestand.Datum[0]].Menge)
+wa_gesamt = sum(Warenausgang.loc[date:Warenbestand.Datum[0]].Menge)
+
+initialbestand = Warenbestand.Anfangsbestand[0] - we_gesamt + wa_gesamt
 bestand = initialbestand
 bestandslinie = []
 zeitlinie = []
@@ -80,6 +91,8 @@ while True:
 
 
 plt.plot(zeitlinie, bestandslinie)
+plt.title('Bestandsentwicklung Artikel: ' + str(Warenbestand.Artikel[0]))
 plt.show()
 plt.plot(zeitlinie, [reward(x) for x in bestandslinie])
+plt.title('Belohnungen Artikel: ' + str(Warenbestand.Artikel[0]))
 plt.show()
