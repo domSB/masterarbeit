@@ -7,6 +7,7 @@ import multiprocessing
 from collections import deque
 import os
 import pickle
+from calender import get_german_holiday_calendar
 
 def load_artikel(path):
     df = pd.read_csv(
@@ -249,7 +250,11 @@ class StockSimulation:
                 pickle.dump(self.kalender_tage, file)
                 pickle.dump(self.static_state_data, file)
         
-
+        cal_cls = get_german_holiday_calendar('SL')
+        self.feiertage = cal_cls().holidays(
+            pd.Timestamp.fromtimestamp(self.start_tag*24*3600),
+            pd.Timestamp.fromtimestamp(self.end_tag*24*3600) +pd.DateOffset(3)
+            )
         
         self.maerkte = list(self.absatz_data.keys())
 
@@ -270,15 +275,16 @@ class StockSimulation:
         self.stat_theo_bestand = None
         self.stat_fakt_bestand = None
 
-        self.aktueller_tag = self.start_tag
+        self.aktueller_tag = pd.Timestamp.fromtimestamp(self.start_tag*24*3600)
 
-    def create_new_state(self, wochentag, kalenderwoche):
+    def create_new_state(self, wochentag, kalenderwoche, feiertage):
         new_state = np.concatenate(
             [
                 self.akt_prod_markt,
                 np.array([self.akt_prod_bestand]), 
                 wochentag, 
                 kalenderwoche,
+                feiertage,
                 self.akt_prod_wg,
                 self.akt_prod_eigenmarke,
                 self.akt_prod_gattungsmarke,
@@ -338,7 +344,12 @@ class StockSimulation:
         kalenderwoche = self.aktueller_tag.weekofyear
         kalenderwoche = to_categorical(kalenderwoche, num_classes=53)
 
-        new_state = self.create_new_state(wochentag, kalenderwoche)
+        feiertage = np.zeros(4, dtype=np.int)
+        for i in range(1, 5):
+            if self.aktueller_tag.date() + pd.DateOffset(i) in self.feiertage:
+                feiertage[i-1] = 1
+
+        new_state = self.create_new_state(wochentag, kalenderwoche, feiertage)
         
         self.time_series_state = deque(maxlen=self.time_series_lenght)
         for _ in range(self.time_series_lenght):
@@ -354,15 +365,23 @@ class StockSimulation:
         self.aktueller_tag += pd.DateOffset(1)
         self.vergangene_tage += 1
 
-        if self.aktueller_tag.dayofweek == 6: # Sonntag
-            self.aktueller_tag += pd.DateOffset(1)
-            self.vergangene_tage += 1
+        while True:
+            if self.aktueller_tag.dayofweek == 6 or self.aktueller_tag.date() in self.feiertage: # Sonntag
+                self.aktueller_tag += pd.DateOffset(1)
+                self.vergangene_tage += 1
+            else:
+                break
         
         wochentag = self.aktueller_tag.dayofweek
         wochentag = to_categorical(wochentag, num_classes=7)
 
         kalenderwoche = self.aktueller_tag.weekofyear
         kalenderwoche = to_categorical(kalenderwoche, num_classes=53)
+
+        feiertage = np.zeros(4, dtype=np.int)
+        for i in range(1, 5):
+            if self.aktueller_tag.date() + pd.DateOffset(i) in self.feiertage:
+                feiertage[i-1] = 1
 
         #TODO: OrderLeadTime durch eine action-Deque realisieren
 
@@ -384,7 +403,7 @@ class StockSimulation:
         # Nachmittag: Bestellung kommt an und wird verräumt
         self.akt_prod_bestand += action
         
-        new_state = self.create_new_state(wochentag, kalenderwoche)
+        new_state = self.create_new_state(wochentag, kalenderwoche, feiertage)
 
         self.time_series_state.append(new_state)
 
@@ -402,6 +421,9 @@ def test(simulation, lenght):
         while not done:
             k += 1
             reward, done, state = simulation.make_action(3)
+            if simulation.aktueller_tag.date() in simulation.feiertage:
+                print("Feiertag")
+                print(simulation.aktueller_tag)
         print(' %s Tage durchlaufen' % k)
 
 """ 
