@@ -13,7 +13,7 @@ try:
 except ImportError:
     print('Pandas could not be imported')
     raise
-from german_holidays.state_codes import STATE_CODE_MAP, StateCodeError
+from calender.state_codes import STATE_CODE_MAP, StateCodeError
 
 
 class ChristiHimmelfahrt(Easter):

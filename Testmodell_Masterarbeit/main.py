@@ -29,7 +29,7 @@ epochs = 4000
 
 update_target_network = batch_size * 25
 
-state_shape = 40
+state_shape = 93
 action_space = 10
 
 time_series_lenght = 10

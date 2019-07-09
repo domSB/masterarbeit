@@ -272,12 +272,13 @@ class StockSimulation:
 
         self.aktueller_tag = self.start_tag
 
-    def create_new_state(self, wochentag):
+    def create_new_state(self, wochentag, kalenderwoche):
         new_state = np.concatenate(
             [
                 self.akt_prod_markt,
                 np.array([self.akt_prod_bestand]), 
                 wochentag, 
+                kalenderwoche,
                 self.akt_prod_wg,
                 self.akt_prod_eigenmarke,
                 self.akt_prod_gattungsmarke,
@@ -301,7 +302,7 @@ class StockSimulation:
         self.stat_theo_bestand = []
         self.stat_fakt_bestand = []
         self.anfangsbestand = np.random.randint(0, 10)
-        self.aktueller_tag = self.start_tag
+        self.aktueller_tag = pd.Timestamp.fromtimestamp(self.start_tag*24*3600)
         self.vergangene_tage = 0
         if artikel:
             assert artikel in self.artikel, "Simulation kennt diesen Artikel nicht."
@@ -331,11 +332,13 @@ class StockSimulation:
         else:
             self.akt_prod_markt = np.array([1])
 
-        wochentag = self.aktueller_tag % 7
-
+        wochentag = self.aktueller_tag.dayofweek
         wochentag = to_categorical(wochentag, num_classes=7)
 
-        new_state = self.create_new_state(wochentag)
+        kalenderwoche = self.aktueller_tag.weekofyear
+        kalenderwoche = to_categorical(kalenderwoche, num_classes=53)
+
+        new_state = self.create_new_state(wochentag, kalenderwoche)
         
         self.time_series_state = deque(maxlen=self.time_series_lenght)
         for _ in range(self.time_series_lenght):
@@ -348,14 +351,18 @@ class StockSimulation:
 
         absatz = self.akt_prod_absatz[self.vergangene_tage][0]
 
-        self.aktueller_tag += 1
+        self.aktueller_tag += pd.DateOffset(1)
         self.vergangene_tage += 1
 
-        if self.aktueller_tag % 7 == 3: # Sonntag
-            self.aktueller_tag += 1
+        if self.aktueller_tag.dayofweek == 6: # Sonntag
+            self.aktueller_tag += pd.DateOffset(1)
             self.vergangene_tage += 1
         
-        wochentag = self.aktueller_tag % 7
+        wochentag = self.aktueller_tag.dayofweek
+        wochentag = to_categorical(wochentag, num_classes=7)
+
+        kalenderwoche = self.aktueller_tag.weekofyear
+        kalenderwoche = to_categorical(kalenderwoche, num_classes=53)
 
         #TODO: OrderLeadTime durch eine action-Deque realisieren
 
@@ -376,10 +383,8 @@ class StockSimulation:
 
         # Nachmittag: Bestellung kommt an und wird verräumt
         self.akt_prod_bestand += action
-
-        wochentag = to_categorical(wochentag, num_classes=7)
         
-        new_state = self.create_new_state(wochentag)
+        new_state = self.create_new_state(wochentag, kalenderwoche)
 
         self.time_series_state.append(new_state)
 

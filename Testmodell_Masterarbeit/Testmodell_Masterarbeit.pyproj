@@ -25,6 +25,11 @@
     <Compile Include="baseline.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="calender\german_holidays.py" />
+    <Compile Include="calender\state_codes.py" />
+    <Compile Include="calender\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="main.py">
       <SubType>Code</SubType>
     </Compile>
@@ -40,11 +45,15 @@
     <Compile Include="simulation\__init__.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="CondaEnv|CondaEnv|masterarbeit" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="calender\" />
     <Folder Include="network\" />
     <Folder Include="simulation\" />
   </ItemGroup>
