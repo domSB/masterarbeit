@@ -41,58 +41,59 @@ Warenausgang['Datum'] =  pd.to_datetime(Warenausgang['Datum'], format='%Y-%m-%d'
 Warenausgang = Warenausgang.set_index(Warenausgang.Datum)
 Wareneingang = Wareneingang.set_index(Wareneingang.Datum)
 
+alle_artikel = Warenbestand.Artikel.to_numpy()
 
-date = datetime.datetime(2018,1,1)
-"""
-Initialbestand ist nicht ganz klar. Bei Inventur wird das Delta zwischen theoretischem Bestand und faktischem Bestand verbucht. 
-D.h. Bestandstabelle enhält faktischen Bestand zum Zeitpunkt der letzten INventur, plus Hinzurechnung und Abzüge aus Lieferung, Abschrift und Umsatz
-Theoretischer Bestand läuft jedoch teilsweise ins Minus. 
-"""
-we_gesamt = sum(Wareneingang.loc[date:Warenbestand.Datum[0]].Menge)
-wa_gesamt = sum(Warenausgang.loc[date:Warenbestand.Datum[0]].Menge)
+for artikel in alle_artikel:
+    date = datetime.datetime(2018,1,1)
 
-initialbestand = Warenbestand.Anfangsbestand[0] - we_gesamt + wa_gesamt
-bestand = initialbestand
-bestandslinie = []
-zeitlinie = []
-i = 0
-while True:
-    if date == datetime.datetime(2019, 6, 2):
-        break
-    print(i)
-    bestandslinie.append(bestand)
-    zeitlinie.append(date)
-    try:
-        we = Wareneingang.loc[date]
-    except KeyError:
-        we = None
-    try:
-        wa = Warenausgang.loc[date]
-    except KeyError:
-        wa = None
-    if wa is not None:
-        if wa.index.has_duplicates:
-            for idx, wa_action in wa.iterrows():
-                bestand -= wa_action.Menge
-        else:    
-            bestand -= wa.Menge
+    artikel_wareneingang = Wareneingang[Wareneingang.Artikel == artikel]
+    artikel_warenausgang = Warenausgang[Warenausgang.Artikel == artikel]
+    artikel_warenbestand = Warenbestand[Warenbestand.Artikel == artikel]
 
-    if we is not None:
-        if we.index.has_duplicates:
-            for idx, we_action in we.iterrows():
-                bestand += we_action.Menge
-        else:    
-            bestand += we.Menge
+    we_gesamt = sum(artikel_wareneingang.loc[date:artikel_warenbestand.Datum.iat[0]].Menge)
+    wa_gesamt = sum(artikel_warenausgang.loc[date:artikel_warenbestand.Datum.iat[0]].Menge)
+
+    initialbestand = artikel_warenbestand.Anfangsbestand.iat[0] - we_gesamt + wa_gesamt
+    bestand = initialbestand
+    bestandslinie = []
+    zeitlinie = []
+    i = 0
+    while True:
+        if date == datetime.datetime(2019, 6, 2):
+            break
+        bestandslinie.append(bestand)
+        zeitlinie.append(date)
+        try:
+            we = artikel_wareneingang.loc[date]
+        except KeyError:
+            we = None
+        try:
+            wa = artikel_warenausgang.loc[date]
+        except KeyError:
+            wa = None
+        if wa is not None:
+            if wa.index.has_duplicates:
+                for idx, wa_action in wa.iterrows():
+                    bestand -= wa_action.Menge
+            else:    
+                bestand -= wa.Menge
+
+        if we is not None:
+            if we.index.has_duplicates:
+                for idx, we_action in we.iterrows():
+                    bestand += we_action.Menge
+            else:    
+                bestand += we.Menge
 
         
 
-    date += datetime.timedelta(days=1)
-    i += 1
+        date += datetime.timedelta(days=1)
+        i += 1
 
-
-plt.plot(zeitlinie, bestandslinie)
-plt.title('Bestandsentwicklung Artikel: ' + str(Warenbestand.Artikel[0]))
-plt.show()
-plt.plot(zeitlinie, [reward(x) for x in bestandslinie])
-plt.title('Belohnungen Artikel: ' + str(Warenbestand.Artikel[0]))
-plt.show()
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    ax1.plot(zeitlinie, bestandslinie)
+    ax1.set_title('Bestandsentwicklung')
+    ax2.plot(zeitlinie, [reward(x) for x in bestandslinie])
+    ax2.set_title('Belohnungen')
+    fig.suptitle('Artikel: ' + str(artikel_warenbestand.Artikel.iat[0]), fontsize='large')
+    plt.show()
