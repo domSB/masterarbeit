@@ -15,6 +15,7 @@ use_model_path = os.path.join('model', '2019-06-28-15.06.17', 'model.h5')
 use_saved_model = False
 use_pickled = False
 save_pickled = True
+simulation_group = 'Markt'
 
 memory_size = 364*2*200
 gamma = 0.7
@@ -64,13 +65,13 @@ possible_actions = [
 #region Initilize
 data_dir = 'data'
 
-simulation = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, True)
+simulation = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, True, simulation_group)
 
 # test_data, timeline = simulation.get_test_data()
 
 # simulation.del_test_data()
 
-validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False)
+validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False, simulation_group)
 
 agent = DQN(
     memory_size, 

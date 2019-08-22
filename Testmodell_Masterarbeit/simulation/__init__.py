@@ -61,6 +61,7 @@ def load_sales(path, artikel_maske, is_trainer):
     df = df.sort_index()
 
     maerkte = pd.unique(df.index.get_level_values('Markt'))
+    artikel = pd.unique(df.index.get_level_values('Artikel'))
 
 
     test_data = {}
@@ -97,9 +98,9 @@ def load_sales(path, artikel_maske, is_trainer):
                 ) for artikel in artikel_maske}
         print("ping ...")
     if is_trainer:
-        return train_data, timeline['Train']
+        return train_data, timeline['Train'], artikel
     else:
-        return test_data, timeline['Test']
+        return test_data, timeline['Test'], artikel
 
 
 def copy_data_to_numpy(big_df, artikel, start, end):
@@ -118,7 +119,7 @@ def copy_data_to_numpy(big_df, artikel, start, end):
 
 
 class StockSimulation:
-    def __init__(self, data_dir, time_series_lenght, use_pickled, save_pickled, is_trainer, test_data=None, timeline=None):
+    def __init__(self, data_dir, time_series_lenght, use_pickled, save_pickled, is_trainer, simulation_group, test_data=None, timeline=None):
         """
         Lädt Daten selbstständig aus Data_dir und erstellt das Simulationsmodell.
         Trainigsdurchlauf nur mit pickled-Data. Preprocessing führt langsames Reindexing durch und benötigt 20+ min.
@@ -127,13 +128,14 @@ class StockSimulation:
         """
 
         warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28 ]
+        # warengruppen_maske = [77]
         self.warengruppen = warengruppen_maske
         self.anz_wg = len(self.warengruppen)
 
         if is_trainer:
-            filename = 'data/simulation.pickle'
+            filename = 'data/simulation.' + simulation_group + '.pickle'
         else:
-            filename = 'data/validator.pickle'
+            filename = 'data/validator.' + simulation_group + '.pickle'
             # FÜr schnelleres Ausführen, wenn sich die Daten nicht ändern.
 
         if use_pickled:
@@ -154,7 +156,7 @@ class StockSimulation:
                 
             self.artikel = np.unique(self.artikelstamm.index.values)
 
-            self.absatz_data, timeline = load_sales(os.path.join(data_dir, '1 Absatz.Markt.csv'), self.artikel, is_trainer)
+            self.absatz_data, timeline, self.artikel = load_sales(os.path.join(data_dir, '1 Absatz.' + simulation_group + '.csv'), self.artikel, is_trainer)
 
             self.start_tag =timeline['Start']
             self.end_tag = timeline['Ende']
@@ -203,18 +205,21 @@ class StockSimulation:
                 ose = np.array([ose])
 
                 try:
-                    artikel_preis = preise.loc[artikel]
-                except KeyError: # Weil .csv aktuell nur für einen Markt
-                    artikel_preis = 0
-                # Work Around aufgrund schlechter Ausgangsdaten
+                    artikel_preis = preise.loc[artikel].copy()
+                except KeyError:
+                    artikel_preis = pd.DataFrame(
+                        data={'Preis': [0], 'Datum': ["2016-01-01"]}
+                        )
+
+
                 if type(artikel_preis) == pd.core.frame.DataFrame:
-                    artikel_preis = np.array(
-                        [artikel_preis[artikel_preis.Datum == max(artikel_preis.Datum)]["Preis"].iat[0]]
-                    )
+                    artikel_preis = artikel_preis.set_index("Datum")
+
                 elif type(artikel_preis) == pd.core.series.Series:
-                    artikel_preis = np.array([artikel_preis["Preis"]])
-                elif type(artikel_preis) == int:
-                    artikel_preis = np.array([artikel_preis])
+                    pd.DataFrame(
+                        data={'Preis': [artikel_preis.Preis]}, 
+                        index=[artikel_preis.Datum]
+                        )
                 else:
                     raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
 
@@ -269,6 +274,9 @@ class StockSimulation:
         self.aktueller_tag = pd.Timestamp.fromtimestamp(self.start_tag*24*3600)
 
     def create_new_state(self, wochentag, kalenderwoche, feiertage):
+        preis = self.akt_prod_preis[
+            self.akt_prod_preis.index <= self.aktueller_tag.date.__str__()
+            ].iloc[-1].Preis
         new_state = np.concatenate(
             [
                 self.akt_prod_markt,
@@ -281,7 +289,7 @@ class StockSimulation:
                 self.akt_prod_gattungsmarke,
                 self.akt_prod_einheit,
                 self.akt_prod_mhd,
-                self.akt_prod_preis, 
+                [preis], 
                 self.wetter[self.vergangene_tage], 
                 self.wetter[self.vergangene_tage+1]
                 ]
@@ -357,7 +365,7 @@ class StockSimulation:
         self.vergangene_tage += 1
 
         while True:
-            if self.aktueller_tag.dayofweek == 6 or self.aktueller_tag.date() in self.feiertage: # Sonntag
+            if self.aktueller_tag.dayofweek == 6 or self.aktueller_tag.date() in self.feiertage: # Sonntag oder Feiertage
                 self.aktueller_tag += pd.DateOffset(1)
                 self.vergangene_tage += 1
             else:
