@@ -24,7 +24,7 @@ def load_weather(path, start, ende):
         memory_map=True
 
         )
-    df = df.drop(columns=["Unnamed: 0", "HauptGruppe", "NebenGruppe"])
+    df = df.drop(columns=["Unnamed: 0"])
     df = df[df.index.isin(range(start, ende +3))]
     # Plus 2 Tage, da Wetter von morgen und übermorgen verwendet wird
     return df.to_numpy()
