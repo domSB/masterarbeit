@@ -52,68 +52,65 @@ def load_sales(path, artikel_maske, is_trainer):
         parse_dates=['Datum'], 
         memory_map=True
         )
-    df = df.drop(columns=['Unnamed: 0'])
-    df["Datum"] = df.index.get_level_values('Datum')
+    df.reset_index(inplace=True)
+    # df["Datum"] = df.index.get_level_values('Datum')
     df["UNIXDatum"] = df["Datum"].astype(np.int64)/(1000000000 * 24 * 3600)
-    df["Artikel"] = df.index.get_level_values('Artikel')
+    df.drop(columns=['Unnamed: 0'], inplace=True)
+    df.set_index(["Markt", "UNIXDatum"], inplace=True)
 
     df = df[df.Artikel.isin(artikel_maske)]
     df = df.sort_index()
 
     maerkte = pd.unique(df.index.get_level_values('Markt'))
-    artikel = pd.unique(df.index.get_level_values('Artikel'))
+    artikel = pd.unique(df.Artikel)
 
 
     test_data = {}
     train_data = {}
     train = df[df.Datum.dt.year.isin([2017, 2018])]
     test = df[df.Datum.dt.year.isin([2019])]
+    train.drop(columns=['Datum'], inplace=True)
+    test.drop(columns=['Datum'], inplace=True)
     timeline = {
     "Train": {
-        "Start": int(min(train.UNIXDatum)),
-        "Ende": int(max(train.UNIXDatum))
+        "Start": int(min(train.index.get_level_values('UNIXDatum'))),
+        "Ende": int(max(train.index.get_level_values('UNIXDatum')))
         },
     "Test": {
-        "Start": int(min(test.UNIXDatum)),
-        "Ende": int(max(test.UNIXDatum))
+        "Start": int(min(test.index.get_level_values('UNIXDatum'))),
+        "Ende": int(max(test.index.get_level_values('UNIXDatum')))
         }
     }
+    markt_artikel = {"Train": {}, "Test": {}}
     for markt in maerkte:
-        temp_train = train.loc[(slice(markt,markt),slice(None),slice(None)),:]
-        temp_test = test.loc[(slice(markt,markt),slice(None),slice(None)),:]
+        temp_train = train.loc[markt]
+        temp_test = test.loc[markt]
 
         print("ping .")
-        test_data[markt] = {
-            artikel: copy_data_to_numpy(
-                temp_test, artikel, 
-                timeline['Test']['Start'], 
-                timeline['Test']['Ende']
-                ) for artikel in artikel_maske}
+        test_data[markt] = get_grouped_dict(temp_test, timeline['Test']['Start'],  timeline['Test']['Ende'])
         print("ping ..")
-        train_data[markt] = {
-            artikel: copy_data_to_numpy(
-                temp_train, artikel, 
-                timeline['Train']['Start'], 
-                timeline['Train']['Ende']
-                ) for artikel in artikel_maske}
+        train_data[markt] = get_grouped_dict(temp_train, timeline['Train']['Start'],  timeline['Train']['Ende'])
         print("ping ...")
+        markt_artikel['Train'][markt] = np.array(list(train_data[markt].keys()))
+        markt_artikel['Test'][markt] = np.array(list(test_data[markt].keys()))
     if is_trainer:
-        return train_data, timeline['Train'], artikel
+        return train_data, timeline['Train'], artikel,  markt_artikel['Train']
     else:
-        return test_data, timeline['Test'], artikel
+        return test_data, timeline['Test'], artikel, markt_artikel['Test']
 
 
-def copy_data_to_numpy(big_df, artikel, start, end):
+def get_grouped_dict(df, start, end):
     """
-    Returns a numpy array with lenght end - start + 1. 
-    Days without Sales are filled with zeros
-    """
-    s = big_df[big_df.Artikel == artikel].copy()
-    s.set_index(s.UNIXDatum, inplace=True)
-    s = s.drop(columns=["Datum", "Artikel", "UNIXDatum"])
-    s = s.reindex(range(int(start), int(end+1)), fill_value=0)
 
-    return s.to_numpy()
+    """
+    grouped = df.groupby('Artikel')
+    grouped = grouped.apply(lambda x: x.reindex(range(int(start), int(end+1)), fill_value=0))
+    grouped.drop(columns=["Artikel"], inplace=True)
+    grouped.index = grouped.index.droplevel(1)
+    grouped = dict(tuple(grouped.groupby('Artikel')))
+    grouped = {id: frame.to_numpy() for id, frame in grouped.items()}
+
+    return grouped
 
 
 
@@ -127,8 +124,8 @@ class StockSimulation:
         
         """
 
-        warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28 ]
-        # warengruppen_maske = [77]
+        # warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28 ]
+        warengruppen_maske = [77]
         self.warengruppen = warengruppen_maske
         self.anz_wg = len(self.warengruppen)
 
@@ -147,6 +144,7 @@ class StockSimulation:
                 self.wetter = pickle.load(file)
                 self.kalender_tage = pickle.load(file)
                 self.static_state_data = pickle.load(file)
+                self.markt_artikel = pickle.load(file)
             self.start_tag =timeline['Start']
             self.end_tag = timeline['Ende']
             self.kalender_tage = self.end_tag - self.start_tag + 1
@@ -156,7 +154,7 @@ class StockSimulation:
                 
             self.artikel = np.unique(self.artikelstamm.index.values)
 
-            self.absatz_data, timeline, self.artikel = load_sales(os.path.join(data_dir, '1 Absatz.' + simulation_group + '.csv'), self.artikel, is_trainer)
+            self.absatz_data, timeline, self.artikel, self.markt_artikel = load_sales(os.path.join(data_dir, '1 Absatz.' + simulation_group + '.csv'), self.artikel, is_trainer)
 
             self.start_tag =timeline['Start']
             self.end_tag = timeline['Ende']
@@ -216,12 +214,14 @@ class StockSimulation:
                     artikel_preis = artikel_preis.set_index("Datum")
 
                 elif type(artikel_preis) == pd.core.series.Series:
-                    pd.DataFrame(
+                    artikel_preis = pd.DataFrame(
                         data={'Preis': [artikel_preis.Preis]}, 
                         index=[artikel_preis.Datum]
                         )
                 else:
                     raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
+
+                print(type(artikel_preis))
 
                 self.static_state_data[artikel] = {
                     "Warengruppe": warengruppen_state, 
@@ -245,6 +245,7 @@ class StockSimulation:
                 pickle.dump(self.wetter, file)
                 pickle.dump(self.kalender_tage, file)
                 pickle.dump(self.static_state_data, file)
+                pickle.dump(self.markt_artikel, file)
         
         cal_cls = get_german_holiday_calendar('SL')
         self.feiertage = cal_cls().holidays(
@@ -274,9 +275,14 @@ class StockSimulation:
         self.aktueller_tag = pd.Timestamp.fromtimestamp(self.start_tag*24*3600)
 
     def create_new_state(self, wochentag, kalenderwoche, feiertage):
-        preis = self.akt_prod_preis[
-            self.akt_prod_preis.index <= self.aktueller_tag.date.__str__()
-            ].iloc[-1].Preis
+        try:
+            preis = self.akt_prod_preis[
+                self.akt_prod_preis.index <= self.aktueller_tag.date().__str__()
+                ].iloc[-1].Preis
+        except IndexError:
+            # Wenn Preis erst unterjährig eingetragen, aber Simulation vollen Zeitraum für das Produkt durchgeht.
+            preis = self.akt_prod_preis.iloc[0].Preis
+
         new_state = np.concatenate(
             [
                 self.akt_prod_markt,
@@ -309,17 +315,18 @@ class StockSimulation:
         self.anfangsbestand = np.random.randint(0, 10)
         self.aktueller_tag = pd.Timestamp.fromtimestamp(self.start_tag*24*3600)
         self.vergangene_tage = 0
-        if artikel:
-            assert artikel in self.artikel, "Simulation kennt diesen Artikel nicht."
-            self.aktuelles_produkt = artikel
-        else:
-            self.aktuelles_produkt = np.random.choice(self.artikel, 1)[0]
-        
+
         if markt:
             assert markt in self.maerkte, "Simulation kennt diesen Markt nicht."
             self.aktueller_markt = markt
         else:
             self.aktueller_markt = np.random.choice(self.maerkte, 1)[0]
+
+        if artikel:
+            assert artikel in self.markt_artikel[self.aktueller_markt], "Simulation kennt diesen Artikel in diesem Markt nicht."
+            self.aktuelles_produkt = artikel
+        else:
+            self.aktuelles_produkt = np.random.choice(self.markt_artikel[self.aktueller_markt], 1)[0]
 
         self.akt_prod_bestand = self.anfangsbestand
         self.akt_prod_absatz = self.absatz_data[self.aktueller_markt][self.aktuelles_produkt]

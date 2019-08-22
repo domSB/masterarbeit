@@ -14,7 +14,7 @@ do_train = False
 use_model_path = os.path.join('model', '2019-06-28-15.06.17', 'model.h5')
 use_saved_model = False
 use_pickled = False
-save_pickled = True
+save_pickled = False
 simulation_group = 'Markt'
 
 memory_size = 364*2*200
@@ -66,12 +66,11 @@ possible_actions = [
 data_dir = 'data'
 
 simulation = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, True, simulation_group)
-
 # test_data, timeline = simulation.get_test_data()
 
 # simulation.del_test_data()
 
-validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False, simulation_group)
+# validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False, simulation_group)
 
 agent = DQN(
     memory_size, 
@@ -162,6 +161,8 @@ def train():
                 break
     agent.writer.close()
     agent.sess.close()
+
+
 
 # cProfile.run('train()', 'cpu_profile.pstat')
 if do_train:
