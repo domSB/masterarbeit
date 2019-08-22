@@ -45,6 +45,12 @@
     <Compile Include="simulation\__init__.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="utils\update_h5_files.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="utils\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="__init__.py">
       <SubType>Code</SubType>
     </Compile>
@@ -56,6 +62,7 @@
     <Folder Include="calender\" />
     <Folder Include="network\" />
     <Folder Include="simulation\" />
+    <Folder Include="utils\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

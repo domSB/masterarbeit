@@ -425,22 +425,3 @@ def test(simulation, lenght):
                 print("Feiertag")
                 print(simulation.aktueller_tag)
         print(' %s Tage durchlaufen' % k)
-
-""" 
-For Testing and Debugging
-
-"""
-#LOAD = False
-#SAVE = True
-#TRAINER = True
-#VALIDATOR = False
-#LENGTH = 10
-
-#simulation = StockSimulation('data', LENGTH, LOAD, SAVE, TRAINER)
-#test_data, timeline = simulation.get_test_data()
-#simulation.del_test_data()
-#validator = StockSimulation('data', LENGTH, LOAD, SAVE, VALIDATOR, test_data, timeline)
-#print("Test Simulation")
-#test(simulation, 10)
-#print("Test Validator")
-#test(validator, 10)

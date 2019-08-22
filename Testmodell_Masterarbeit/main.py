@@ -10,9 +10,9 @@ import cProfile
 
 """ Hyperparameters """
 #region  Hyperparameter
-do_train = True
+do_train = False
 use_model_path = os.path.join('model', '2019-06-28-15.06.17', 'model.h5')
-use_saved_model = False
+use_saved_model = True
 use_pickled = True
 save_pickled = False
 
@@ -88,7 +88,6 @@ agent = DQN(
 
 if use_saved_model:
     agent.load(use_model_path)
-    #TODO: Model laden ermöglichen. Derzeit Bug beim Laden. Eventuell nur Weights speichern.
 
 #endregion
 
@@ -164,7 +163,8 @@ def train():
     agent.sess.close()
 
 # cProfile.run('train()', 'cpu_profile.pstat')
-train()
+if do_train:
+    train()
 #endregion
        
 

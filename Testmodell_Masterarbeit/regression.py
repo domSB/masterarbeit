@@ -10,7 +10,6 @@ from keras.utils import to_categorical
 
 from tqdm import tqdm
 
-#                 self.akt_prod_markt,
                 #np.array([self.akt_prod_bestand]), 
                 #feiertage,
 #
@@ -84,7 +83,7 @@ wetter["date_shifted_twodays"] = wetter["date"] + 2
 wetter = wetter.drop(columns=['Unnamed: 0', 'NebenGruppe', 'HauptGruppe'])
 dataframe = pd.merge(dataframe, wetter, left_on='UNIXDatum', right_on='date_shifted_oneday')
 dataframe = pd.merge(dataframe, wetter, left_on='UNIXDatum', right_on='date_shifted_twodays')
-
+dataframe.drop(columns=["date_shifted_oneday_x", "date_shifted_twodays_x", "date_shifted_oneday_y", "date_shifted_twodays_y"], inplace=True)
 
 preise = pd.read_csv(
     'F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implementation/Echtdaten/0 RegulärePreise.csv',
@@ -135,17 +134,18 @@ test = test.reset_index().drop(["level_0"], axis=1)
 test["Aktion"] = 1
 dataframe = pd.merge(dataframe, test.loc[:,["value","Artikel", "Aktion", "relAbweichung"]], left_on=['Aktion', 'Datum', 'Artikel'], right_on=['Aktion', 'value', 'Artikel'], how='left')
 dataframe.relAbweichung.fillna(0, inplace=True)
+dataframe.drop(columns=["value"], inplace=True)
+store = pd.HDFStore('./data/time.h5')
 
-#aktionspreise_reindexed = pd.concat([pd.DataFrame({'Datum': pd.date_range(row.DatumAb, row.DatumBis, freq='d'),
-#               'Artikel': row.Artikel,
-#               'relAbweichung': row.relAbweichung}, columns=['Datum', 'Artikel', 'relAbweichung']) 
-#           for i, row in aktionspreise.iterrows()], ignore_index=True)
-#aktionspreise_reindexed.drop_duplicates(inplace=True) # Entsteht durch Überschneidungen bei Werbezeiträumen
-#aktionspreise_reindexed["Aktion"] = 1
-#dataframe.shape
-#dataframe = pd.merge(dataframe, aktionspreise_reindexed, left_on=['Aktion', 'Datum', 'Artikel'], right_on=['Aktion', 'Datum', 'Artikel'], how='left')
-#dataframe.shape
-#dataframe.relAbweichung.fillna(0, inplace=True)
+store.put('dataframe', dataframe)
+store.close()
 
+""" 
+Hier mit fertigen Daten weiterarbeiten 
+"""
+store = pd.HDFStore('./data/time.h5')
+dataframe = store.get('dataframe')
+store.close()
+dataframe = dataframe.dropna() # Artikel ohne Preise => nur aktuell ein Problem
 
 

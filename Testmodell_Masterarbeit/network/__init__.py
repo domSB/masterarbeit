@@ -199,7 +199,8 @@ class DQN:
         self.target_model.save(os.path.join(self.modeldir, "model.h5"))
     
     def load(self, path):
-        model = tf.keras.models.load_model(path)
+        model = tf.keras.models.load_model(path, compile=False)
+        model.compile(optimizer=RMSprop(lr=self.learning_rate), loss='mse', metrics=["accuracy"])
         self.target_model = model
         self.model = model
 
