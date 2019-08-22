@@ -12,9 +12,9 @@ import cProfile
 #region  Hyperparameter
 do_train = False
 use_model_path = os.path.join('model', '2019-06-28-15.06.17', 'model.h5')
-use_saved_model = True
-use_pickled = True
-save_pickled = False
+use_saved_model = False
+use_pickled = False
+save_pickled = True
 
 memory_size = 364*2*200
 gamma = 0.7

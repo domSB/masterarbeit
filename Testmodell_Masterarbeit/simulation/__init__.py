@@ -43,10 +43,8 @@ def load_prices(path):
     return df
 
 def load_sales(path, artikel_maske, is_trainer):
-    #TODO: Statische Artikelinfo aus der Absatztabelle rausnehmen. (Warengruppe, Abteilung)
     """
-     for artikel in train_data["Artikel"].unique():
-         warengruppen.append([artikel, train_data.loc[(slice(None), slice(5550,5550)),:].iloc[0].Warengruppe])
+    
     """
     df = pd.read_csv(
         path, 
@@ -83,11 +81,6 @@ def load_sales(path, artikel_maske, is_trainer):
         temp_train = train.loc[(slice(markt,markt),slice(None),slice(None)),:]
         temp_test = test.loc[(slice(markt,markt),slice(None),slice(None)),:]
 
-        #
-        # Die Timeline ist je Markt unterschiedlich. 
-        # Mit neuen Daten testen, ob SQL-Script Error oder andere Fehlerherkunft.
-        #
-
         print("ping .")
         test_data[markt] = {
             artikel: copy_data_to_numpy(
@@ -110,7 +103,10 @@ def load_sales(path, artikel_maske, is_trainer):
 
 
 def copy_data_to_numpy(big_df, artikel, start, end):
-    """Returns a numpy array with lenght = self.kalendertage. Days without Sales are filled with zeros"""
+    """
+    Returns a numpy array with lenght end - start + 1. 
+    Days without Sales are filled with zeros
+    """
     s = big_df[big_df.Artikel == artikel].copy()
     s.set_index(s.UNIXDatum, inplace=True)
     s = s.drop(columns=["Datum", "Artikel", "UNIXDatum"])
@@ -124,18 +120,13 @@ def copy_data_to_numpy(big_df, artikel, start, end):
 class StockSimulation:
     def __init__(self, data_dir, time_series_lenght, use_pickled, save_pickled, is_trainer, test_data=None, timeline=None):
         """
-        Lädt Daten selbstständig aus Data_dir und erstellt das Simulationsmodell. 
+        Lädt Daten selbstständig aus Data_dir und erstellt das Simulationsmodell.
+        Trainigsdurchlauf nur mit pickled-Data. Preprocessing führt langsames Reindexing durch und benötigt 20+ min.
         1. Episode entspricht einem Durchlauf mit einem Artikel.
         
         """
-        #TODO: Laden der Absatzdaten an neue .csv-Dateien anpassen
 
-        # Warengruppen auswählen
-        # 13 Frischmilch
-        # 14 Joghurt
-        # 69 Tabak
-        # 8 Obst Allgemen
-        warengruppen_maske = [8, 13, 14, 69 ]
+        warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28 ]
         self.warengruppen = warengruppen_maske
         self.anz_wg = len(self.warengruppen)
 
@@ -163,7 +154,7 @@ class StockSimulation:
                 
             self.artikel = np.unique(self.artikelstamm.index.values)
 
-            self.absatz_data, timeline = load_sales(os.path.join(data_dir, '1 Absatz.csv'), self.artikel, is_trainer)
+            self.absatz_data, timeline = load_sales(os.path.join(data_dir, '1 Absatz.Markt.csv'), self.artikel, is_trainer)
 
             self.start_tag =timeline['Start']
             self.end_tag = timeline['Ende']
