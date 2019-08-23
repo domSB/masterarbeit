@@ -135,8 +135,8 @@ class DQN:
             #TODO: Weigth Regulization und Dropout-Layer einfügen
             inputs = Input(shape=(self.time_series_length, self.state_shape))
             x = LSTM(64, activation='relu', name="LSTM")(inputs)
-            x = Dense(64, activation='relu', name="Dense_1")(x)
-            x = Dense(128, activation='relu', name="Dense_2")(x)
+            x = Dense(32, activation='relu', name="Dense_1")(x)
+            x = Dense(32, activation='relu', name="Dense_2")(x)
             predictions = Dense(self.action_space, activation='relu', name="Predictions")(x)
             model = Model(inputs=inputs, outputs=predictions)
             model.compile(optimizer=RMSprop(lr=self.learning_rate), loss='mse', metrics=["accuracy"])

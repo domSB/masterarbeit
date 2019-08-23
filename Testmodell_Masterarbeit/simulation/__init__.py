@@ -67,8 +67,9 @@ def load_sales(path, artikel_maske, is_trainer):
 
     test_data = {}
     train_data = {}
-    train = df[df.Datum.dt.year.isin([2017, 2018])]
-    test = df[df.Datum.dt.year.isin([2019])]
+    train = df[df.Datum.dt.year.isin([2016, 2017])].copy()
+    test = df[df.Datum.dt.year.isin([2018])].copy()
+    # Keine 2019 Absatzdaten verwenden, da historische Wetterdaten nur bis April und Absatzdaten bis Juni
     train.drop(columns=['Datum'], inplace=True)
     test.drop(columns=['Datum'], inplace=True)
     timeline = {
@@ -124,8 +125,8 @@ class StockSimulation:
         
         """
 
-        # warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28 ]
-        warengruppen_maske = [77]
+        warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28 ]
+        # warengruppen_maske = [77]
         self.warengruppen = warengruppen_maske
         self.anz_wg = len(self.warengruppen)
 
@@ -221,8 +222,6 @@ class StockSimulation:
                 else:
                     raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
 
-                print(type(artikel_preis))
-
                 self.static_state_data[artikel] = {
                     "Warengruppe": warengruppen_state, 
                     "OrderLeadTime": olt, 
@@ -300,7 +299,6 @@ class StockSimulation:
                 self.wetter[self.vergangene_tage+1]
                 ]
             )
-
         return new_state
 
     def reset(self, artikel=None, markt=None):
@@ -348,7 +346,7 @@ class StockSimulation:
         wochentag = to_categorical(wochentag, num_classes=7)
 
         kalenderwoche = self.aktueller_tag.weekofyear
-        kalenderwoche = to_categorical(kalenderwoche, num_classes=53)
+        kalenderwoche = to_categorical(kalenderwoche, num_classes=54)
 
         feiertage = np.zeros(4, dtype=np.int)
         for i in range(1, 5):
@@ -382,7 +380,7 @@ class StockSimulation:
         wochentag = to_categorical(wochentag, num_classes=7)
 
         kalenderwoche = self.aktueller_tag.weekofyear
-        kalenderwoche = to_categorical(kalenderwoche, num_classes=53)
+        kalenderwoche = to_categorical(kalenderwoche, num_classes=54)
 
         feiertage = np.zeros(4, dtype=np.int)
         for i in range(1, 5):
@@ -413,7 +411,8 @@ class StockSimulation:
 
         self.time_series_state.append(new_state)
 
-        if self.vergangene_tage == self.kalender_tage -1:
+        if self.vergangene_tage >= self.kalender_tage -1:
+            # auch größer, falls letzter Tag ein Sonn/Feiertag ist und übersprungen wird.
             self.fertig = True
 
         return reward, self.fertig, np.array(self.time_series_state)

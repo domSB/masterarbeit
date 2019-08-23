@@ -10,30 +10,30 @@ import cProfile
 
 """ Hyperparameters """
 #region  Hyperparameter
-do_train = False
+do_train = True
 use_model_path = os.path.join('model', '2019-06-28-15.06.17', 'model.h5')
 use_saved_model = False
-use_pickled = False
+use_pickled = True
 save_pickled = False
-simulation_group = 'Markt'
+simulation_group = 'Time'
 
 memory_size = 364*2*200
 gamma = 0.7
 epsilon = 1
 epsilon_min = 0.01
 epsilon_decay = 0.999
-learning_rate = 0.001
+learning_rate = 0.01
 batch_size = 64
-n_step = 64
+n_step = 128
 
 epochs = 4000
 
-update_target_network = batch_size * 25
+update_target_network = n_step * 25
 
-state_shape = 92
+state_shape = 97
 action_space = 10
 
-time_series_lenght = 10
+time_series_lenght = 6
 
 order_none = 0
 order_one = 1
@@ -66,11 +66,8 @@ possible_actions = [
 data_dir = 'data'
 
 simulation = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, True, simulation_group)
-# test_data, timeline = simulation.get_test_data()
 
-# simulation.del_test_data()
-
-# validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False, simulation_group)
+validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False, simulation_group)
 
 agent = DQN(
     memory_size, 
