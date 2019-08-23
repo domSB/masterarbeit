@@ -42,6 +42,16 @@ def load_prices(path):
     df = df.drop(columns=["Zeile"])
     return df
 
+def load_promotions(path):
+    df = pd.read_csv(
+    path, 
+    header=0,
+    index_col='Artikel', 
+    parse_dates=['DatumAb', 'DatumBis'],
+    memory_map=True
+    )
+    return df
+
 def load_sales(path, artikel_maske, is_trainer):
     """
     
@@ -160,8 +170,9 @@ class StockSimulation:
             self.start_tag =timeline['Start']
             self.end_tag = timeline['Ende']
 
-            #TODO: 1 Preise.csv für Artikel aus Altenkessel anpassen
             preise = load_prices(os.path.join(data_dir, '1 Preise.csv'))
+
+            aktionen = load_promotions(os.path.join(data_dir, '1 Preisaktionen.csv'))
 
             self.wetter = load_weather(os.path.join(data_dir, '1 Wetter.csv'), self.start_tag, self.end_tag)
 
@@ -209,8 +220,6 @@ class StockSimulation:
                     artikel_preis = pd.DataFrame(
                         data={'Preis': [0], 'Datum': ["2016-01-01"]}
                         )
-
-
                 if type(artikel_preis) == pd.core.frame.DataFrame:
                     artikel_preis = artikel_preis.set_index("Datum")
 
@@ -222,10 +231,16 @@ class StockSimulation:
                 else:
                     raise AssertionError("Unknown Type for Price: {}".format(type(artikel_preis)))
 
+                try:
+                    aktionspreise = aktionen.loc[artikel].copy()
+                except KeyError:
+                    aktionspreise = None
+
                 self.static_state_data[artikel] = {
                     "Warengruppe": warengruppen_state, 
                     "OrderLeadTime": olt, 
                     "Preis": artikel_preis,
+                    "Aktionspreise": aktionspreise,
                     "Eigenmarke": eigenmarke,
                     "Gattungsmarke": gattungsmarke,
                     "Einheit": einheit_state,
@@ -282,6 +297,32 @@ class StockSimulation:
             # Wenn Preis erst unterjährig eingetragen, aber Simulation vollen Zeitraum für das Produkt durchgeht.
             preis = self.akt_prod_preis.iloc[0].Preis
 
+        promotions = np.zeros(3)
+        if self.akt_prod_promotionen is not None:
+            if type(self.akt_prod_promotionen) == pd.core.series.Series:
+                if self.akt_prod_promotionen.DatumAb.date() >= self.aktueller_tag.date():
+                    if self.akt_prod_promotionen.DatumBis.date() <= self.aktueller_tag.date():
+                        promotions = np.array([
+                            self.akt_prod_promotionen.relRabat, 
+                            self.akt_prod_promotionen.absRabat,
+                            self.akt_prod_promotionen.vDauer
+                            ])
+            elif type(self.akt_prod_promotionen) == pd.core.frame.DataFrame:
+                promotions_df = self.akt_prod_promotionen[
+                    (self.akt_prod_promotionen.DatumAb.dt.date>=self.aktueller_tag.date()) & 
+                    (self.akt_prod_promotionen.DatumBis.dt.date<=self.aktueller_tag.date())
+                    ]
+                if not promotions_df.empty:
+                    promotions_df = promotions_df.iloc[0]
+                    promotions_df = np.array([
+                        promotions_df.relRabat, 
+                        promotions_df.absRabat,
+                        promotions_df.vDauer
+                        ])
+            else:
+                raise TypeError('Unbekannter Promotionstyp')
+
+
         new_state = np.concatenate(
             [
                 self.akt_prod_markt,
@@ -294,7 +335,8 @@ class StockSimulation:
                 self.akt_prod_gattungsmarke,
                 self.akt_prod_einheit,
                 self.akt_prod_mhd,
-                [preis], 
+                [preis],
+                promotions,
                 self.wetter[self.vergangene_tage], 
                 self.wetter[self.vergangene_tage+1]
                 ]
@@ -330,6 +372,7 @@ class StockSimulation:
         self.akt_prod_absatz = self.absatz_data[self.aktueller_markt][self.aktuelles_produkt]
         self.akt_prod_wg = self.static_state_data[self.aktuelles_produkt]["Warengruppe"]
         self.akt_prod_preis = self.static_state_data[self.aktuelles_produkt]["Preis"]
+        self.akt_prod_promotionen = self.static_state_data[self.aktuelles_produkt]["Aktionspreise"]
         self.akt_prod_olt = self.static_state_data[self.aktuelles_produkt]["OrderLeadTime"]
         self.akt_prod_eigenmarke = self.static_state_data[self.aktuelles_produkt]["Eigenmarke"]
         self.akt_prod_gattungsmarke = self.static_state_data[self.aktuelles_produkt]["Gattungsmarke"]

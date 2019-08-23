@@ -17,7 +17,7 @@ use_pickled = True
 save_pickled = False
 simulation_group = 'Time'
 
-epochs = 600
+epochs = 1000
 memory_size = 364*2*200
 gamma = 0.7
 epsilon = 1
@@ -30,7 +30,7 @@ n_step = 128
 
 update_target_network = n_step * 25
 
-state_shape = 97
+state_shape = 100
 action_space = 10
 
 time_series_lenght = 6
