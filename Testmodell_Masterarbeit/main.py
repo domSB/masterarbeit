@@ -17,16 +17,16 @@ use_pickled = True
 save_pickled = False
 simulation_group = 'Time'
 
+epochs = 600
 memory_size = 364*2*200
 gamma = 0.7
 epsilon = 1
 epsilon_min = 0.01
 epsilon_decay = 0.999
 learning_rate = 0.01
+lr_decay = 0.01/epochs
 batch_size = 64
 n_step = 128
-
-epochs = 4000
 
 update_target_network = n_step * 25
 
@@ -74,7 +74,8 @@ agent = DQN(
     state_shape, 
     action_space, 
     gamma,
-    learning_rate, 
+    learning_rate,
+    lr_decay,
     batch_size, 
     epsilon, 
     epsilon_decay, 

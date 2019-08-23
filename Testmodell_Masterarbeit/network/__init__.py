@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense, LSTM
-from tensorflow.keras.optimizers import RMSprop
+from tensorflow.keras.optimizers import RMSprop, Adam
 from tensorflow.keras.callbacks import TensorBoard
 
 from tensorflow import summary, Variable, Session
@@ -21,7 +21,8 @@ class DQN:
                  state_shape, 
                  action_space, 
                  gamma, 
-                 learning_rate, 
+                 learning_rate,
+                 lr_decay,
                  batch_size, 
                  epsilon, 
                  epsilon_decay, 
@@ -34,6 +35,7 @@ class DQN:
         self.action_space = action_space
         self.gamma = gamma
         self.learning_rate = learning_rate
+        self.lr_decay = lr_decay
         self.batch_size = batch_size
         self.epsilon = epsilon 
         self.epsilon_decay = epsilon_decay
@@ -139,7 +141,8 @@ class DQN:
             x = Dense(32, activation='relu', name="Dense_2")(x)
             predictions = Dense(self.action_space, activation='relu', name="Predictions")(x)
             model = Model(inputs=inputs, outputs=predictions)
-            model.compile(optimizer=RMSprop(lr=self.learning_rate), loss='mse', metrics=["accuracy"])
+            adam = Adam(lr=self.learning_rate, decay=self.lr_decay)
+            model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
         
         return model
 
@@ -200,7 +203,8 @@ class DQN:
     
     def load(self, path):
         model = tf.keras.models.load_model(path, compile=False)
-        model.compile(optimizer=RMSprop(lr=self.learning_rate), loss='mse', metrics=["accuracy"])
+        adam = Adam(lr=self.learning_rate, decay=self.lr_decay)
+        model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
         self.target_model = model
         self.model = model
 
