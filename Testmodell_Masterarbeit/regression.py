@@ -10,65 +10,63 @@ from keras.utils import to_categorical
 
 from tqdm import tqdm
 
-                #np.array([self.akt_prod_bestand]), 
-                #feiertage,
-#
-#
 
+from calender import get_german_holiday_calendar
+
+DATA_PATH = os.path.join('F:', 'OneDrive', 'Dokumente', '1 Universität - Master', '6. Semester', 'Masterarbeit', 'Implementation', 'Echtdaten')
+
+Artikelstamm = pd.read_csv(
+    os.path.join(DATA_PATH, '0 ArtikelstammV4.csv'),
+    header=0,
+    names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
+       'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
+       'GuG', 'OSE', 'OSEText', 'Saisonal',
+       'Kern', 'Bio', 'Glutenfrei',
+       'Laktosefrei', 'MarkeFK', 'Region'],
+    memory_map=True
+    )
+warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28 ]
+Artikelstamm = Artikelstamm[Artikelstamm.Warengruppe.isin(warengruppen_maske)]
+artikel_maske = pd.unique(Artikelstamm.Artikel)
+Artikelstamm = Artikelstamm.set_index('Artikel')
 
 warenausgang = pd.read_csv(
-    'F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implementation/Echtdaten/0 Warenausgang.time.csv', 
-    header=1,
-    names = ['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum'],
-    memory_map=True
+    os.path.join(DATA_PATH, '0 Warenausgang.time.csv'),
+    header=0,
+    names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
     )
+
+warenausgang = warenausgang[warenausgang.Artikel.isin(artikel_maske)]
+
 warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
 warenausgang['Belegtyp'] = warenausgang['Belegtyp'].astype('category')
-warenausgang = warenausgang.drop(columns=['Markt'])
-dataframe = warenausgang.loc[(warenausgang.Belegtyp=='UMSATZ_SCANNING') | (warenausgang.Belegtyp=='UMSATZ_AKTION')].copy()
-dataframe = dataframe.groupby(["Datum", "Artikel", "Belegtyp"],  as_index=False).agg({"Menge": "sum"})
-del warenausgang
-dataframe['Wochentag'] = dataframe.Datum.dt.dayofweek
+warenausgang.drop(columns=['Markt'], inplace=True)
+warenausgang = warenausgang.loc[(warenausgang.Belegtyp=='UMSATZ_SCANNING') | (warenausgang.Belegtyp=='UMSATZ_AKTION')].copy()
+warenausgang = warenausgang.groupby(["Datum", "Artikel"],  as_index=False).sum()
+
+cal_cls = get_german_holiday_calendar('SL')
+cal = cal_cls()
+sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Tue Fri Sat')
+zeitraum = pd.date_range('2018-01-01', '2018-12-31', freq=sl_bd)
+
+warenausgang.set_index('Datum', inplace=True)
+warenausgang = warenausgang.groupby('Artikel').apply(lambda x: x.reindex(zeitraum, fill_value=0))
+warenausgang.drop(columns=['Artikel'], inplace=True)
+warenausgang.reset_index(inplace=True)
+warenausgang.rename(columns={'level_1': 'Datum'}, inplace=True)
+
+warenausgang.set_index('Artikel', inplace=True)
+"""
+
+Zwischenstand
+
+"""
+
+warenausgang['Wochentag'] = warenausgang.Datum.dt.dayofweek
 # dataframe["Wochentag"] = dataframe["Wochentag"].apply(lambda x: to_categorical(x, num_classes = 7))
-dataframe['Kalenderwoche'] = dataframe.Datum.dt.weekofyear
-dataframe["UNIXDatum"] = dataframe["Datum"].astype(np.int64)/(1000000000 * 24 * 3600)
-dataframe['Aktion'] = 0
-dataframe.loc[dataframe.Belegtyp=='UMSATZ_AKTION', 'Aktion'] = 1
-dataframe = dataframe.drop(columns=['Belegtyp'])
+warenausgang['Kalenderwoche'] = warenausgang.Datum.dt.weekofyear
+warenausgang["UNIXDatum"] = warenausgang["Datum"].astype(np.int64)/(1000000000 * 24 * 3600)
 
-artikelstamm = pd.read_csv(
-    'F:/OneDrive/Dokumente/1 Universität - Master/6. Semester/Masterarbeit/Implementation/Echtdaten/0 ArtikelstammV3.csv', 
-    header=1,
-    names = [
-        'Markt', 
-        'Artikel', 
-        'Warengruppe', 
-        'BWBaumId', 
-        'Bezeichnung', 
-        'Eigenmarke', 
-        'Einheit',
-        'VKEinheit',
-        'MHD',
-        'GuG',
-        'OSE',
-        'OSEText',
-        'Saison',
-        'Kern',
-        'Bio',
-        'Gluten',
-        'Laktose',
-        'MarkeFK',
-        'Region',
-        'FLAID',
-        'Filialartikel',
-        'Artikelnummer',
-        'LieferantenID',
-        'Lieferant'
-        ],
-    memory_map=True
-    )
-
-artikelstamm = artikelstamm.groupby(['Artikel']).mean()
 mhd_labels = [0, 1, 2, 3, 4, 5, 6]
 mhd_bins = [0, 1, 7, 14, 28, 100, 1000, 100000]
 artikelstamm['MHDgroup'] = pd.cut(artikelstamm.MHD, mhd_bins, right=False, labels=mhd_labels)
