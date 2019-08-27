@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense, LSTM, Dropout
+from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import RMSprop, Adam
 from tensorflow.keras.callbacks import TensorBoard
 
@@ -136,11 +137,11 @@ class DQN:
         with tf.name_scope(name):
             #TODO: Weigth Regulization und Dropout-Layer einfügen
             inputs = Input(shape=(self.time_series_length, self.state_shape))
-            x = LSTM(64, activation='relu', name="LSTM")(inputs)
+            x = LSTM(64, activation='relu', kernel_regularizer=l2(0.001), name="LSTM")(inputs)
             x = Dropout(0.16)(x)
-            x = Dense(32, activation='relu', name="Dense_1")(x)
+            x = Dense(128, activation='relu', kernel_regularizer=l2(0.001), name="Dense_1")(x)
             x = Dropout(0.2)(x)
-            x = Dense(32, activation='relu', name="Dense_2")(x)
+            x = Dense(256, activation='relu', kernel_regularizer=l2(0.001), name="Dense_2")(x)
             predictions = Dense(self.action_space, activation='relu', name="Predictions")(x)
             model = Model(inputs=inputs, outputs=predictions)
             adam = Adam(lr=self.learning_rate, decay=self.lr_decay)
