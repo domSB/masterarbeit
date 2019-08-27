@@ -17,7 +17,7 @@ use_pickled = True
 save_pickled = False
 simulation_group = 'Time'
 
-epochs = 1000
+epochs = 1500
 memory_size = 364*2*200
 gamma = 0.7
 epsilon = 1
