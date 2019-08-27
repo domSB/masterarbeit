@@ -31,7 +31,7 @@ n_step = 128
 update_target_network = n_step * 25
 
 state_shape = 100
-action_space = 10
+action_space = 6
 
 time_series_lenght = 6
 
@@ -52,13 +52,13 @@ possible_actions = [
     order_two, 
     order_tree, 
     order_four, 
-    order_five, 
-    order_six, 
-    order_seven, 
-    order_eight, 
-    order_nine
+    order_five
     ]
 
+    #order_six, 
+    #order_seven, 
+    #order_eight, 
+    #order_nine
 #endregion
 
 """ Initialize Objects """
