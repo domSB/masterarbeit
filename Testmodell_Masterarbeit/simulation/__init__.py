@@ -140,7 +140,7 @@ class StockSimulation:
         
         """
 
-        warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28 ]
+        warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28]
         # warengruppen_maske = [77]
         self.warengruppen = warengruppen_maske
         self.anz_wg = len(self.warengruppen)
@@ -274,7 +274,7 @@ class StockSimulation:
         cal_cls = get_german_holiday_calendar('SL')
         self.feiertage = cal_cls().holidays(
             pd.Timestamp.fromtimestamp(self.start_tag*24*3600),
-            pd.Timestamp.fromtimestamp(self.end_tag*24*3600) +pd.DateOffset(3)
+            pd.Timestamp.fromtimestamp(self.end_tag*24*3600) + pd.DateOffset(3)
             )
         
         self.maerkte = list(self.absatz_data.keys())
