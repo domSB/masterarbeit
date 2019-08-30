@@ -11,13 +11,13 @@ import os
 do_train = True
 use_model_path = os.path.join('model', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
-run_description = 'incBatchincGamma'
+run_description = 'LongRun'
 use_pickled = True
 save_pickled = False
 simulation_group = 'Time'
 
-epochs = 1500
-memory_size = 364*2*200
+epochs = 100000
+memory_size = 300*1000
 gamma = 0.9
 if do_train:
     epsilon = 1
