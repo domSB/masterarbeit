@@ -8,19 +8,23 @@ import os
 
 """ Hyperparameters """
 # region  Hyperparameter
-do_train = True
-use_model_path = os.path.join('model', '2019-06-28-15.06.17', 'model.h5')
-use_saved_model = False
+do_train = False
+use_model_path = os.path.join('model', '2019-08-27-23.54.59', 'model.h5')
+use_saved_model = True
 use_pickled = True
 save_pickled = False
 simulation_group = 'Time'
 
-epochs = 1500
+epochs = 10
 memory_size = 364*2*200
 gamma = 0.7
-epsilon = 1
+if do_train:
+    epsilon = 0
+    epsilon_decay = 1
+else:
+    epsilon = 1
+    epsilon_decay = 0.999
 epsilon_min = 0.01
-epsilon_decay = 0.999
 learning_rate = 0.01
 lr_decay = 0.01/epochs
 batch_size = 64
@@ -91,7 +95,7 @@ if use_saved_model:
 # region Training Loop
 
 
-def train():
+def big_loop():
     global_steps = 0
     stats = {"loss": [], "acc": [], "rew": []}
     # TODO: Memory Buffer initial füllen, vor dem Trainingsloog.
@@ -119,12 +123,16 @@ def train():
                 val_state = new_val_state
 
             if global_steps % n_step == 0:
-                history = agent.replay()
-                if history:
-                    curr_loss = history["loss"][0]
-                    curr_acc = history["acc"][0]
-                    stats["loss"].append(curr_loss)
-                    stats["acc"].append(curr_acc)
+                if do_train:
+                    history = agent.replay()
+                    if history:
+                        curr_loss = history["loss"][0]
+                        curr_acc = history["acc"][0]
+                        stats["loss"].append(curr_loss)
+                        stats["acc"].append(curr_acc)
+                else:
+                    curr_loss = 0
+                    curr_acc = 0
             
             if global_steps % update_target_network == 0:
                 agent.target_train()
@@ -132,9 +140,13 @@ def train():
             state = new_state
 
             if fertig:
-                history = agent.replay()
-                curr_loss = history["loss"][0]
-                curr_acc = history["acc"][0]
+                if do_train:
+                    history = agent.replay()
+                    curr_loss = history["loss"][0]
+                    curr_acc = history["acc"][0]
+                else:
+                    curr_loss = 0
+                    curr_acc = 0
                 tf_summary = agent.sess.run(
                     agent.merged, 
                     feed_dict={
@@ -151,10 +163,6 @@ def train():
                 agent.writer.add_summary(tf_summary, epoch)
                 if epoch % 10 == 0:
                     print("Epoche {}".format(epoch))
-                    # print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(
-                    # curr_mean_rew, curr_rew, agent.epsilon
-                    # )
-                    # )
                     agent.save()
                     # TODO: Validate Model with a trial Period in a seperate Simulation
                 else:
@@ -165,6 +173,5 @@ def train():
 
 
 # cProfile.run('train()', 'cpu_profile.pstat')
-if do_train:
-    train()
+big_loop()
 # endregion
