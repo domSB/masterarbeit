@@ -8,6 +8,11 @@ import pickle
 from calender import get_german_holiday_calendar
 
 
+def incremental_mean(step, old_mean, new_x):
+    new_mean = new_x/step + (step-1)/step*old_mean
+    return new_mean
+
+
 def load_artikel(path):
     df = pd.read_csv(
         path,  
@@ -295,7 +300,6 @@ class StockSimulation:
         self.time_series_state = None
         self.stat_theo_bestand = None
         self.stat_fakt_bestand = None
-
         self.aktueller_tag = pd.Timestamp.fromtimestamp(self.start_tag*24*3600)
 
     def create_new_state(self, wochentag, kalenderwoche, feiertage):
@@ -409,6 +413,7 @@ class StockSimulation:
         self.time_series_state = deque(maxlen=self.time_series_lenght)
         for _ in range(self.time_series_lenght):
             self.time_series_state.append(new_state)
+
         return np.array(self.time_series_state), {"Artikel": self.aktuelles_produkt}
 
     def make_action(self, action):

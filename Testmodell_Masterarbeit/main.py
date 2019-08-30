@@ -8,7 +8,7 @@ import os
 
 """ Hyperparameters """
 # region  Hyperparameter
-do_train = False
+do_train = True
 use_model_path = os.path.join('model', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
 run_description = 'incBatchincGamma'
@@ -20,11 +20,11 @@ epochs = 1500
 memory_size = 364*2*200
 gamma = 0.9
 if do_train:
-    epsilon = 0
-    epsilon_decay = 1
-else:
     epsilon = 1
     epsilon_decay = 0.999
+else:
+    epsilon = 0
+    epsilon_decay = 0
 epsilon_min = 0.01
 learning_rate = 0.01
 lr_decay = 0.01/epochs
