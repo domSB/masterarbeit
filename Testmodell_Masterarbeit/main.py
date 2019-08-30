@@ -3,13 +3,11 @@ from simulation import StockSimulation
 from network import DQN
 
 import os
-import numpy as np
-# import tensorflow as tf
 
-import cProfile
+# import cProfile
 
 """ Hyperparameters """
-#region  Hyperparameter
+# region  Hyperparameter
 do_train = True
 use_model_path = os.path.join('model', '2019-06-28-15.06.17', 'model.h5')
 use_saved_model = False
@@ -55,14 +53,14 @@ possible_actions = [
     order_five
     ]
 
-    #order_six, 
-    #order_seven, 
-    #order_eight, 
-    #order_nine
-#endregion
+    # order_six,
+    # order_seven,
+    # order_eight,
+    # order_nine
+# endregion
 
 """ Initialize Objects """
-#region Initilize
+# region Initilize
 data_dir = 'data'
 
 simulation = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, True, simulation_group)
@@ -87,14 +85,16 @@ agent = DQN(
 if use_saved_model:
     agent.load(use_model_path)
 
-#endregion
+# endregion
 
 """ Training Loop """
-#region Training Loop
+# region Training Loop
+
+
 def train():
     global_steps = 0
-    stats = {"loss": [],"acc": [], "rew":[]}
-    #TODO: Memory Buffer initial füllen, vor dem Trainingsloog.
+    stats = {"loss": [], "acc": [], "rew": []}
+    # TODO: Memory Buffer initial füllen, vor dem Trainingsloog.
     for epoch in range(epochs):
         state, info = simulation.reset()
         val_state, _ = validator.reset()
@@ -106,13 +106,13 @@ def train():
             # Train
             action = agent.act(state)
             global_steps += 1
-            reward, fertig, new_state= simulation.make_action(action)
+            reward, fertig, new_state = simulation.make_action(action)
             current_rewards.append(reward)
             current_actions.append(action)
             agent.remember(state, action, reward, new_state, fertig)
 
             # Validate
-            if not val_fertig: # Validation Zeitraum ggf. kürzer oder gleichlang
+            if not val_fertig:  # Validation Zeitraum ggf. kürzer oder gleichlang
                 val_action = agent.act(val_state)
                 val_reward, val_fertig, new_val_state= validator.make_action(val_action)
                 current_val_rewards.append(val_reward)
@@ -151,9 +151,12 @@ def train():
                 agent.writer.add_summary(tf_summary, epoch)
                 if epoch % 10 == 0:
                     print("Epoche {}".format(epoch))
-                    # print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(curr_mean_rew, curr_rew, agent.epsilon))
+                    # print("\tMean reard: {} --- Total Reward: {} --- EXP-EXP: {}".format(
+                    # curr_mean_rew, curr_rew, agent.epsilon
+                    # )
+                    # )
                     agent.save()
-                    #TODO: Validate Model with a trial Period in a seperate Simulation
+                    # TODO: Validate Model with a trial Period in a seperate Simulation
                 else:
                     print('.')
                 break
@@ -161,12 +164,7 @@ def train():
     agent.sess.close()
 
 
-
 # cProfile.run('train()', 'cpu_profile.pstat')
 if do_train:
     train()
-#endregion
-       
-
-    
-    
+# endregion
