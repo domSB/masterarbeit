@@ -1,13 +1,12 @@
-# normaler Datafram
 import pandas as pd
 import numpy as np
 from keras.utils import to_categorical
 from tqdm import tqdm
-import multiprocessing
 from collections import deque
 import os
 import pickle
 from calender import get_german_holiday_calendar
+
 
 def load_artikel(path):
     df = pd.read_csv(
@@ -16,6 +15,7 @@ def load_artikel(path):
         index_col="Artikel"
         )
     return df
+
 
 def load_weather(path, start, ende):
     df = pd.read_csv(
@@ -28,12 +28,13 @@ def load_weather(path, start, ende):
     df = df[df.index.isin(range(start, ende +3))]
     # Plus 2 Tage, da Wetter von morgen und übermorgen verwendet wird
     return df.to_numpy()
-    
+
+
 def load_prices(path):
     df = pd.read_csv(
         path, 
         header=0,
-        names = ['Zeile', 'Preis', 'Artikel', 'Datum'],
+        names=['Zeile', 'Preis', 'Artikel', 'Datum'],
         index_col='Artikel', 
         parse_dates=['Datum'],
         memory_map=True
@@ -42,15 +43,17 @@ def load_prices(path):
     df = df.drop(columns=["Zeile"])
     return df
 
+
 def load_promotions(path):
     df = pd.read_csv(
-    path, 
-    header=0,
-    index_col='Artikel', 
-    parse_dates=['DatumAb', 'DatumBis'],
-    memory_map=True
+        path,
+        header=0,
+        index_col='Artikel',
+        parse_dates=['DatumAb', 'DatumBis'],
+        memory_map=True
     )
     return df
+
 
 def load_sales(path, artikel_maske, is_trainer):
     """
@@ -74,7 +77,6 @@ def load_sales(path, artikel_maske, is_trainer):
     maerkte = pd.unique(df.index.get_level_values('Markt'))
     artikel = pd.unique(df.Artikel)
 
-
     test_data = {}
     train_data = {}
     train = df[df.Datum.dt.year.isin([2016, 2017])].copy()
@@ -83,14 +85,14 @@ def load_sales(path, artikel_maske, is_trainer):
     train.drop(columns=['Datum'], inplace=True)
     test.drop(columns=['Datum'], inplace=True)
     timeline = {
-    "Train": {
-        "Start": int(min(train.index.get_level_values('UNIXDatum'))),
-        "Ende": int(max(train.index.get_level_values('UNIXDatum')))
-        },
-    "Test": {
-        "Start": int(min(test.index.get_level_values('UNIXDatum'))),
-        "Ende": int(max(test.index.get_level_values('UNIXDatum')))
-        }
+        "Train": {
+            "Start": int(min(train.index.get_level_values('UNIXDatum'))),
+            "Ende": int(max(train.index.get_level_values('UNIXDatum')))
+            },
+        "Test": {
+            "Start": int(min(test.index.get_level_values('UNIXDatum'))),
+            "Ende": int(max(test.index.get_level_values('UNIXDatum')))
+            }
     }
     markt_artikel = {"Train": {}, "Test": {}}
     for markt in maerkte:
@@ -124,8 +126,6 @@ def get_grouped_dict(df, start, end):
     return grouped
 
 
-
-
 class StockSimulation:
     def __init__(self, data_dir, time_series_lenght, use_pickled, save_pickled, is_trainer, simulation_group, test_data=None, timeline=None):
         """
@@ -144,7 +144,7 @@ class StockSimulation:
             filename = 'data/simulation.' + simulation_group + '.pickle'
         else:
             filename = 'data/validator.' + simulation_group + '.pickle'
-            # FÜr schnelleres Ausführen, wenn sich die Daten nicht ändern.
+            # Für schnelleres Ausführen, wenn sich die Daten nicht ändern.
 
         if use_pickled:
             with open(filename, "rb") as file:
@@ -156,7 +156,7 @@ class StockSimulation:
                 self.kalender_tage = pickle.load(file)
                 self.static_state_data = pickle.load(file)
                 self.markt_artikel = pickle.load(file)
-            self.start_tag =timeline['Start']
+            self.start_tag = timeline['Start']
             self.end_tag = timeline['Ende']
             self.kalender_tage = self.end_tag - self.start_tag + 1
         else:
@@ -165,9 +165,13 @@ class StockSimulation:
                 
             self.artikel = np.unique(self.artikelstamm.index.values)
 
-            self.absatz_data, timeline, self.artikel, self.markt_artikel = load_sales(os.path.join(data_dir, '1 Absatz.' + simulation_group + '.csv'), self.artikel, is_trainer)
+            self.absatz_data, timeline, self.artikel, self.markt_artikel = load_sales(
+                os.path.join(data_dir, '1 Absatz.' + simulation_group + '.csv'),
+                self.artikel,
+                is_trainer
+            )
 
-            self.start_tag =timeline['Start']
+            self.start_tag = timeline['Start']
             self.end_tag = timeline['Ende']
 
             preise = load_prices(os.path.join(data_dir, '1 Preise.csv'))
@@ -181,10 +185,11 @@ class StockSimulation:
             olt = np.array([1])  # Fürs erste
 
             """ Statische Artikel Informationen """
-            #region StatischeArtikelInformationen
+            # region StatischeArtikelInformationen
             self.static_state_data = {}
             for artikel in tqdm(self.artikel):
-                artikel_data = self.artikelstamm.loc[artikel].iloc[0] # Je Artikelindex 2 Einträge, da 2 BewegungsbaumIDs
+                artikel_data = self.artikelstamm.loc[artikel].iloc[0]
+                # Je Artikelindex 2 Einträge, da 2 BewegungsbaumIDs
                 warengruppennummer = artikel_data.Warengruppe
                 warengruppen_index = self.warengruppen.index(warengruppennummer)
                 warengruppen_state = to_categorical(warengruppen_index, num_classes=self.anz_wg)
@@ -247,7 +252,7 @@ class StockSimulation:
                     "MHD": mhd_state,
                     "OSE": ose
                     }
-            #endregion
+            # endregion
             del preise
 
         if save_pickled:
@@ -271,7 +276,6 @@ class StockSimulation:
 
         self.time_series_lenght = time_series_lenght
 
-        
         self.fertig = None
         self.anfangsbestand = None
         self.vergangene_tage = None
@@ -282,6 +286,12 @@ class StockSimulation:
         self.akt_prod_wg = None
         self.akt_prod_preis = None
         self.akt_prod_olt = None
+        self.akt_prod_promotionen = None
+        self.akt_prod_eigenmarke = None
+        self.akt_prod_gattungsmarke = None
+        self.akt_prod_einheit = None
+        self.akt_prod_mhd = None
+        self.akt_prod_markt = None
         self.time_series_state = None
         self.stat_theo_bestand = None
         self.stat_fakt_bestand = None
@@ -314,14 +324,13 @@ class StockSimulation:
                     ]
                 if not promotions_df.empty:
                     promotions_df = promotions_df.iloc[0]
-                    promotions_df = np.array([
+                    promotions = np.array([
                         promotions_df.relRabat, 
                         promotions_df.absRabat,
                         promotions_df.vDauer
                         ])
             else:
                 raise TypeError('Unbekannter Promotionstyp')
-
 
         new_state = np.concatenate(
             [
@@ -363,7 +372,7 @@ class StockSimulation:
             self.aktueller_markt = np.random.choice(self.maerkte, 1)[0]
 
         if artikel:
-            assert artikel in self.markt_artikel[self.aktueller_markt], "Simulation kennt diesen Artikel in diesem Markt nicht."
+            assert artikel in self.markt_artikel[self.aktueller_markt], 'Simulation kennt diesen Markt-Artikel nicht.'
             self.aktuelles_produkt = artikel
         else:
             self.aktuelles_produkt = np.random.choice(self.markt_artikel[self.aktueller_markt], 1)[0]
@@ -378,7 +387,6 @@ class StockSimulation:
         self.akt_prod_gattungsmarke = self.static_state_data[self.aktuelles_produkt]["Gattungsmarke"]
         self.akt_prod_einheit = self.static_state_data[self.aktuelles_produkt]["Einheit"]
         self.akt_prod_mhd = self.static_state_data[self.aktuelles_produkt]["MHD"]
-
 
         if self.aktueller_markt == 5:
             self.akt_prod_markt = np.array([-1])
@@ -430,7 +438,7 @@ class StockSimulation:
             if self.aktueller_tag.date() + pd.DateOffset(i) in self.feiertage:
                 feiertage[i-1] = 1
 
-        #TODO: OrderLeadTime durch eine action-Deque realisieren
+        # TODO: OrderLeadTime durch eine action-Deque realisieren
 
         # Action ist die Bestellte Menge an Artikeln
         # Tagsüber Absatz abziehen und bewerten:
@@ -460,10 +468,11 @@ class StockSimulation:
 
         return reward, self.fertig, np.array(self.time_series_state)
 
+
 def test(simulation, lenght):
     for i in range(lenght):
         print("Run {}".format(i))
-        state = simulation.reset()
+        _ = simulation.reset()
         done = False
         k = 0
         while not done:
