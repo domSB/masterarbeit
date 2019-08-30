@@ -5,15 +5,6 @@ from collections import deque
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import Model, Input
-from tensorflow.keras.layers import Dense, LSTM, Dropout
-from tensorflow.keras.regularizers import l2
-from tensorflow.keras.optimizers import RMSprop, Adam
-from tensorflow.keras.callbacks import TensorBoard
-
-from tensorflow import summary, Variable, Session
-
-
 
 
 class DQN:
@@ -48,12 +39,12 @@ class DQN:
         self.logdir = "./logs/" + datetime.datetime.today().date().__str__() + "-" \
                       + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
         self.modeldir = "./model/" + datetime.datetime.today().date().__str__() + "-" \
-                      + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
+                        + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
         os.mkdir(self.modeldir)
         self.target_model = self.create_model("Target")
 
         with tf.name_scope("Eigene_Variablen"):
-            #Training
+            # Training
             self.rewards = tf.placeholder(tf.float32, shape=None, name="Rewards")
 
             self.reward_max = tf.get_variable("Max", dtype=tf.float32, initializer=tf.constant(0.0))
@@ -90,27 +81,27 @@ class DQN:
             self.actions = tf.placeholder(tf.float32, shape=None, name="Actions")
             self.tf_epsilon = tf.placeholder(tf.float32, shape=None, name="Epsilon")
         with tf.name_scope("Reward_Stats"):
-            self.summary_rewards = summary.histogram("Rewards", self.rewards)
-            self.summary_reward = summary.scalar("Sum", self.reward_sum_op)
-            self.summary_reward_mean = summary.scalar("Mean", self.reward_mean_op)
-            self.summary_reward_max = summary.scalar("Max", self.reward_max_op)
-            self.summary_reward_min = summary.scalar("Min", self.reward_min_op)
+            self.summary_rewards = tf.summary.histogram("Rewards", self.rewards)
+            self.summary_reward = tf.summary.scalar("Sum", self.reward_sum_op)
+            self.summary_reward_mean = tf.summary.scalar("Mean", self.reward_mean_op)
+            self.summary_reward_max = tf.summary.scalar("Max", self.reward_max_op)
+            self.summary_reward_min = tf.summary.scalar("Min", self.reward_min_op)
         with tf.name_scope("Val_Reward_Stats"):
-            self.summary_val_rewards = summary.histogram("Rewards", self.val_rewards)
-            self.summary_val_reward = summary.scalar("Sum", self.val_reward_sum_op)
-            self.summary_val_reward_mean = summary.scalar("Mean", self.val_reward_mean_op)
-            self.summary_val_reward_max = summary.scalar("Max", self.val_reward_max_op)
-            self.summary_val_reward_min = summary.scalar("Min", self.val_reward_min_op)
+            self.summary_val_rewards = tf.summary.histogram("Rewards", self.val_rewards)
+            self.summary_val_reward = tf.summary.scalar("Sum", self.val_reward_sum_op)
+            self.summary_val_reward_mean = tf.summary.scalar("Mean", self.val_reward_mean_op)
+            self.summary_val_reward_max = tf.summary.scalar("Max", self.val_reward_max_op)
+            self.summary_val_reward_min = tf.summary.scalar("Min", self.val_reward_min_op)
 
         with tf.name_scope("Bestand_Stats"):
-            self.summary_actions = summary.histogram("Actions", self.actions)
-            self.summary_theo_bestand = summary.histogram("TheoretischerBestand", self.theo_bestand)
-            self.summary_fakt_bestand = summary.histogram("FaktischerBestand", self.fakt_bestand)
+            self.summary_actions = tf.summary.histogram("Actions", self.actions)
+            self.summary_theo_bestand = tf.summary.histogram("TheoretischerBestand", self.theo_bestand)
+            self.summary_fakt_bestand = tf.summary.histogram("FaktischerBestand", self.fakt_bestand)
         with tf.name_scope("Model_Stats"):
-            self.summary_loss = summary.scalar("Loss", self.loss)
-            self.summary_mse = summary.scalar("Accuracy", self.accuracy)
-            self.summary_epsilon = summary.scalar("Epsilon", self.tf_epsilon)
-        self.merged = summary.merge(
+            self.summary_loss = tf.summary.scalar("Loss", self.loss)
+            self.summary_mse = tf.summary.scalar("Accuracy", self.accuracy)
+            self.summary_epsilon = tf.summary.scalar("Epsilon", self.tf_epsilon)
+        self.merged = tf.summary.merge(
             [
                 self.summary_reward, 
                 self.summary_reward_mean, 
@@ -129,22 +120,37 @@ class DQN:
                 self.summary_actions,
                 self.summary_epsilon
             ])
-        self.sess = Session(config=tf.ConfigProto(log_device_placement=False))
-        self.writer = summary.FileWriter(self.logdir, self.sess.graph)
+        self.sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
+        self.writer = tf.summary.FileWriter(self.logdir, self.sess.graph)
 
     def create_model(self, name):
-        #TODO: Struktur dynamisch gestalten, damit eine Klasse für alle Tests nutzbar.
+        # TODO: Struktur dynamisch gestalten, damit eine Klasse für alle Tests nutzbar.
         with tf.name_scope(name):
-            #TODO: Weigth Regulization und Dropout-Layer einfügen
-            inputs = Input(shape=(self.time_series_length, self.state_shape))
-            x = LSTM(64, activation='relu', kernel_regularizer=l2(0.001), name="LSTM")(inputs)
-            x = Dropout(0.16)(x)
-            x = Dense(128, activation='relu', kernel_regularizer=l2(0.001), name="Dense_1")(x)
-            x = Dropout(0.2)(x)
-            x = Dense(256, activation='relu', kernel_regularizer=l2(0.001), name="Dense_2")(x)
-            predictions = Dense(self.action_space, activation='relu', name="Predictions")(x)
-            model = Model(inputs=inputs, outputs=predictions)
-            adam = Adam(lr=self.learning_rate, decay=self.lr_decay)
+            # TODO: Weigth Regulization und Dropout-Layer einfügen
+            inputs = tf.keras.Input(shape=(self.time_series_length, self.state_shape))
+            x = tf.keras.layers.LSTM(
+                64,
+                activation='relu',
+                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                name="LSTM"
+            )(inputs)
+            x = tf.keras.layers.Dropout(0.16)(x)
+            x = tf.keras.layers.Dense(
+                128,
+                activation='relu',
+                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                name="Dense_1"
+            )(x)
+            x = tf.keras.layers.Dropout(0.2)(x)
+            x = tf.keras.layers.Dense(
+                256,
+                activation='relu',
+                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                name="Dense_2"
+            )(x)
+            predictions = tf.keras.layers.Dense(self.action_space, activation='relu', name="Predictions")(x)
+            model = tf.keras.Model(inputs=inputs, outputs=predictions)
+            adam = tf.keras.optimizers.Adam(lr=self.learning_rate, decay=self.lr_decay)
             model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
         
         return model
@@ -206,7 +212,7 @@ class DQN:
     
     def load(self, path):
         model = tf.keras.models.load_model(path, compile=False)
-        adam = Adam(lr=self.learning_rate, decay=self.lr_decay)
+        adam = tf.keras.optimizers.Adam(lr=self.learning_rate, decay=self.lr_decay)
         model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
         self.target_model = model
         self.model = model
