@@ -10,14 +10,15 @@ import os
 # region  Hyperparameter
 do_train = False
 use_model_path = os.path.join('model', '2019-08-27-23.54.59', 'model.h5')
-use_saved_model = True
+use_saved_model = False
+run_description = 'incBatchincGamma'
 use_pickled = True
 save_pickled = False
 simulation_group = 'Time'
 
-epochs = 10
+epochs = 1500
 memory_size = 364*2*200
-gamma = 0.7
+gamma = 0.9
 if do_train:
     epsilon = 0
     epsilon_decay = 1
@@ -27,7 +28,7 @@ else:
 epsilon_min = 0.01
 learning_rate = 0.01
 lr_decay = 0.01/epochs
-batch_size = 64
+batch_size = 128
 n_step = 128
 
 update_target_network = n_step * 25
@@ -83,7 +84,8 @@ agent = DQN(
     epsilon_decay, 
     epsilon_min, 
     possible_actions, 
-    time_series_lenght
+    time_series_lenght,
+    run_description
     )
 
 if use_saved_model:

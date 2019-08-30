@@ -20,7 +20,8 @@ class DQN:
                  epsilon_decay, 
                  epsilon_min, 
                  possible_actions, 
-                 time_series_length
+                 time_series_length,
+                 run_description
                  ):
         self.memory_size = memory_size
         self.state_shape = state_shape
@@ -36,11 +37,17 @@ class DQN:
         self.time_series_length = time_series_length
         self.memory = deque(maxlen=memory_size)
         self.model = self.create_model("Train")
-        self.logdir = "./logs/" + datetime.datetime.today().date().__str__() + "-" \
+        log_dir = './logs/' + run_description
+        model_dir = './model/' + run_description
+        if os.path.exists(log_dir):
+            log_dir = "./logs/" + datetime.datetime.today().date().__str__() + "-" \
                       + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
-        self.modeldir = "./model/" + datetime.datetime.today().date().__str__() + "-" \
+            model_dir = "./model/" + datetime.datetime.today().date().__str__() + "-" \
                         + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
-        os.mkdir(self.modeldir)
+        os.mkdir(log_dir)
+        os.mkdir(model_dir)
+        self.logdir = log_dir
+        self.modeldir = model_dir
         self.target_model = self.create_model("Target")
 
         with tf.name_scope("Eigene_Variablen"):
