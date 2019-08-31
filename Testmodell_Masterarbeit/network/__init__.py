@@ -138,6 +138,9 @@ class DQN:
                 self.summary_val_rewards,
                 self.summary_theo_bestand,
                 self.summary_fakt_bestand,
+                self.summary_theo_bestand_max,
+                self.summary_theo_bestand_min,
+                self.summary_theo_bestand_mean,
                 self.summary_actions,
                 self.summary_epsilon
             ])
@@ -147,7 +150,6 @@ class DQN:
     def create_model(self, name):
         # TODO: Struktur dynamisch gestalten, damit eine Klasse für alle Tests nutzbar.
         with tf.name_scope(name):
-            # TODO: Weigth Regulization und Dropout-Layer einfügen
             inputs = tf.keras.Input(shape=(self.time_series_length, self.state_shape))
             x = tf.keras.layers.LSTM(
                 64,
@@ -155,7 +157,7 @@ class DQN:
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="LSTM"
             )(inputs)
-            x = tf.keras.layers.Dropout(0.16)(x)
+            x = tf.keras.layers.Dropout(0.2)(x)
             x = tf.keras.layers.Dense(
                 128,
                 activation='relu',
@@ -164,10 +166,17 @@ class DQN:
             )(x)
             x = tf.keras.layers.Dropout(0.2)(x)
             x = tf.keras.layers.Dense(
-                256,
+                128,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_2"
+            )(x)
+            x = tf.keras.layers.Dropout(0.2)(x)
+            x = tf.keras.layers.Dense(
+                256,
+                activation='relu',
+                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                name="Dense_3"
             )(x)
             predictions = tf.keras.layers.Dense(self.action_space, activation='relu', name="Predictions")(x)
             model = tf.keras.Model(inputs=inputs, outputs=predictions)
