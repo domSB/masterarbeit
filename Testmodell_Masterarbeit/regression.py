@@ -1,8 +1,13 @@
 """
 Hier sollen die Inputdaten auf den Absatz regressiert werden, um die Vorhersagekraft zu bestimmen.
+
+ACHTUNG!!
+Script läd komplette Absatzdaten inkl. Zusatzinfos zu Artikel in einen Numpy-Array.
+Arbeitsspeicherverbrauch von 10 GB pro Markt!
 """
 # TODO: Regression von State auf Absatz
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -26,7 +31,7 @@ def prepare_data():
            'Laktosefrei', 'MarkeFK', 'Region'],
         memory_map=True
         )
-    warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28 ]
+    warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28]
     artikelstamm = artikelstamm[artikelstamm.Warengruppe.isin(warengruppen_maske)]
     artikel_maske = pd.unique(artikelstamm.Artikel)
     # endregion
@@ -177,65 +182,93 @@ def prepare_data():
 """ 
 Hier mit fertigen Daten weiterarbeiten. 
 """
-store = pd.HDFStore('./data/time.h5')
-dataframe = store.get('warenausgang')
-store.close()
-#dataframe = dataframe.dropna() # Artikel ohne Preise => nur aktuell ein Problem
 
-test_dataframe = dataframe.head(1000)
-cal_cls = get_german_holiday_calendar('SL')
-feiertage = cal_cls().holidays(
-    min(dataframe.Datum),
-    max(dataframe.Datum) + pd.DateOffset(4)
-)
-warengruppen_index = {
-                        1: 1,
-                        12: 2,
-                        55: 3,
-                        80: 4,
-                        17: 5,
-                        77: 6,
-                        71: 7,
-                        6: 8,
-                        28: 0}
-big_arr = np.zeros((1, 104))
-for index, row in test_dataframe.iterrows():
-    weekday = to_categorical(row.Wochentag, num_classes=7)
-    kalenderwoche = to_categorical(row.Kalenderwoche, num_classes=54)
+
+def get_numpy_from_file():
+    print('INFO - Reading Data')
+    store = pd.HDFStore('./data/time.h5')
+    dataframe = store.get('warenausgang')
+    store.close()
+    print('INFO - Getting Calendar')
+    cal_cls = get_german_holiday_calendar('SL')
+    feiertage = cal_cls().holidays(
+        min(dataframe.Datum),
+        max(dataframe.Datum) + pd.DateOffset(4)
+    )
+    warengruppen_index = {
+                            1: 0,
+                            12: 1,
+                            55: 2,
+                            80: 3,
+                            17: 4,
+                            77: 5,
+                            71: 6,
+                            6: 7,
+                            28: 8}
+    einheiten_index = {
+                          0: 0,
+                          2: 1,
+                          4: 2,
+                          1: 3,
+                          3: 4,
+                          7: 5
+    }
+
+    start = time.time()
+    print('INFO - Mapping')
+    dataframe['Warengruppe'] = dataframe['Warengruppe'].map(warengruppen_index)
+    dataframe['Einheit'] = dataframe['Einheit'].map(einheiten_index)
+    # Damit der Dataframe in den Arbeitsspeicher passt
+    dataframe['MaxTemp_1D'] = dataframe['MaxTemp_1D'].astype(np.float16)
+    dataframe['MinTemp_1D'] = dataframe['MinTemp_1D'].astype(np.float16)
+    dataframe['Wolken_1D'] = dataframe['Wolken_1D'].astype(np.float16)
+    dataframe['MaxTemp_2D'] = dataframe['MaxTemp_2D'].astype(np.float16)
+    dataframe['MinTemp_2D'] = dataframe['MinTemp_2D'].astype(np.float16)
+    dataframe['Wolken_2D'] = dataframe['Wolken_2D'].astype(np.float16)
+    dataframe['Regen_2D'] = dataframe['Regen_2D'].astype(np.float16)
+    dataframe['Preis'] = dataframe['Preis'].astype(np.float16)
+    dataframe['relRabat'] = dataframe['relRabat'].astype(np.float16)
+    dataframe['absRabat'] = dataframe['absRabat'].astype(np.float16)
+
+    print('INFO - Getting Column Subset')
+    ints = dataframe.loc[:, [
+                                    'Artikel',
+                                    'Eigenmarke',
+                                    'GuG',
+                                    'MHDgroup',
+                                    'MaxTemp_1D',
+                                    'MinTemp_1D',
+                                    'Wolken_1D',
+                                    'Regen_1D',
+                                    'MaxTemp_2D',
+                                    'MinTemp_2D',
+                                    'Wolken_2D',
+                                    'Regen_2D',
+                                    'Preis',
+                                    'relRabat',
+                                    'absRabat',
+                                    'vDauer',
+                                    'in1',
+                                    'in2',
+                                    'in3',
+                                    'in4',
+                                    'in5'
+                                 ]
+           ].to_numpy()
+    print('INFO - Categorical Data')
+    weekday = to_categorical(dataframe.Wochentag, num_classes=7).astype(np.int8)
+    kalenderwoche = to_categorical(dataframe.Kalenderwoche, num_classes=54).astype(np.int8)
     warengruppe = to_categorical(
-        warengruppen_index[row.Warengruppe],
+        dataframe.Warengruppe,
         num_classes=9
-    )
-    einheit = to_categorical(row.Einheit, num_classes=9)
-    feiertage_arr = np.zeros(4, dtype=np.int)
-    for i in range(1, 5):
-        if row.Datum + pd.DateOffset(i) in feiertage:
-            feiertage_arr[i - 1] = 1
-    arr = np.array(
-        [
-            row.Artikel,
-            row.Eigenmarke,
-            row.GuG,
-            row.MHDgroup,
-            row.MaxTemp_1D,
-            row.MinTemp_1D,
-            row.Wolken_1D,
-            row.Regen_1D,
-            row.MaxTemp_2D,
-            row.MinTemp_2D,
-            row.Wolken_2D,
-            row.Regen_2D,
-            row.Preis,
-            row.relRabat,
-            row.absRabat,
-            row.vDauer,
-            row.in1,
-            row.in2,
-            row.in3,
-            row.in4,
-            row.in5
-        ]
-    )
-    arr = np.concatenate((arr, weekday, warengruppe, einheit, feiertage_arr, kalenderwoche), axis=None)
-    print(arr.shape)
-    big_arr = np.concatenate((big_arr, arr.reshape(1, -1)), axis=0)
+    ).astype(np.int8)
+    einheit = to_categorical(dataframe.Einheit, num_classes=6).astype(np.int8)
+    dataframe = np.concatenate((ints, weekday, kalenderwoche, warengruppe, einheit), axis=1)
+
+    end = time.time()
+    duration = end - start
+    print('Time :', duration)
+    return dataframe
+
+
+frame = get_numpy_from_file()
