@@ -102,6 +102,20 @@ class DQN:
 
         with tf.name_scope("Bestand_Stats"):
             self.summary_actions = tf.summary.histogram("Actions", self.actions)
+
+            self.theo_bestand_max = tf.get_variable("Bestand_Max", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.theo_bestand_max_op = self.theo_bestand_max.assign(tf.math.reduce_max(self.theo_bestand))
+
+            self.theo_bestand_min = tf.get_variable("Bestand_Min", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.theo_bestand_min_op = self.theo_bestand_min.assign(tf.math.reduce_min(self.theo_bestand))
+
+            self.theo_bestand_mean = tf.get_variable("Bestand_Mean", dtype=tf.float32, initializer=tf.constant(0.0))
+            self.theo_bestand_mean_op = self.theo_bestand_mean.assign(tf.math.reduce_mean(self.theo_bestand))
+
+            self.summary_theo_bestand_max = tf.summary.scalar("Max", self.theo_bestand_max_op)
+            self.summary_theo_bestand_min = tf.summary.scalar("Min", self.theo_bestand_min_op)
+            self.summary_theo_bestand_mean = tf.summary.scalar("Mean", self.theo_bestand_mean_op)
+
             self.summary_theo_bestand = tf.summary.histogram("TheoretischerBestand", self.theo_bestand)
             self.summary_fakt_bestand = tf.summary.histogram("FaktischerBestand", self.fakt_bestand)
         with tf.name_scope("Model_Stats"):
