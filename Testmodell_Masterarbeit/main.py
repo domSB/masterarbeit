@@ -11,7 +11,7 @@ import os
 do_train = True
 use_model_path = os.path.join('model', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
-run_description = 'testit'
+run_description = '9moreNeurons'
 use_pickled = True
 save_pickled = False
 simulation_group = 'Time'
