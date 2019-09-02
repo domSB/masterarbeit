@@ -168,7 +168,7 @@ def big_loop():
                     agent.save()
                     # TODO: Validate Model with a trial Period in a seperate Simulation
                 else:
-                    print('.')
+                    print('.', end='')
                 break
     agent.writer.close()
     agent.sess.close()

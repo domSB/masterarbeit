@@ -12,6 +12,7 @@ import time
 import numpy as np
 import pandas as pd
 from keras.utils import to_categorical
+import tensorflow as tf
 
 from calender import get_german_holiday_calendar
 
@@ -177,8 +178,6 @@ def prepare_data():
     # endregion
 
 
-# prepare_data()
-
 """ 
 Hier mit fertigen Daten weiterarbeiten. 
 """
@@ -271,6 +270,64 @@ def get_numpy_from_file():
     return dataframe
 
 
-frame = get_numpy_from_file()
+class Predictor(object):
+    def __init__(self):
+        self.state_shape = 91
+        self.target_shape = 5
+        self.learning_rate = 0.01
+        self.epochs = 30
+        self.lr_decay = 0.01 / self.epochs
+        inputs = tf.keras.Input(shape=(self.state_shape,))
+        x = tf.keras.layers.Dense(
+            128,
+            activation='relu',
+            kernel_regularizer=tf.keras.regularizers.l2(0.001),
+            name="Dense_1"
+        )(inputs)
+        x = tf.keras.layers.Dropout(0.2)(x)
+        x = tf.keras.layers.Dense(
+            128,
+            activation='relu',
+            kernel_regularizer=tf.keras.regularizers.l2(0.001),
+            name="Dense_2"
+        )(x)
+        x = tf.keras.layers.Dropout(0.2)(x)
+        x = tf.keras.layers.Dense(
+            256,
+            activation='relu',
+            kernel_regularizer=tf.keras.regularizers.l2(0.001),
+            name="Dense_3"
+        )(x)
+        predictions = tf.keras.layers.Dense(self.target_shape, activation='relu', name="Predictions")(x)
+        self.model = tf.keras.Model(inputs=inputs, outputs=predictions)
+        adam = tf.keras.optimizers.RMSprop(lr=self.learning_rate)
+        self.model.compile(optimizer=adam, loss='mean_squared_error', metrics=["mean_absolute_error", "mean_squared_error"])
 
-np.save(os.path.join(DATA_PATH, 'regression.npy'), frame)
+    def train(self, x, y):
+        history = self.model.fit(x, y, batch_size=512, epochs=self.epochs, validation_split=0.2)
+        return history
+
+    def predict(self, x):
+        y = self.model.predict(x)
+        return y
+
+
+# prepare_data()
+# frame = get_numpy_from_file()
+# np.save(os.path.join(DATA_PATH, 'regression.npy'), frame)
+
+print('INFO - Loading Numpy Array')
+frame = np.load(os.path.join(DATA_PATH, 'regression.npy'), allow_pickle=True)
+frame = frame.astype(np.float32)
+# drop NaNs, due to missing prices in the Price Table.
+# TODO: create new Price-Tables from preise.markt and preise.time
+mask = np.any(np.isnan(frame), axis=1)
+frame = frame[~mask]
+target_index = np.array([16, 17, 18, 19, 20])
+input_index = np.delete(np.arange(1, frame.shape[1]), target_index)  # Artikelnummer mit Index 1 wird fallen gelassen
+y_train = frame[:, target_index]
+x_train = frame[:, input_index]
+predictor = Predictor()
+history = predictor.train(x_train, y_train)
+
+hist = pd.DataFrame(history.history)
