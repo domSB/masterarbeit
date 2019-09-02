@@ -272,3 +272,5 @@ def get_numpy_from_file():
 
 
 frame = get_numpy_from_file()
+
+np.save(os.path.join(DATA_PATH, 'regression.npy'), frame)

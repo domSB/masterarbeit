@@ -152,28 +152,28 @@ class DQN:
         with tf.name_scope(name):
             inputs = tf.keras.Input(shape=(self.time_series_length, self.state_shape))
             x = tf.keras.layers.LSTM(
-                64,
+                256,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="LSTM"
             )(inputs)
             x = tf.keras.layers.Dropout(0.2)(x)
             x = tf.keras.layers.Dense(
-                128,
+                256,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_1"
             )(x)
             x = tf.keras.layers.Dropout(0.2)(x)
             x = tf.keras.layers.Dense(
-                128,
+                256,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_2"
             )(x)
             x = tf.keras.layers.Dropout(0.2)(x)
             x = tf.keras.layers.Dense(
-                256,
+                512,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_3"
