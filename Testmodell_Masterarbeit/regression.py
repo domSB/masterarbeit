@@ -6,268 +6,262 @@ Script läd komplette Absatzdaten inkl. Zusatzinfos zu Artikel in einen Numpy-Ar
 Arbeitsspeicherverbrauch von 10 GB pro Markt!
 """
 # TODO: Regression von State auf Absatz
+# import sys
+# sys.path.extend(['/home/dominic/PycharmProjects/masterarbeit',
+#                  '/home/dominic/PycharmProjects/masterarbeit/Testmodell_Masterarbeit'])
 import os
-import time
 
 import numpy as np
 import pandas as pd
 from keras.utils import to_categorical
 import tensorflow as tf
 
-from calender import get_german_holiday_calendar
+from calender.german_holidays import get_german_holiday_calendar
 
 DATA_PATH = os.path.join('data')
 
 
-def prepare_data():
-    # region Artikelstammm
-    print('INFO - Lese Artikelstamm')
-    artikelstamm = pd.read_csv(
-        os.path.join(DATA_PATH, '0 ArtikelstammV4.csv'),
-        header=0,
-        names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
-           'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
-           'GuG', 'OSE', 'OSEText', 'Saisonal',
-           'Kern', 'Bio', 'Glutenfrei',
-           'Laktosefrei', 'MarkeFK', 'Region'],
-        memory_map=True
+class DataPipeline(object):
+    def __init__(
+            self,
+            series_type='time',
+            data_path=os.path.join('data')
+    ):
+        self.series_type = series_type
+        self.data_path = data_path
+        self.dynamic_state = None
+        self.static_state = None
+        self.index_list = None
+        self.detail_warengruppen_index = None
+        self.warengruppen_index = None
+        self.einheit_index = None
+        self.dyn_state_scalar_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D',
+                                      'Regen_1D', 'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D',
+                                      'Preis', 'relRabat', 'absRabat', 'vDauer']
+        self.dyn_state_label_cols = ['in1', 'in2', 'in3', 'in4', 'in5']
+        self.dyn_state_category_cols = {'Wochentag': 7, 'Kalenderwoche': 54}
+        self.stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern', 'Bio', 'Glutenfrei',
+                                       'Laktosefrei']
+        self.stat_state_category_cols = {'MHDgroup': 7, 'Warengruppe': 9, 'Detailwarengruppe': None, 'Einheit': None}
+
+    def prepare_data(self, start_date, end_date):
+        # region Artikelstammm
+        print('INFO - Lese Artikelstamm')
+        artikelstamm = pd.read_csv(
+            os.path.join(self.data_path, '0 ArtikelstammV4.csv'),
+            header=0,
+            names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
+                   'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
+                   'GuG', 'OSE', 'OSEText', 'Saisonal',
+                   'Kern', 'Bio', 'Glutenfrei',
+                   'Laktosefrei', 'MarkeFK', 'Region']
+            )
+        warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28]
+        artikelstamm = artikelstamm[artikelstamm.Warengruppe.isin(warengruppen_maske)]
+        artikel_maske = pd.unique(artikelstamm.Artikel)
+
+        # Fehlende Detailwarengruppen mit wahrscheinlich richtiger DetailWarengruppe füllen
+        wg_group = artikelstamm.loc[:, ['Warengruppe', 'Detailwarengruppe']].groupby('Warengruppe').median()
+        detail_warengruppen_nan_index = wg_group.to_dict()['Detailwarengruppe']
+        artikelstamm['DetailwarengruppeBackup'] = artikelstamm['Warengruppe'].map(detail_warengruppen_nan_index)
+        artikelstamm['Detailwarengruppe'].fillna(value=artikelstamm['DetailwarengruppeBackup'], inplace=True)
+        artikelstamm.drop(columns=['DetailwarengruppeBackup'], inplace=True)
+
+        # Restlaufzeit von Anzahl-Tage in kategoriale Gruppen sortieren
+        mhd_labels = [0, 1, 2, 3, 4, 5, 6]
+        mhd_bins = [0, 1, 7, 14, 28, 100, 1000, 100000]
+        artikelstamm['MHDgroup'] = pd.cut(artikelstamm.MHD, mhd_bins, right=False, labels=mhd_labels)
+        self.detail_warengruppen_index = {
+            value: index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Detailwarengruppe)))
+        }
+        self.stat_state_category_cols['Detailwarengruppe'] = len(self.detail_warengruppen_index)
+        self.warengruppen_index = {
+            value: index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Warengruppe)))
+        }
+        self.einheit_index = {
+            value: index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Einheit)))
+        }
+        self.stat_state_category_cols['Einheit'] = len(self.einheit_index)
+        artikelstamm['Detailwarengruppe'] = artikelstamm['Detailwarengruppe'].map(self.detail_warengruppen_index)
+        artikelstamm['Warengruppe'] = artikelstamm['Warengruppe'].map(self.warengruppen_index)
+        artikelstamm['Einheit'] = artikelstamm['Einheit'].map(self.einheit_index)
+        artikelstamm.drop(columns=['MHD', 'Region', 'MarkeFK', 'Verkaufseinheit', 'OSEText'], inplace=True)
+        artikelstamm.set_index('Artikel', inplace=True)
+        # endregion
+
+        # region Bewegungsdaten
+        print('INFO - Lese Bewegungsdaten')
+        warenausgang = pd.read_csv(
+            os.path.join(self.data_path, '0 Warenausgang.time.csv'),
+            header=0,
+            names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
+            )
+
+        warenausgang = warenausgang[warenausgang.Artikel.isin(artikel_maske)]
+
+        warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
+        warenausgang['Belegtyp'] = warenausgang['Belegtyp'].astype('category')
+        warenausgang = warenausgang.loc[
+            (warenausgang.Belegtyp == 'UMSATZ_SCANNING') | (warenausgang.Belegtyp == 'UMSATZ_AKTION')
+            ].copy()
+        warenausgang = warenausgang.groupby(['Markt', 'Datum', 'Artikel'],  as_index=False).sum()
+
+        cal_cls = get_german_holiday_calendar('SL')
+        cal = cal_cls()
+        sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Tue Fri Sat')
+        # Testzeitraum ist nur von 1.Jan 2018 bis 31.12.2019, der Zeitraum muss aber um 5 Tage verlängert werden, damit
+        zeitraum = pd.date_range(pd.to_datetime(start_date), pd.to_datetime(end_date) + pd.DateOffset(7), freq=sl_bd)
+
+        warenausgang.set_index('Datum', inplace=True)
+        warenausgang = warenausgang.groupby(['Markt', 'Artikel']).apply(lambda x: x.reindex(zeitraum, fill_value=0))
+        warenausgang.drop(columns=['Markt', 'Artikel'], inplace=True)
+        warenausgang.reset_index(inplace=True)
+        warenausgang.rename(columns={'level_2': 'Datum'}, inplace=True)
+
+        warenausgang['Wochentag'] = warenausgang.Datum.dt.dayofweek
+        warenausgang['Kalenderwoche'] = warenausgang.Datum.dt.weekofyear
+        warenausgang["UNIXDatum"] = warenausgang["Datum"].astype(np.int64)/(1000000000 * 24 * 3600)
+        # endregion
+
+        # region Wetter
+        print('INFO - Lese Wetter')
+        wetter = pd.read_csv(
+            os.path.join(self.data_path, '1 Wetter.csv')
+            )
+        wetter["date_shifted_oneday"] = wetter["date"] - 1
+        wetter["date_shifted_twodays"] = wetter["date"] - 2
+        wetter.drop(columns=['Unnamed: 0'], inplace=True)
+        warenausgang = pd.merge(
+            warenausgang,
+            wetter,
+            left_on='UNIXDatum',
+            right_on='date_shifted_oneday'
         )
-    warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28]
-    artikelstamm = artikelstamm[artikelstamm.Warengruppe.isin(warengruppen_maske)]
-    artikel_maske = pd.unique(artikelstamm.Artikel)
-    # endregion
-
-    # region Bewegungsdaten
-    print('INFO - Lese Bewegungsdaten')
-    warenausgang = pd.read_csv(
-        os.path.join(DATA_PATH, '0 Warenausgang.time.csv'),
-        header=0,
-        names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
+        warenausgang = pd.merge(
+            warenausgang,
+            wetter,
+            left_on='UNIXDatum',
+            right_on='date_shifted_twodays',
+            suffixes=('_1D', '_2D')
         )
-
-    warenausgang = warenausgang[warenausgang.Artikel.isin(artikel_maske)]
-
-    warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
-    warenausgang['Belegtyp'] = warenausgang['Belegtyp'].astype('category')
-    warenausgang.drop(columns=['Markt'], inplace=True)
-    warenausgang = warenausgang.loc[
-        (warenausgang.Belegtyp == 'UMSATZ_SCANNING') | (warenausgang.Belegtyp == 'UMSATZ_AKTION')
-        ].copy()
-    warenausgang = warenausgang.groupby(["Datum", "Artikel"],  as_index=False).sum()
-
-    cal_cls = get_german_holiday_calendar('SL')
-    cal = cal_cls()
-    sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Tue Fri Sat')
-    zeitraum = pd.date_range('2018-01-01', '2018-12-31', freq=sl_bd)
-
-    warenausgang.set_index('Datum', inplace=True)
-    warenausgang = warenausgang.groupby('Artikel').apply(lambda x: x.reindex(zeitraum, fill_value=0))
-    warenausgang.drop(columns=['Artikel'], inplace=True)
-    warenausgang.reset_index(inplace=True)
-    warenausgang.rename(columns={'level_1': 'Datum'}, inplace=True)
-
-    warenausgang['Wochentag'] = warenausgang.Datum.dt.dayofweek
-    warenausgang['Kalenderwoche'] = warenausgang.Datum.dt.weekofyear
-    warenausgang["UNIXDatum"] = warenausgang["Datum"].astype(np.int64)/(1000000000 * 24 * 3600)
-
-    mhd_labels = [0, 1, 2, 3, 4, 5, 6]
-    mhd_bins = [0, 1, 7, 14, 28, 100, 1000, 100000]
-    artikelstamm['MHDgroup'] = pd.cut(artikelstamm.MHD, mhd_bins, right=False, labels=mhd_labels)
-    warenausgang = pd.merge(warenausgang, artikelstamm.loc[:,["Artikel", "Warengruppe", "Einheit", "Eigenmarke", "GuG", "MHDgroup"]], how='left', on='Artikel', validate='many_to_one')
-    # endregion
-
-    # region Wetter
-    print('INFO - Lese Wetter')
-    wetter = pd.read_csv(
-        os.path.join(DATA_PATH, '1 Wetter.csv'),
-        memory_map=True
+        warenausgang.drop(
+            columns=["date_shifted_oneday_1D",
+                     "date_shifted_twodays_1D",
+                     "date_shifted_oneday_2D",
+                     "date_shifted_twodays_2D",
+                     "date_1D",
+                     "date_2D"
+                     ],
+            inplace=True
         )
-    wetter["date_shifted_oneday"] = wetter["date"] - 1
-    wetter["date_shifted_twodays"] = wetter["date"] - 2
-    wetter.drop(columns=['Unnamed: 0'], inplace=True)
-    warenausgang = pd.merge(
-        warenausgang,
-        wetter,
-        left_on='UNIXDatum',
-        right_on='date_shifted_oneday'
-    )
-    warenausgang = pd.merge(
-        warenausgang,
-        wetter,
-        left_on='UNIXDatum',
-        right_on='date_shifted_twodays',
-        suffixes=('_1D', '_2D')
-    )
-    warenausgang.drop(
-        columns=["date_shifted_oneday_1D",
-                 "date_shifted_twodays_1D",
-                 "date_shifted_oneday_2D",
-                 "date_shifted_twodays_2D"
-                 ],
-        inplace=True
-    )
-    # endregion
+        # endregion
 
-    # region Preise
-    print('INFO - Lese Preise')
-    preise = pd.read_csv(
-        os.path.join(DATA_PATH, '1 Preise.csv'),
-        memory_map=True
+        # region Preise
+        print('INFO - Lese Preise')
+        preise = pd.read_csv(
+            os.path.join(self.data_path, '1 Preise.csv')
+            )
+        preise.drop(columns=['Unnamed: 0'], inplace=True)
+        preise['Datum'] = pd.to_datetime(preise['Datum'], format='%Y-%m-%d')
+        preise.drop_duplicates(inplace=True)
+        preise = preise.sort_values(by=['Datum', 'Artikel'])
+        preise['Next'] = preise.groupby(['Artikel'], as_index=True)['Datum'].shift(-1)
+        preise = preise.where(~preise.isna(), pd.to_datetime(end_date) + pd.DateOffset(7))
+        # preise.set_index('Artikel', inplace=True)
+        warenausgang.reset_index(inplace=True)
+        warenausgang = pd.merge_asof(
+            warenausgang,
+            preise.loc[:, ["Preis", "Artikel", "Datum"]],
+            left_on='Datum',
+            right_on='Datum',
+            by='Artikel'
         )
-    preise.drop(columns=['Unnamed: 0'], inplace=True)
-    preise['Datum'] = pd.to_datetime(preise['Datum'], format='%Y-%m-%d')
-    preise.drop_duplicates(inplace=True)
-    preise = preise.sort_values(by=['Datum', 'Artikel'])
-    preise['Next'] = preise.groupby(['Artikel'], as_index=True)['Datum'].shift(-1)
-    preise = preise.where(~preise.isna(), pd.to_datetime('2019-07-01'))
-    # preise.set_index('Artikel', inplace=True)
-    warenausgang.reset_index(inplace=True)
-    warenausgang = pd.merge_asof(
-        warenausgang,
-        preise.loc[:, ["Preis", "Artikel", "Datum"]],
-        left_on='Datum',
-        right_on='Datum',
-        by='Artikel'
-    )
-    # endregion
+        # endregion
 
-    # region Aktionspreise hinzufügen
-    print('INFO - Lese Aktionspreise')
-    aktionspreise = pd.read_csv(
-        os.path.join(DATA_PATH, '1 Preisaktionen.csv'),
-        decimal =',',
-        memory_map=True
+        # region Aktionspreise hinzufügen
+        print('INFO - Lese Aktionspreise')
+        aktionspreise = pd.read_csv(
+            os.path.join(self.data_path, '1 Preisaktionen.csv'),
+            decimal=','
+            )
+        aktionspreise.drop(columns=['Unnamed: 0'], inplace=True)
+        aktionspreise['DatumAb'] = pd.to_datetime(aktionspreise['DatumAb'], format='%Y-%m-%d')
+        aktionspreise['DatumBis'] = pd.to_datetime(aktionspreise['DatumBis'], format='%Y-%m-%d')
+        aktionspreise.drop_duplicates(inplace=True)
+        aktionspreise = aktionspreise.sort_values(by=['DatumAb', 'DatumBis', 'Artikel'])
+
+        warenausgang = pd.merge_asof(warenausgang, aktionspreise, left_on='Datum', right_on='DatumAb', by='Artikel')
+        warenausgang.relRabat.fillna(0., inplace=True)
+        warenausgang.absRabat.fillna(0., inplace=True)
+        warenausgang.vDauer.fillna(0, inplace=True)
+        warenausgang.relRabat = warenausgang.relRabat.astype(np.float64)
+        warenausgang.absRabat = warenausgang.absRabat.astype(np.float64)
+        warenausgang.vDauer = warenausgang.vDauer.astype(np.int)
+        warenausgang.drop(columns=['DatumAb', 'DatumBis'], inplace=True)
+        # endregion
+
+        # region Shift Targets
+        print('INFO - Erzeuge Targets')
+        warenausgang['in1'] = warenausgang.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-1)
+        warenausgang['in2'] = warenausgang.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-2)
+        warenausgang['in3'] = warenausgang.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-3)
+        warenausgang['in4'] = warenausgang.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-4)
+        warenausgang['in5'] = warenausgang.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-5)
+        # endregion
+
+        warenausgang.dropna(axis=0, inplace=True)
+        warenausgang.set_index(['Markt', 'Artikel', 'UNIXDatum'], inplace=True, drop=False)
+        warenausgang.sort_index(inplace=True)
+        self.index_list = list(zip(warenausgang.Markt, warenausgang.Artikel, warenausgang.UNIXDatum))
+        self.dynamic_state = warenausgang
+        self.static_state = artikelstamm
+
+    def store_data(self):
+        # region Store Data
+        print('INFO - Speichere Daten')
+        store = pd.HDFStore(os.path.join(self.data_path, self.series_type + '.h5'))
+        store.put('dynamic_state', self.dynamic_state)
+        store.put('static_state', self.static_state, format='table')
+        store.close()
+        print('INFO - Fertig')
+        # endregion
+
+    def load_data(self):
+        print('INFO - Reading Data')
+        store = pd.HDFStore(os.path.join(self.data_path, self.series_type + '.h5'))
+        self.dynamic_state = store.get('dynamic_state')
+        self.static_state = store.get('static_state')
+        store.close()
+
+    def create_dataset(self, batch_size):
+        def gen():
+            for i in range(0, len(self.index_list),batch_size):
+                idx = self.index_list[i:i+batch_size]
+                art_idx = [art for markt, art, day in idx]
+                dyn_state = self.dynamic_state.loc[idx, self.dyn_state_scalar_cols].to_numpy()
+                for category, class_numbers in self.dyn_state_category_cols.items():
+                    category_state = to_categorical(self.dynamic_state.loc[idx, category], num_classes=class_numbers)
+                    dyn_state = np.concatenate((dyn_state, category_state), axis=1)
+
+                stat_state = self.static_state.loc[art_idx, self.stat_state_scalar_cols].to_numpy()
+                for category, class_numbers in self.stat_state_category_cols.items():
+                    category_state = to_categorical(self.static_state.loc[art_idx, category], num_classes=class_numbers)
+                    stat_state = np.concatenate((stat_state, category_state), axis=1)
+
+                labels = self.dynamic_state.loc[idx, self.dyn_state_label_cols].to_numpy()
+
+                yield {'dynamic_input': dyn_state, 'static_input': stat_state}, labels
+
+        dataset = tf.data.Dataset.from_generator(
+            gen,
+            output_types=({'dynamic_input': tf.float64, 'static_input': tf.float64}, tf.float64),
+            output_shapes=(
+            {'dynamic_input': tf.TensorShape([None, 74]), 'static_input': tf.TensorShape([None, 490])}, tf.TensorShape([None, 5]))
         )
-    aktionspreise.drop(columns=['Unnamed: 0'], inplace=True)
-    aktionspreise['DatumAb'] = pd.to_datetime(aktionspreise['DatumAb'], format='%Y-%m-%d')
-    aktionspreise['DatumBis'] = pd.to_datetime(aktionspreise['DatumBis'], format='%Y-%m-%d')
-    aktionspreise.drop_duplicates(inplace=True)
-    aktionspreise = aktionspreise.sort_values(by=['DatumAb', 'DatumBis', 'Artikel'])
-
-    warenausgang = pd.merge_asof(warenausgang, aktionspreise, left_on='Datum', right_on='DatumAb', by='Artikel')
-    warenausgang.relRabat.fillna(0., inplace=True)
-    warenausgang.absRabat.fillna(0., inplace=True)
-    warenausgang.vDauer.fillna(0, inplace=True)
-    warenausgang.relRabat = warenausgang.relRabat.astype(np.float64)
-    warenausgang.absRabat = warenausgang.absRabat.astype(np.float64)
-    warenausgang.vDauer = warenausgang.vDauer.astype(np.int)
-    warenausgang.drop(columns=['DatumAb', 'DatumBis'], inplace=True)
-    warenausgang.head(1).T.squeeze()
-    # endregion
-
-    # region Shift Targets
-    print('INFO - Erzeuge Targets')
-    warenausgang['in1'] = warenausgang.groupby(['Artikel'], as_index=False)['Menge'].shift(-1)
-    warenausgang.in1.fillna(0., inplace=True)
-    warenausgang['in2'] = warenausgang.groupby(['Artikel'], as_index=False)['Menge'].shift(-2)
-    warenausgang.in2.fillna(0., inplace=True)
-    warenausgang['in3'] = warenausgang.groupby(['Artikel'], as_index=False)['Menge'].shift(-3)
-    warenausgang.in3.fillna(0., inplace=True)
-    warenausgang['in4'] = warenausgang.groupby(['Artikel'], as_index=False)['Menge'].shift(-4)
-    warenausgang.in4.fillna(0., inplace=True)
-    warenausgang['in5'] = warenausgang.groupby(['Artikel'], as_index=False)['Menge'].shift(-5)
-    warenausgang.in5.fillna(0., inplace=True)
-    # endregion
-
-    # region Store Data
-    print('INFO - Speichere Daten')
-    store = pd.HDFStore('./data/time.h5')
-    store.put('warenausgang', warenausgang, format='table')
-    store.close()
-    print('INFO - Fertig')
-    # endregion
-
-
-""" 
-Hier mit fertigen Daten weiterarbeiten. 
-"""
-
-
-def get_numpy_from_file():
-    print('INFO - Reading Data')
-    store = pd.HDFStore('./data/time.h5')
-    dataframe = store.get('warenausgang')
-    store.close()
-    print('INFO - Getting Calendar')
-    cal_cls = get_german_holiday_calendar('SL')
-    feiertage = cal_cls().holidays(
-        min(dataframe.Datum),
-        max(dataframe.Datum) + pd.DateOffset(4)
-    )
-    warengruppen_index = {
-                            1: 0,
-                            12: 1,
-                            55: 2,
-                            80: 3,
-                            17: 4,
-                            77: 5,
-                            71: 6,
-                            6: 7,
-                            28: 8}
-    einheiten_index = {
-                          0: 0,
-                          2: 1,
-                          4: 2,
-                          1: 3,
-                          3: 4,
-                          7: 5
-    }
-
-    start = time.time()
-    print('INFO - Mapping')
-    dataframe['Warengruppe'] = dataframe['Warengruppe'].map(warengruppen_index)
-    dataframe['Einheit'] = dataframe['Einheit'].map(einheiten_index)
-    # Damit der Dataframe in den Arbeitsspeicher passt
-    dataframe['MaxTemp_1D'] = dataframe['MaxTemp_1D'].astype(np.float16)
-    dataframe['MinTemp_1D'] = dataframe['MinTemp_1D'].astype(np.float16)
-    dataframe['Wolken_1D'] = dataframe['Wolken_1D'].astype(np.float16)
-    dataframe['MaxTemp_2D'] = dataframe['MaxTemp_2D'].astype(np.float16)
-    dataframe['MinTemp_2D'] = dataframe['MinTemp_2D'].astype(np.float16)
-    dataframe['Wolken_2D'] = dataframe['Wolken_2D'].astype(np.float16)
-    dataframe['Regen_2D'] = dataframe['Regen_2D'].astype(np.float16)
-    dataframe['Preis'] = dataframe['Preis'].astype(np.float16)
-    dataframe['relRabat'] = dataframe['relRabat'].astype(np.float16)
-    dataframe['absRabat'] = dataframe['absRabat'].astype(np.float16)
-
-    print('INFO - Getting Column Subset')
-    ints = dataframe.loc[:, [
-                                    'Artikel',
-                                    'Eigenmarke',
-                                    'GuG',
-                                    'MHDgroup',
-                                    'MaxTemp_1D',
-                                    'MinTemp_1D',
-                                    'Wolken_1D',
-                                    'Regen_1D',
-                                    'MaxTemp_2D',
-                                    'MinTemp_2D',
-                                    'Wolken_2D',
-                                    'Regen_2D',
-                                    'Preis',
-                                    'relRabat',
-                                    'absRabat',
-                                    'vDauer',
-                                    'in1',
-                                    'in2',
-                                    'in3',
-                                    'in4',
-                                    'in5'
-                                 ]
-           ].to_numpy()
-    print('INFO - Categorical Data')
-    weekday = to_categorical(dataframe.Wochentag, num_classes=7).astype(np.int8)
-    kalenderwoche = to_categorical(dataframe.Kalenderwoche, num_classes=54).astype(np.int8)
-    warengruppe = to_categorical(
-        dataframe.Warengruppe,
-        num_classes=9
-    ).astype(np.int8)
-    einheit = to_categorical(dataframe.Einheit, num_classes=6).astype(np.int8)
-    dataframe = np.concatenate((ints, weekday, kalenderwoche, warengruppe, einheit), axis=1)
-
-    end = time.time()
-    duration = end - start
-    print('Time :', duration)
-    return dataframe
+        dataset = dataset.batch(1)
+        dataset = dataset.repeat()
+        dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
+        return dataset
 
 
 class Predictor(object):
@@ -312,22 +306,14 @@ class Predictor(object):
         return y
 
 
-# prepare_data()
-# frame = get_numpy_from_file()
-# np.save(os.path.join(DATA_PATH, 'regression.npy'), frame)
-
-print('INFO - Loading Numpy Array')
-frame = np.load(os.path.join(DATA_PATH, 'regression.npy'), allow_pickle=True)
-frame = frame.astype(np.float32)
-# drop NaNs, due to missing prices in the Price Table.
+pipeline = DataPipeline()
+pipeline.prepare_data('2018-01-01', '2018-12-31')
+# pipeline.store_data()
+dataset = pipeline.create_dataset(32)
+iterator = dataset.make_one_shot_iterator()
+el = iterator.get_next()
+with tf.Session() as sess:
+    for i in range(100):
+        state, lab = sess.run(el)
+        print(state['dynamic_input'].shape, state['static_input'].shape, lab.shape)
 # TODO: create new Price-Tables from preise.markt and preise.time
-mask = np.any(np.isnan(frame), axis=1)
-frame = frame[~mask]
-target_index = np.array([16, 17, 18, 19, 20])
-input_index = np.delete(np.arange(1, frame.shape[1]), target_index)  # Artikelnummer mit Index 1 wird fallen gelassen
-y_train = frame[:, target_index]
-x_train = frame[:, input_index]
-predictor = Predictor()
-history = predictor.train(x_train, y_train)
-
-hist = pd.DataFrame(history.history)
