@@ -10,7 +10,7 @@ Arbeitsspeicherverbrauch von 10 GB pro Markt!
 # sys.path.extend(['/home/dominic/PycharmProjects/masterarbeit',
 #                  '/home/dominic/PycharmProjects/masterarbeit/Testmodell_Masterarbeit'])
 import os
-
+import random
 import numpy as np
 import pandas as pd
 from keras.utils import to_categorical
@@ -243,22 +243,24 @@ class DataPipeline(object):
         steps_per_epoch = len(self.index_list) / batch_size
 
         def gen():
-            for index in self.index_list:
-                idx = [(index[0], index[1], day) for day in self.time_series_index[index[2]]]
-                art_idx = index[1]
-                dyn_state = self.dynamic_state.loc[idx, self.dyn_state_scalar_cols].to_numpy()
-                for category, class_numbers in self.dyn_state_category_cols.items():
-                    category_state = to_categorical(self.dynamic_state.loc[idx, category], num_classes=class_numbers)
-                    dyn_state = np.concatenate((dyn_state, category_state), axis=1)
+            while True:
+                random.shuffle(self.index_list)
+                for index in self.index_list:
+                    idx = [(index[0], index[1], day) for day in self.time_series_index[index[2]]]
+                    art_idx = index[1]
+                    dyn_state = self.dynamic_state.loc[idx, self.dyn_state_scalar_cols].to_numpy()
+                    for category, class_numbers in self.dyn_state_category_cols.items():
+                        category_state = to_categorical(self.dynamic_state.loc[idx, category], num_classes=class_numbers)
+                        dyn_state = np.concatenate((dyn_state, category_state), axis=1)
 
-                stat_state = self.static_state.loc[art_idx, self.stat_state_scalar_cols].to_numpy()
-                for category, class_numbers in self.stat_state_category_cols.items():
-                    category_state = to_categorical(self.static_state.loc[art_idx, category], num_classes=class_numbers)
-                    stat_state = np.append(stat_state, category_state)
+                    stat_state = self.static_state.loc[art_idx, self.stat_state_scalar_cols].to_numpy()
+                    for category, class_numbers in self.stat_state_category_cols.items():
+                        category_state = to_categorical(self.static_state.loc[art_idx, category], num_classes=class_numbers)
+                        stat_state = np.append(stat_state, category_state)
 
-                labels = self.dynamic_state.loc[index, self.dyn_state_label_cols].to_numpy()
+                    labels = self.dynamic_state.loc[index, self.dyn_state_label_cols].to_numpy()
 
-                yield {'dynamic_input': dyn_state, 'static_input': stat_state}, labels
+                    yield {'dynamic_input': dyn_state, 'static_input': stat_state}, labels
 
         dataset = tf.data.Dataset.from_generator(
             gen,
