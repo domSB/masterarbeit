@@ -327,7 +327,7 @@ class Predictor(object):
 
     def train(self, _dataset, params):
         tb_callback = tf.keras.callbacks.TensorBoard(
-            log_dir='./logs/regression',
+            log_dir='./logs/regression2',
             histogram_freq=0,
             batch_size=32,
             write_graph=True,
@@ -353,7 +353,7 @@ params = {
     'time_steps': 5,
     'dynamic_state_shape': 74,
     'static_state_shape': 490,
-    'epochs': 1
+    'epochs': 2
 }
 
 pipeline = DataPipeline()
