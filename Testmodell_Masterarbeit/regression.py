@@ -210,7 +210,8 @@ class DataPipeline(object):
         warenausgang['in4'] = warenausgang.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-4)
         warenausgang['in5'] = warenausgang.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-5)
         # endregion
-
+        warenausgang.Preis.fillna(method='bfill', inplace=True)
+        warenausgang.Preis.fillna(method='ffill', inplace=True)
         warenausgang.dropna(axis=0, inplace=True)
         warenausgang.set_index(['Markt', 'Artikel', 'UNIXDatum'], inplace=True, drop=False)
         warenausgang.sort_index(inplace=True)
@@ -239,6 +240,7 @@ class DataPipeline(object):
         zeiten = np.array([x.timestamp() / (24 * 3600)for x in self.tage])
         zeiten = np.append(np.repeat(zeiten[0], step_length), zeiten)
         self.time_series_index = {zeiten[k]: zeiten[k - step_length:k] for k in range(len(zeiten))}
+        steps_per_epoch = len(self.index_list) / batch_size
 
         def gen():
             for index in self.index_list:
@@ -267,23 +269,37 @@ class DataPipeline(object):
         dataset = dataset.batch(batch_size)
         dataset = dataset.repeat()
         dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
-        return dataset
+        return dataset, steps_per_epoch
 
 
 class Predictor(object):
     def __init__(self):
-        self.state_shape = 91
-        self.target_shape = 5
-        self.learning_rate = 0.01
-        self.epochs = 30
-        self.lr_decay = 0.01 / self.epochs
-        inputs = tf.keras.Input(shape=(self.state_shape,))
+        self.model = None
+
+    def build_model(self, params):
+        dynamic_inputs = tf.keras.Input(shape=(params['time_steps'], params['dynamic_state_shape']),
+                                        name='dynamic_input')
+        static_inputs = tf.keras.Input(shape=(params['static_state_shape'],), name='static_input')
+        dynamic_x = tf.keras.layers.LSTM(
+            64,
+            activation='relu',
+            kernel_regularizer=tf.keras.regularizers.l2(0.001),
+            name="LSTM_1",
+            return_sequences=True
+        )(dynamic_inputs)
+        dynamic_x = tf.keras.layers.LSTM(
+            64,
+            activation='relu',
+            kernel_regularizer=tf.keras.regularizers.l2(0.001),
+            name="LSTM_2"
+        )(dynamic_x)
+        x = tf.keras.layers.concatenate([dynamic_x, static_inputs])
         x = tf.keras.layers.Dense(
             128,
             activation='relu',
             kernel_regularizer=tf.keras.regularizers.l2(0.001),
             name="Dense_1"
-        )(inputs)
+        )(x)
         x = tf.keras.layers.Dropout(0.2)(x)
         x = tf.keras.layers.Dense(
             128,
@@ -298,13 +314,30 @@ class Predictor(object):
             kernel_regularizer=tf.keras.regularizers.l2(0.001),
             name="Dense_3"
         )(x)
-        predictions = tf.keras.layers.Dense(self.target_shape, activation='relu', name="Predictions")(x)
-        self.model = tf.keras.Model(inputs=inputs, outputs=predictions)
-        adam = tf.keras.optimizers.RMSprop(lr=self.learning_rate)
-        self.model.compile(optimizer=adam, loss='mean_squared_error', metrics=["mean_absolute_error", "mean_squared_error"])
+        predictions = tf.keras.layers.Dense(params['forecast_state'], activation='relu', name="predictions")(x)
+        self.model = tf.keras.Model(inputs=[dynamic_inputs, static_inputs], outputs=predictions)
+        rms = tf.keras.optimizers.RMSprop(lr=params['learning_rate'])
+        self.model.compile(
+            optimizer=rms,
+            loss='mean_squared_error',
+            metrics=['mean_squared_error', 'mean_absolute_error']
+        )
 
-    def train(self, x, y):
-        history = self.model.fit(x, y, batch_size=512, epochs=self.epochs, validation_split=0.2)
+    def train(self, _dataset, params):
+        tb_callback = tf.keras.callbacks.TensorBoard(
+            log_dir='./logs/regression',
+            histogram_freq=0,
+            batch_size=32,
+            write_graph=True,
+            write_grads=True,
+            update_freq='batch')
+        history = self.model.fit(
+            _dataset,
+            batch_size=512,
+            callbacks=[tb_callback],
+            steps_per_epoch=params['steps_per_epoch'],
+            epochs=params['epochs'],
+        )
         return history
 
     def predict(self, x):
@@ -312,14 +345,23 @@ class Predictor(object):
         return y
 
 
+params = {
+    'forecast_state': 5,
+    'learning_rate': 0.001,
+    'time_steps': 5,
+    'dynamic_state_shape': 74,
+    'static_state_shape': 490,
+    'epochs': 1
+}
+
 pipeline = DataPipeline()
 pipeline.prepare_data('2018-01-01', '2018-12-31')
-# pipeline.store_data()
-dataset = pipeline.create_dataset(32, 5)
-iterator = dataset.make_one_shot_iterator()
-el = iterator.get_next()
-with tf.Session() as sess:
-    for i in range(10):
-        state, lab = sess.run(el)
-        print(state['dynamic_input'].shape, state['static_input'].shape, lab.shape)
+#pipeline.store_data()
+#pipeline.load_data()
+dataset, steps_per_epoch = pipeline.create_dataset(32, 5)
+
+params.update({'steps_per_epoch': int(steps_per_epoch)})
+predictor = Predictor()
+predictor.build_model(params)
+hist = predictor.train(dataset, params)
 # TODO: create new Price-Tables from preise.markt and preise.time
