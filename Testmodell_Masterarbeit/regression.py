@@ -35,6 +35,8 @@ class DataPipeline(object):
         self.detail_warengruppen_index = None
         self.warengruppen_index = None
         self.einheit_index = None
+        self.tage = None
+        self.time_series_index = None
         self.dyn_state_scalar_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D',
                                       'Regen_1D', 'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D',
                                       'Preis', 'relRabat', 'absRabat', 'vDauer']
@@ -111,7 +113,7 @@ class DataPipeline(object):
         sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Tue Fri Sat')
         # Testzeitraum ist nur von 1.Jan 2018 bis 31.12.2019, der Zeitraum muss aber um 5 Tage verlängert werden, damit
         zeitraum = pd.date_range(pd.to_datetime(start_date), pd.to_datetime(end_date) + pd.DateOffset(7), freq=sl_bd)
-
+        self.tage = zeitraum
         warenausgang.set_index('Datum', inplace=True)
         warenausgang = warenausgang.groupby(['Markt', 'Artikel']).apply(lambda x: x.reindex(zeitraum, fill_value=0))
         warenausgang.drop(columns=['Markt', 'Artikel'], inplace=True)
@@ -233,11 +235,15 @@ class DataPipeline(object):
         self.static_state = store.get('static_state')
         store.close()
 
-    def create_dataset(self, batch_size):
+    def create_dataset(self, batch_size, step_length):
+        zeiten = np.array([x.timestamp() / (24 * 3600)for x in self.tage])
+        zeiten = np.append(np.repeat(zeiten[0], step_length), zeiten)
+        self.time_series_index = {zeiten[k]: zeiten[k - step_length:k] for k in range(len(zeiten))}
+
         def gen():
-            for i in range(0, len(self.index_list),batch_size):
-                idx = self.index_list[i:i+batch_size]
-                art_idx = [art for markt, art, day in idx]
+            for index in self.index_list:
+                idx = [(index[0], index[1], day) for day in self.time_series_index[index[2]]]
+                art_idx = index[1]
                 dyn_state = self.dynamic_state.loc[idx, self.dyn_state_scalar_cols].to_numpy()
                 for category, class_numbers in self.dyn_state_category_cols.items():
                     category_state = to_categorical(self.dynamic_state.loc[idx, category], num_classes=class_numbers)
@@ -246,9 +252,9 @@ class DataPipeline(object):
                 stat_state = self.static_state.loc[art_idx, self.stat_state_scalar_cols].to_numpy()
                 for category, class_numbers in self.stat_state_category_cols.items():
                     category_state = to_categorical(self.static_state.loc[art_idx, category], num_classes=class_numbers)
-                    stat_state = np.concatenate((stat_state, category_state), axis=1)
+                    stat_state = np.append(stat_state, category_state)
 
-                labels = self.dynamic_state.loc[idx, self.dyn_state_label_cols].to_numpy()
+                labels = self.dynamic_state.loc[index, self.dyn_state_label_cols].to_numpy()
 
                 yield {'dynamic_input': dyn_state, 'static_input': stat_state}, labels
 
@@ -256,9 +262,9 @@ class DataPipeline(object):
             gen,
             output_types=({'dynamic_input': tf.float64, 'static_input': tf.float64}, tf.float64),
             output_shapes=(
-            {'dynamic_input': tf.TensorShape([None, 74]), 'static_input': tf.TensorShape([None, 490])}, tf.TensorShape([None, 5]))
+            {'dynamic_input': tf.TensorShape([step_length, 74]), 'static_input': tf.TensorShape([490])}, tf.TensorShape([5]))
         )
-        dataset = dataset.batch(1)
+        dataset = dataset.batch(batch_size)
         dataset = dataset.repeat()
         dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
         return dataset
@@ -309,11 +315,11 @@ class Predictor(object):
 pipeline = DataPipeline()
 pipeline.prepare_data('2018-01-01', '2018-12-31')
 # pipeline.store_data()
-dataset = pipeline.create_dataset(32)
+dataset = pipeline.create_dataset(32, 5)
 iterator = dataset.make_one_shot_iterator()
 el = iterator.get_next()
 with tf.Session() as sess:
-    for i in range(100):
+    for i in range(10):
         state, lab = sess.run(el)
         print(state['dynamic_input'].shape, state['static_input'].shape, lab.shape)
 # TODO: create new Price-Tables from preise.markt and preise.time
