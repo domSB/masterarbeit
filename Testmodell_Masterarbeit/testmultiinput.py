@@ -27,28 +27,32 @@ dynamic_input, static_input, label = (
 # iterator = dataset.make_one_shot_iterator()
 
 
-def generator(dynamic_input, static_input, label):
+def generator(_dynamic_input, _static_input, _label):
     global params
     bs = params['batch_size']
-    while True:
-        index = np.random.choice(len(dynamic_input[0])-bs, 1)[0]
-        next_batch = ([dynamic_input[0][index:index+bs], static_input[0][index:index+bs]], label[0][index:index+bs])
-        yield next_batch
+    dataset = tf.data.Dataset.from_tensor_slices(
+        ({'dynamic_input': _dynamic_input[0], 'static_input': _static_input[0]}, _label[0])
+    )
+    dataset = dataset.batch(bs)
+    dataset = dataset.repeat()
+    dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
+    return dataset
 
 
-def generator_single(dynamic_input, static_input, label):
+def generator_single(_dynamic_input, _label):
     global params
     bs = params['batch_size']
-    while True:
-        index = np.random.choice(len(dynamic_input[0])-bs, 1)[0]
-        next_batch = (dynamic_input[0][index:index+bs], label[0][index:index+bs])
-        yield next_batch
+    dataset = tf.data.Dataset.from_tensor_slices(({'dynamic_input': _dynamic_input[0]}, _label[0]))
+    dataset = dataset.batch(bs)
+    dataset = dataset.repeat()
+    dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
+    return dataset
 
 
 def build_double_input_model():
     global params
-    dynamic_inputs = tf.keras.Input(shape=(params['time_steps'], params['dynamic_state_shape']))
-    static_inputs = tf.keras.Input(shape=((params['static_state_shape'], )))
+    dynamic_inputs = tf.keras.Input(shape=(params['time_steps'], params['dynamic_state_shape']), name='dynamic_input')
+    static_inputs = tf.keras.Input(shape=(params['static_state_shape'], ), name='static_input')
     dynamic_x = tf.keras.layers.LSTM(
         10,
         activation='relu',
@@ -83,7 +87,7 @@ def build_double_input_model():
         kernel_regularizer=tf.keras.regularizers.l2(0.001),
         name="Dense_3"
     )(x)
-    predictions = tf.keras.layers.Dense(params['forecast_state'], activation='relu', name="Predictions")(x)
+    predictions = tf.keras.layers.Dense(params['forecast_state'], activation='relu', name="predictions")(x)
     _model = tf.keras.Model(inputs=[dynamic_inputs, static_inputs], outputs=predictions)
     rms = tf.keras.optimizers.RMSprop(lr=params['forecast_state'])
     _model.compile(optimizer=rms, loss='mean_squared_error', metrics=['mean_squared_error', 'mean_absolute_error'])
@@ -92,7 +96,7 @@ def build_double_input_model():
 
 def build_single_input_model():
     global params
-    dynamic_inputs = tf.keras.Input(shape=(params['time_steps'], params['dynamic_state_shape']))
+    dynamic_inputs = tf.keras.Input(shape=(params['time_steps'], params['dynamic_state_shape']), name='dynamic_input')
     dynamic_x = tf.keras.layers.LSTM(
         10,
         activation='relu',
@@ -126,7 +130,7 @@ def build_single_input_model():
         kernel_regularizer=tf.keras.regularizers.l2(0.001),
         name="Dense_3"
     )(x)
-    predictions = tf.keras.layers.Dense(params['forecast_state'], activation='relu', name="Predictions")(x)
+    predictions = tf.keras.layers.Dense(params['forecast_state'], activation='relu', name="predictions")(x)
     _model = tf.keras.Model(inputs=dynamic_inputs, outputs=predictions)
     rms = tf.keras.optimizers.RMSprop(lr=params['forecast_state'])
     _model.compile(optimizer=rms, loss='mean_squared_error', metrics=['mean_squared_error', 'mean_absolute_error'])
@@ -135,10 +139,15 @@ def build_single_input_model():
 
 model = build_double_input_model()
 single = build_single_input_model()
-single.fit_generator(generator_single(dynamic_input, static_input, label), steps_per_epoch=10, epochs=1)
+
+training_set = generator_single(dynamic_input, label)
+
+multiple_training_set = generator(dynamic_input, static_input, label)
+
+single.fit(training_set.make_one_shot_iterator(), steps_per_epoch=10, epochs=1)
 
 
-model.fit_generator(generator(dynamic_input, static_input, label), steps_per_epoch=10, epochs=1)
+model.fit(multiple_training_set.make_one_shot_iterator(), steps_per_epoch=10, epochs=10)
 
 
 
