@@ -360,10 +360,24 @@ class Predictor(object):
             period=1)
         lr_schedule_callback = tf.keras.callbacks.LearningRateScheduler(decay),
         lr_print_callback = PrintLR()
+        stop_callback = tf.keras.callbacks.EarlyStopping(
+            monitor='loss',
+            min_delta=0,
+            patience=3,
+            verbose=0,
+            restore_best_weights=True
+        )
         history = self.model.fit(
             _dataset,
             batch_size=512,
-            callbacks=[tb_callback, nan_callback, save_callback, lr_schedule_callback, lr_print_callback],
+            callbacks=[
+                tb_callback,
+                nan_callback,
+                save_callback,
+                lr_schedule_callback,
+                lr_print_callback,
+                stop_callback
+            ],
             steps_per_epoch=params['steps_per_epoch'],
             epochs=params['epochs'],
         )
@@ -380,7 +394,7 @@ params = {
     'time_steps': 5,
     'dynamic_state_shape': 74,
     'static_state_shape': 490,
-    'epochs': 100
+    'epochs': 20
 }
 
 pipeline = DataPipeline()
@@ -388,7 +402,6 @@ pipeline.prepare_data('2018-01-01', '2018-12-31')
 # pipeline.store_data()
 # pipeline.load_data()
 dataset, steps_per_epoch = pipeline.create_dataset(128, 5)
-#
 params.update({'steps_per_epoch': int(steps_per_epoch/100)})  # damit speichern am Epochen Ende getestet werden kann
 predictor = Predictor()
 predictor.build_model(params)
