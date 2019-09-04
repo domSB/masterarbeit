@@ -88,6 +88,8 @@ class DataPipeline(object):
         artikelstamm['Warengruppe'] = artikelstamm['Warengruppe'].map(self.warengruppen_index)
         artikelstamm['Einheit'] = artikelstamm['Einheit'].map(self.einheit_index)
         artikelstamm.drop(columns=['MHD', 'Region', 'MarkeFK', 'Verkaufseinheit', 'OSEText'], inplace=True)
+        artikelstamm['OSE'].fillna(0, inplace=True)
+        artikelstamm['Saisonal'].fillna(0, inplace=True)
         artikelstamm.set_index('Artikel', inplace=True)
         # endregion
 
@@ -237,6 +239,8 @@ class DataPipeline(object):
         store.close()
 
     def create_dataset(self, batch_size, step_length):
+        assert not self.static_state.isna().any().any(), 'NaNs in den statischen Informationen'
+        assert not self.dynamic_state.isna().any().any(), 'NaNs in den zeitabhängigen Informationen'
         zeiten = np.array([x.timestamp() / (24 * 3600)for x in self.tage])
         zeiten = np.append(np.repeat(zeiten[0], step_length), zeiten)
         self.time_series_index = {zeiten[k]: zeiten[k - step_length:k] for k in range(len(zeiten))}
@@ -272,6 +276,21 @@ class DataPipeline(object):
         dataset = dataset.repeat()
         dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
         return dataset, steps_per_epoch
+
+
+def decay(epoch):
+    if epoch < 3:
+        return 1e-3
+    elif 3 <= epoch < 10:
+        return 1e-4
+    else:
+        return 1e-5
+
+
+class PrintLR(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        print('\nLearning rate for epoch {} is {}'.format(
+               epoch + 1, tf.keras.backend.get_value(model.optimizer.lr)))
 
 
 class Predictor(object):
@@ -327,16 +346,24 @@ class Predictor(object):
 
     def train(self, _dataset, params):
         tb_callback = tf.keras.callbacks.TensorBoard(
-            log_dir='./logs/regression2',
+            log_dir='./logs/regression5',
             histogram_freq=0,
             batch_size=32,
             write_graph=True,
             write_grads=True,
             update_freq='batch')
+        nan_callback = tf.keras.callbacks.TerminateOnNaN()
+        save_callback = tf.keras.callbacks.ModelCheckpoint(
+            './model/regression5/weights.{epoch:02d}-{loss:.2f}.hdf5',
+            monitor='loss',
+            verbose=0,
+            period=1)
+        lr_schedule_callback = tf.keras.callbacks.LearningRateScheduler(decay),
+        lr_print_callback = PrintLR()
         history = self.model.fit(
             _dataset,
             batch_size=512,
-            callbacks=[tb_callback],
+            callbacks=[tb_callback, nan_callback, save_callback, lr_schedule_callback, lr_print_callback],
             steps_per_epoch=params['steps_per_epoch'],
             epochs=params['epochs'],
         )
@@ -353,16 +380,16 @@ params = {
     'time_steps': 5,
     'dynamic_state_shape': 74,
     'static_state_shape': 490,
-    'epochs': 2
+    'epochs': 100
 }
 
 pipeline = DataPipeline()
 pipeline.prepare_data('2018-01-01', '2018-12-31')
-#pipeline.store_data()
-#pipeline.load_data()
-dataset, steps_per_epoch = pipeline.create_dataset(32, 5)
-
-params.update({'steps_per_epoch': int(steps_per_epoch)})
+# pipeline.store_data()
+# pipeline.load_data()
+dataset, steps_per_epoch = pipeline.create_dataset(128, 5)
+#
+params.update({'steps_per_epoch': int(steps_per_epoch/100)})  # damit speichern am Epochen Ende getestet werden kann
 predictor = Predictor()
 predictor.build_model(params)
 hist = predictor.train(dataset, params)
