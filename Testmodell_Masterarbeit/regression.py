@@ -435,7 +435,7 @@ params = {
     'batch_size': 512
 }
 # TODO: create new Price-Tables from preise.markt and preise.time
-
+# TODO: Vorhersage-Vortag als Baseline für Vergleichs-MSE nehmen
 # pipeline = DataPipeline()
 # pipeline.prepare_data('2018-01-01', '2018-12-31')
 # pipeline.save_numpy(6)
