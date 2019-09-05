@@ -15,10 +15,48 @@ import numpy as np
 import pandas as pd
 from keras.utils import to_categorical
 import tensorflow as tf
+import cProfile
 
 from calender.german_holidays import get_german_holiday_calendar
 
 DATA_PATH = os.path.join('data')
+
+
+def extend_list(list_of_str, length):
+    list_copy = list_of_str.copy()
+    for i in range(1, length):
+        list_of_str.extend([name + '_' + str(i) for name in list_copy])
+    return list_of_str
+
+
+def concat(df, length):
+    cols = list(df.columns)
+    cols = extend_list(cols, length)
+    df_s = df.copy()
+    for i in range(1, length):
+        df = pd.concat((df, df_s.shift(-i)), axis=1)
+    df.columns = cols
+    print(df.shape)
+    df.dropna(axis=0, inplace=True)
+    print(df.shape)
+    for i in range(1, length):
+        df = df[df['Artikel'] == df['Artikel_' + str(i)]]
+    x_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D', 'Regen_1D',
+              'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D', 'Preis', 'relRabat', 'absRabat', 'vDauer']
+    x_cols = extend_list(x_cols, length)
+    weekday_col = ['Wochentag']
+    weekday_col = extend_list(weekday_col, length)
+    yearweek_col = ['Kalenderwoche']
+    yearweek_col = extend_list(yearweek_col, length)
+    y_cols = ['in1', 'in2', 'in3', 'in4', 'in5']
+    x_arr = df[x_cols].to_numpy(dtype=np.float32).reshape(-1, length, int(len(x_cols) / length))
+    weekday_arr = df[weekday_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
+    weekday_arr = to_categorical(weekday_arr, num_classes=7)
+    yearweek_arr = df[yearweek_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
+    yearweek_arr = to_categorical(yearweek_arr, num_classes=54)
+    big_x_arr = np.concatenate((x_arr, weekday_arr, yearweek_arr), axis=2)
+    y_arr = df[y_cols].to_numpy(dtype=np.float32)
+    return y_arr, big_x_arr
 
 
 class DataPipeline(object):
@@ -277,6 +315,11 @@ class DataPipeline(object):
         dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
         return dataset, steps_per_epoch
 
+    def create_numpy(self, batch_size, step_length):
+        self.dynamic_state.reset_index(inplace=True, drop=True)
+        self.dynamic_state.drop(columns=['index', 'Datum'], inplace=True)
+        self.y, self.x, = concat(self.dynamic_state, step_length)
+
 
 def decay(epoch):
     if epoch < 3:
@@ -290,7 +333,7 @@ def decay(epoch):
 class PrintLR(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         print('\nLearning rate for epoch {} is {}'.format(
-               epoch + 1, tf.keras.backend.get_value(model.optimizer.lr)))
+               epoch + 1, tf.keras.backend.get_value(predictor.model.optimizer.lr)))
 
 
 class Predictor(object):
@@ -358,7 +401,7 @@ class Predictor(object):
             monitor='loss',
             verbose=0,
             period=1)
-        lr_schedule_callback = tf.keras.callbacks.LearningRateScheduler(decay),
+        lr_schedule_callback = tf.keras.callbacks.LearningRateScheduler(decay)
         lr_print_callback = PrintLR()
         stop_callback = tf.keras.callbacks.EarlyStopping(
             monitor='loss',
@@ -394,16 +437,20 @@ params = {
     'time_steps': 5,
     'dynamic_state_shape': 74,
     'static_state_shape': 490,
-    'epochs': 20
+    'epochs': 1
 }
 
 pipeline = DataPipeline()
 pipeline.prepare_data('2018-01-01', '2018-12-31')
 # pipeline.store_data()
 # pipeline.load_data()
-dataset, steps_per_epoch = pipeline.create_dataset(128, 5)
-params.update({'steps_per_epoch': int(steps_per_epoch/100)})  # damit speichern am Epochen Ende getestet werden kann
-predictor = Predictor()
-predictor.build_model(params)
-hist = predictor.train(dataset, params)
+# dataset, steps_per_epoch = pipeline.create_dataset(128, 5)
+# params.update({'steps_per_epoch': int(steps_per_epoch/100)})  # damit speichern am Epochen Ende getestet werden kann
+# predictor = Predictor()
+# predictor.build_model(params)
+# cProfile.run('predictor.train(dataset, params)', 'pstats.pstat')
+
+pipeline.create_numpy(128, 7)
+
 # TODO: create new Price-Tables from preise.markt and preise.time
+
