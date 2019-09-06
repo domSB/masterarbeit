@@ -76,6 +76,8 @@ class DataPipeline(object):
         self.einheit_index = None
         self.tage = None
         self.time_series_index = None
+        self.mae = None
+        self.mse = None
         self.dyn_state_scalar_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D',
                                       'Regen_1D', 'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D',
                                       'Preis', 'relRabat', 'absRabat', 'vDauer']
@@ -262,6 +264,27 @@ class DataPipeline(object):
         self.dynamic_state = warenausgang
         self.static_state = artikelstamm
 
+    def get_baseline(self, prediction_days):
+        """
+        Prints the Mean Squared Error and the Mean Absolute Error of the dynamic_state
+        :param prediction_days:
+        :return:
+        """
+        bewegung = self.dynamic_state.loc[:, ['Markt', 'Artikel', 'Datum', 'Menge', 'UNIXDatum']].copy()
+        bewegung.reset_index(inplace=True, drop=True)
+        bewegung['Prediction'] = bewegung.groupby(['Markt', 'Artikel'])['Menge'].shift(1)
+        bewegung['AError'] = np.abs(bewegung['Menge'] - bewegung['Prediction'])
+        bewegung['SError'] = np.square(bewegung['AError'])
+        bewegung.dropna(inplace=True)
+        bewegung['MAE'] = bewegung['AError'].rolling(prediction_days).mean()
+        bewegung['MSE'] = bewegung['SError'].rolling(prediction_days).mean()
+        self.mae = np.mean(bewegung['MAE'])
+        self.mse = np.mean(bewegung['MSE'])
+        print('BASELINE\n---\nMean Average Error: {mae} \nMean Squared Error: {mse}'.format(
+            mae=self.mae,
+            mse=self.mse
+        ))
+
     def create_numpy(self, step_length):
         self.dynamic_state.reset_index(inplace=True, drop=True)
         self.dynamic_state.drop(columns=['index', 'Datum'], inplace=True)
@@ -381,9 +404,9 @@ class Predictor(object):
             metrics=['mean_squared_error', 'mean_absolute_error']
         )
 
-    def train(self, _dataset, _params):
+    def train(self, _dataset, _val_dataset, _params):
         tb_callback = tf.keras.callbacks.TensorBoard(
-            log_dir='./logs/Reg1baseline',
+            log_dir='./logs/Reg2baselineVal',
             histogram_freq=0,
             batch_size=32,
             write_graph=True,
@@ -391,7 +414,7 @@ class Predictor(object):
             update_freq='batch')
         nan_callback = tf.keras.callbacks.TerminateOnNaN()
         save_callback = tf.keras.callbacks.ModelCheckpoint(
-            './model/Reg1baseline/weights.{epoch:02d}-{loss:.2f}.hdf5',
+            './model/Reg2baselineVal/weights.{epoch:02d}-{loss:.2f}.hdf5',
             monitor='loss',
             verbose=0,
             period=1)
@@ -417,6 +440,7 @@ class Predictor(object):
             ],
             steps_per_epoch=_params['steps_per_epoch'],
             epochs=_params['epochs'],
+            validation_data=_val_dataset
         )
         return history
 
@@ -437,11 +461,14 @@ params = {
 # TODO: create new Price-Tables from preise.markt and preise.time
 # TODO: Vorhersage-Vortag als Baseline für Vergleichs-MSE nehmen
 # pipeline = DataPipeline()
-# pipeline.prepare_data('2018-01-01', '2018-12-31')
+# pipeline.prepare_data('2017-01-01', '2017-12-31')
+# pipeline.get_baseline(params['forecast_state'])
 # pipeline.save_numpy(6)
-l, d, s = load_numpy(os.path.join(DATA_PATH, 'time-2018-01-01-2018-12-31-6.npz'))
+val_l, val_d, val_s = load_numpy(os.path.join(DATA_PATH, 'time-2018-01-01-2018-12-31-6.npz'))
+l, d, s = load_numpy(os.path.join(DATA_PATH, 'time-2017-01-01-2017-12-31-6.npz'))
 dataset, steps_per_epoch = create_dataset(l, d, s, params['batch_size'])
+val_dataset, _ = create_dataset(val_l, val_d, val_s, params['batch_size'])
 params.update({'steps_per_epoch': steps_per_epoch})
 predictor = Predictor()
 predictor.build_model(params)
-hist = predictor.train(dataset, params)
+hist = predictor.train(dataset, val_dataset, params)
