@@ -10,7 +10,6 @@ Arbeitsspeicherverbrauch von 10 GB pro Markt!
 # sys.path.extend(['/home/dominic/PycharmProjects/masterarbeit',
 #                  '/home/dominic/PycharmProjects/masterarbeit/Testmodell_Masterarbeit'])
 import os
-import random
 import numpy as np
 import pandas as pd
 from keras.utils import to_categorical
@@ -21,6 +20,44 @@ from calender.german_holidays import get_german_holiday_calendar
 DATA_PATH = os.path.join('data')
 
 
+def extend_list(list_of_str, length):
+    list_copy = list_of_str.copy()
+    for i in range(1, length):
+        list_of_str.extend([name + '_' + str(i) for name in list_copy])
+    return list_of_str
+
+
+def concat(df, length):
+    cols = list(df.columns)
+    cols = extend_list(cols, length)
+    df_s = df.copy()
+    for i in range(1, length):
+        df = pd.concat((df, df_s.shift(-i)), axis=1)
+    df.columns = cols
+    print(df.shape)
+    df.dropna(axis=0, inplace=True)
+    print(df.shape)
+    for i in range(1, length):
+        df = df[df['Artikel'] == df['Artikel_' + str(i)]]
+    x_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D', 'Regen_1D',
+              'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D', 'Preis', 'relRabat', 'absRabat', 'vDauer']
+    x_cols = extend_list(x_cols, length)
+    weekday_col = ['Wochentag']
+    weekday_col = extend_list(weekday_col, length)
+    yearweek_col = ['Kalenderwoche']
+    yearweek_col = extend_list(yearweek_col, length)
+    y_cols = ['in1', 'in2', 'in3', 'in4', 'in5']
+    x_arr = df[x_cols].to_numpy(dtype=np.float32).reshape(-1, length, int(len(x_cols) / length))
+    weekday_arr = df[weekday_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
+    weekday_arr = to_categorical(weekday_arr, num_classes=7)
+    yearweek_arr = df[yearweek_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
+    yearweek_arr = to_categorical(yearweek_arr, num_classes=54)
+    big_x_arr = np.concatenate((x_arr, weekday_arr, yearweek_arr), axis=2)
+    y_arr = df[y_cols].to_numpy(dtype=np.float32)
+    stat_df = df['Artikel']
+    return y_arr, big_x_arr, stat_df
+
+
 class DataPipeline(object):
     def __init__(
             self,
@@ -29,6 +66,8 @@ class DataPipeline(object):
     ):
         self.series_type = series_type
         self.data_path = data_path
+        self.start_date = None
+        self.end_date = None
         self.dynamic_state = None
         self.static_state = None
         self.index_list = None
@@ -47,6 +86,8 @@ class DataPipeline(object):
         self.stat_state_category_cols = {'MHDgroup': 7, 'Warengruppe': 9, 'Detailwarengruppe': None, 'Einheit': None}
 
     def prepare_data(self, start_date, end_date):
+        self.start_date = start_date
+        self.end_date = end_date
         # region Artikelstammm
         print('INFO - Lese Artikelstamm')
         artikelstamm = pd.read_csv(
@@ -88,6 +129,8 @@ class DataPipeline(object):
         artikelstamm['Warengruppe'] = artikelstamm['Warengruppe'].map(self.warengruppen_index)
         artikelstamm['Einheit'] = artikelstamm['Einheit'].map(self.einheit_index)
         artikelstamm.drop(columns=['MHD', 'Region', 'MarkeFK', 'Verkaufseinheit', 'OSEText'], inplace=True)
+        artikelstamm['OSE'].fillna(0, inplace=True)
+        artikelstamm['Saisonal'].fillna(0, inplace=True)
         artikelstamm.set_index('Artikel', inplace=True)
         # endregion
 
@@ -219,69 +262,82 @@ class DataPipeline(object):
         self.dynamic_state = warenausgang
         self.static_state = artikelstamm
 
-    def store_data(self):
-        # region Store Data
-        print('INFO - Speichere Daten')
-        store = pd.HDFStore(os.path.join(self.data_path, self.series_type + '.h5'))
-        store.put('dynamic_state', self.dynamic_state)
-        store.put('static_state', self.static_state, format='table')
-        store.close()
-        print('INFO - Fertig')
-        # endregion
+    def create_numpy(self, step_length):
+        self.dynamic_state.reset_index(inplace=True, drop=True)
+        self.dynamic_state.drop(columns=['index', 'Datum'], inplace=True)
+        print('INFO - Concatenating dynamic states')
+        y, x, stat_df = concat(self.dynamic_state, step_length)
+        print('INFO - Reindexing static state')
+        stat_df = self.static_state.reindex(stat_df)
+        print('INFO - Creating categorical states')
+        stat_state = stat_df.loc[:, self.stat_state_scalar_cols].to_numpy(dtype=np.int8)
+        for category, class_numbers in self.stat_state_category_cols.items():
+            category_state = to_categorical(stat_df.loc[:, category], num_classes=class_numbers).astype(np.int8)
+            stat_state = np.concatenate((stat_state, category_state), axis=1)
+        return y, x, stat_state
 
-    def load_data(self):
-        print('INFO - Reading Data')
-        store = pd.HDFStore(os.path.join(self.data_path, self.series_type + '.h5'))
-        self.dynamic_state = store.get('dynamic_state')
-        self.static_state = store.get('static_state')
-        store.close()
+    def save_numpy(self, step_length):
+        print('INFO - Speichere NPZ-Dateien')
+        lab, dyn, stat = self.create_numpy(step_length)
+        filename = '-'.join([self.series_type, self.start_date, self.end_date, str(step_length)])
+        path = os.path.join(self.data_path, filename)
+        np.savez(path, lab=lab, dyn=dyn, stat=stat)
 
-    def create_dataset(self, batch_size, step_length):
-        zeiten = np.array([x.timestamp() / (24 * 3600)for x in self.tage])
-        zeiten = np.append(np.repeat(zeiten[0], step_length), zeiten)
-        self.time_series_index = {zeiten[k]: zeiten[k - step_length:k] for k in range(len(zeiten))}
-        steps_per_epoch = len(self.index_list) / batch_size
 
-        def gen():
-            while True:
-                random.shuffle(self.index_list)
-                for index in self.index_list:
-                    idx = [(index[0], index[1], day) for day in self.time_series_index[index[2]]]
-                    art_idx = index[1]
-                    dyn_state = self.dynamic_state.loc[idx, self.dyn_state_scalar_cols].to_numpy()
-                    for category, class_numbers in self.dyn_state_category_cols.items():
-                        category_state = to_categorical(self.dynamic_state.loc[idx, category], num_classes=class_numbers)
-                        dyn_state = np.concatenate((dyn_state, category_state), axis=1)
+def load_numpy(path):
+    print('INFO - Lese NPZ-Dateien')
+    files = np.load(path)
+    lab = files['lab']
+    dyn = files['dyn']
+    stat = files['stat']
+    return lab, dyn, stat
 
-                    stat_state = self.static_state.loc[art_idx, self.stat_state_scalar_cols].to_numpy()
-                    for category, class_numbers in self.stat_state_category_cols.items():
-                        category_state = to_categorical(self.static_state.loc[art_idx, category], num_classes=class_numbers)
-                        stat_state = np.append(stat_state, category_state)
 
-                    labels = self.dynamic_state.loc[index, self.dyn_state_label_cols].to_numpy()
+def decay(epoch):
+    if epoch < 3:
+        return 1e-3
+    elif 3 <= epoch < 10:
+        return 1e-4
+    else:
+        return 1e-5
 
-                    yield {'dynamic_input': dyn_state, 'static_input': stat_state}, labels
 
-        dataset = tf.data.Dataset.from_generator(
-            gen,
-            output_types=({'dynamic_input': tf.float64, 'static_input': tf.float64}, tf.float64),
-            output_shapes=(
-            {'dynamic_input': tf.TensorShape([step_length, 74]), 'static_input': tf.TensorShape([490])}, tf.TensorShape([5]))
-        )
-        dataset = dataset.batch(batch_size)
-        dataset = dataset.repeat()
-        dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
-        return dataset, steps_per_epoch
+def create_dataset(lab, dyn, stat, batch_size):
+    step_length = dyn.shape[1]
+    _steps_per_epoch = int(dyn.shape[0]/batch_size)
+
+    def gen():
+        while True:
+            rand_idx = np.random.randint(0, lab.shape[0], 1)
+            yield {'dynamic_input': dyn[rand_idx][0], 'static_input': stat[rand_idx][0]}, lab[rand_idx][0]
+
+    _dataset = tf.data.Dataset.from_generator(
+        gen,
+        output_types=({'dynamic_input': tf.float32, 'static_input': tf.int8}, tf.float32),
+        output_shapes=(
+            {'dynamic_input': tf.TensorShape([step_length, 74]), 'static_input': tf.TensorShape([490])},
+            tf.TensorShape([5]))
+    )
+    _dataset = _dataset.batch(batch_size)
+    _dataset = _dataset.repeat()
+    _dataset = _dataset.prefetch(tf.contrib.data.AUTOTUNE)
+    return _dataset, _steps_per_epoch
+
+
+class PrintLR(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        print('\nLearning rate for epoch {} is {}'.format(
+               epoch + 1, tf.keras.backend.get_value(predictor.model.optimizer.lr)))
 
 
 class Predictor(object):
     def __init__(self):
         self.model = None
 
-    def build_model(self, params):
-        dynamic_inputs = tf.keras.Input(shape=(params['time_steps'], params['dynamic_state_shape']),
+    def build_model(self, _params):
+        dynamic_inputs = tf.keras.Input(shape=(_params['time_steps'], _params['dynamic_state_shape']),
                                         name='dynamic_input')
-        static_inputs = tf.keras.Input(shape=(params['static_state_shape'],), name='static_input')
+        static_inputs = tf.keras.Input(shape=(_params['static_state_shape'],), name='static_input')
         dynamic_x = tf.keras.layers.LSTM(
             64,
             activation='relu',
@@ -316,29 +372,51 @@ class Predictor(object):
             kernel_regularizer=tf.keras.regularizers.l2(0.001),
             name="Dense_3"
         )(x)
-        predictions = tf.keras.layers.Dense(params['forecast_state'], activation='relu', name="predictions")(x)
+        predictions = tf.keras.layers.Dense(_params['forecast_state'], activation='relu', name="predictions")(x)
         self.model = tf.keras.Model(inputs=[dynamic_inputs, static_inputs], outputs=predictions)
-        rms = tf.keras.optimizers.RMSprop(lr=params['learning_rate'])
+        rms = tf.keras.optimizers.RMSprop(lr=_params['learning_rate'])
         self.model.compile(
             optimizer=rms,
             loss='mean_squared_error',
             metrics=['mean_squared_error', 'mean_absolute_error']
         )
 
-    def train(self, _dataset, params):
+    def train(self, _dataset, _params):
         tb_callback = tf.keras.callbacks.TensorBoard(
-            log_dir='./logs/regression2',
+            log_dir='./logs/Reg1baseline',
             histogram_freq=0,
             batch_size=32,
             write_graph=True,
             write_grads=True,
             update_freq='batch')
+        nan_callback = tf.keras.callbacks.TerminateOnNaN()
+        save_callback = tf.keras.callbacks.ModelCheckpoint(
+            './model/Reg1baseline/weights.{epoch:02d}-{loss:.2f}.hdf5',
+            monitor='loss',
+            verbose=0,
+            period=1)
+        lr_schedule_callback = tf.keras.callbacks.LearningRateScheduler(decay)
+        lr_print_callback = PrintLR()
+        stop_callback = tf.keras.callbacks.EarlyStopping(
+            monitor='loss',
+            min_delta=0,
+            patience=3,
+            verbose=0,
+            restore_best_weights=True
+        )
         history = self.model.fit(
             _dataset,
             batch_size=512,
-            callbacks=[tb_callback],
-            steps_per_epoch=params['steps_per_epoch'],
-            epochs=params['epochs'],
+            callbacks=[
+                tb_callback,
+                nan_callback,
+                save_callback,
+                lr_schedule_callback,
+                lr_print_callback,
+                stop_callback
+            ],
+            steps_per_epoch=_params['steps_per_epoch'],
+            epochs=_params['epochs'],
         )
         return history
 
@@ -350,20 +428,20 @@ class Predictor(object):
 params = {
     'forecast_state': 5,
     'learning_rate': 0.001,
-    'time_steps': 5,
+    'time_steps': 6,
     'dynamic_state_shape': 74,
     'static_state_shape': 490,
-    'epochs': 2
+    'epochs': 20,
+    'batch_size': 512
 }
-
-pipeline = DataPipeline()
-pipeline.prepare_data('2018-01-01', '2018-12-31')
-#pipeline.store_data()
-#pipeline.load_data()
-dataset, steps_per_epoch = pipeline.create_dataset(32, 5)
-
-params.update({'steps_per_epoch': int(steps_per_epoch)})
+# TODO: create new Price-Tables from preise.markt and preise.time
+# TODO: Vorhersage-Vortag als Baseline für Vergleichs-MSE nehmen
+# pipeline = DataPipeline()
+# pipeline.prepare_data('2018-01-01', '2018-12-31')
+# pipeline.save_numpy(6)
+l, d, s = load_numpy(os.path.join(DATA_PATH, 'time-2018-01-01-2018-12-31-6.npz'))
+dataset, steps_per_epoch = create_dataset(l, d, s, params['batch_size'])
+params.update({'steps_per_epoch': steps_per_epoch})
 predictor = Predictor()
 predictor.build_model(params)
 hist = predictor.train(dataset, params)
-# TODO: create new Price-Tables from preise.markt and preise.time
