@@ -406,15 +406,15 @@ class Predictor(object):
 
     def train(self, _dataset, _val_dataset, _params):
         tb_callback = tf.keras.callbacks.TensorBoard(
-            log_dir='./logs/Reg2baselineVal',
-            histogram_freq=0,
+            log_dir='./logs/Reg3baselineVal',
+            histogram_freq=1,
             batch_size=32,
             write_graph=True,
             write_grads=True,
             update_freq='batch')
         nan_callback = tf.keras.callbacks.TerminateOnNaN()
         save_callback = tf.keras.callbacks.ModelCheckpoint(
-            './model/Reg2baselineVal/weights.{epoch:02d}-{loss:.2f}.hdf5',
+            './model/Reg3baselineVal/weights.{epoch:02d}-{loss:.2f}.hdf5',
             monitor='loss',
             verbose=0,
             period=1)
@@ -440,7 +440,8 @@ class Predictor(object):
             ],
             steps_per_epoch=_params['steps_per_epoch'],
             epochs=_params['epochs'],
-            validation_data=_val_dataset
+            validation_data=_val_dataset,
+            validation_steps=_params['steps_per_epoch']
         )
         return history
 
