@@ -269,3 +269,17 @@ __pycache__/
 /Testmodell_Masterarbeit/data/1 Absatz.csv
 *.pstat
 /Testmodell_Masterarbeit/data
+/Testmodell_Masterarbeit/files/prepared/0 ArtikelstammV4.csv
+/Testmodell_Masterarbeit/files/prepared/0 Warenausgang.markt.csv
+/Testmodell_Masterarbeit/files/prepared/0 Warenausgang.time.csv
+/Testmodell_Masterarbeit/files/prepared/1 Preisaktionen.csv
+/Testmodell_Masterarbeit/files/prepared/1 Preise.csv
+/Testmodell_Masterarbeit/files/prepared/1 Wetter.csv
+/Testmodell_Masterarbeit/files/prepared/regression.npy
+/Testmodell_Masterarbeit/files/prepared/simulation.Markt.pickle
+/Testmodell_Masterarbeit/files/prepared/simulation.Time.pickle
+/Testmodell_Masterarbeit/files/prepared/time.h5
+/Testmodell_Masterarbeit/files/prepared/time-2017-01-01-2017-12-31-6.npz
+/Testmodell_Masterarbeit/files/prepared/time-2018-01-01-2018-12-31-6.npz
+/Testmodell_Masterarbeit/files/prepared/validator.Markt.pickle
+/Testmodell_Masterarbeit/files/prepared/validator.Time.pickle
