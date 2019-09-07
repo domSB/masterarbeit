@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 
 
-class DQN:
+class AgentOne:
     def __init__(self, 
                  memory_size, 
                  state_shape, 
@@ -37,12 +37,12 @@ class DQN:
         self.time_series_length = time_series_length
         self.memory = deque(maxlen=memory_size)
         self.model = self.create_model("Train")
-        log_dir = './logs/' + run_description
-        model_dir = './model/' + run_description
+        log_dir = './files/logging/AgentV1/' + run_description
+        model_dir = './files/models/AgentV1/' + run_description
         if os.path.exists(log_dir):
-            log_dir = "./logs/" + datetime.datetime.today().date().__str__() + "-" \
+            log_dir = './files/logging/AgentV1/' + datetime.datetime.today().date().__str__() + "-" \
                       + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
-            model_dir = "./model/" + datetime.datetime.today().date().__str__() + "-" \
+            model_dir = './files/logging/AgentV1/' + datetime.datetime.today().date().__str__() + "-" \
                         + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
         os.mkdir(log_dir)
         os.mkdir(model_dir)
@@ -148,7 +148,6 @@ class DQN:
         self.writer = tf.summary.FileWriter(self.logdir, self.sess.graph)
 
     def create_model(self, name):
-        # TODO: Struktur dynamisch gestalten, damit eine Klasse für alle Tests nutzbar.
         with tf.name_scope(name):
             inputs = tf.keras.Input(shape=(self.time_series_length, self.state_shape))
             x = tf.keras.layers.LSTM(

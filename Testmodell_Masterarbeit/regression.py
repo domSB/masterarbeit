@@ -17,7 +17,7 @@ import tensorflow as tf
 
 from calender.german_holidays import get_german_holiday_calendar
 
-DATA_PATH = os.path.join('data')
+DATA_PATH = os.path.join('./files/prepared')
 
 
 def extend_list(list_of_str, length):

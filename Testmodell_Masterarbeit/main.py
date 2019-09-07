@@ -1,6 +1,6 @@
 
 from simulation import StockSimulation
-from network import DQN
+from agents import AgentOne
 
 import os
 
@@ -57,22 +57,17 @@ possible_actions = [
     order_four, 
     order_five
     ]
-
-    # order_six,
-    # order_seven,
-    # order_eight,
-    # order_nine
 # endregion
 
 """ Initialize Objects """
 # region Initilize
-data_dir = 'data'
+data_dir = './files/prepared/'
 
 simulation = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, True, simulation_group)
 
 validator = StockSimulation(data_dir, time_series_lenght, use_pickled, save_pickled, False, simulation_group)
 
-agent = DQN(
+agent = AgentOne(
     memory_size, 
     state_shape, 
     action_space, 
@@ -174,6 +169,5 @@ def big_loop():
     agent.sess.close()
 
 
-# cProfile.run('train()', 'cpu_profile.pstat')
 big_loop()
 # endregion
