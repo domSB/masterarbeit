@@ -4,6 +4,45 @@ import os
 import matplotlib.pyplot as plt
 import json
 from calender.german_holidays import get_german_holiday_calendar
+from keras.utils import to_categorical
+
+
+def extend_list(list_of_str, length):
+    list_copy = list_of_str.copy()
+    for i in range(1, length):
+        list_of_str.extend([name + '_' + str(i) for name in list_copy])
+    return list_of_str
+
+
+def concat(df, length):
+    cols = list(df.columns)
+    cols = extend_list(cols, length)
+    df_s = df.copy()
+    for i in range(1, length):
+        df = pd.concat((df, df_s.shift(-i)), axis=1)
+    df.columns = cols
+    print(df.shape)
+    df.dropna(axis=0, inplace=True)
+    print(df.shape)
+    for i in range(1, length):
+        df = df[df['Artikel'] == df['Artikel_' + str(i)]]
+    x_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D', 'Regen_1D',
+              'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D', 'Preis', 'relRabatt', 'absRabatt']
+    x_cols = extend_list(x_cols, length)
+    weekday_col = ['Wochentag']
+    weekday_col = extend_list(weekday_col, length)
+    yearweek_col = ['Kalenderwoche']
+    yearweek_col = extend_list(yearweek_col, length)
+    y_cols = ['in1', 'in2', 'in3', 'in4', 'in5']
+    x_arr = df[x_cols].to_numpy(dtype=np.float32).reshape(-1, length, int(len(x_cols) / length))
+    weekday_arr = df[weekday_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
+    weekday_arr = to_categorical(weekday_arr, num_classes=7)
+    yearweek_arr = df[yearweek_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
+    yearweek_arr = to_categorical(yearweek_arr, num_classes=54)
+    big_x_arr = np.concatenate((x_arr, weekday_arr, yearweek_arr), axis=2)
+    y_arr = df[y_cols].to_numpy(dtype=np.float32)
+    stat_df = df['Artikel']
+    return y_arr, big_x_arr, stat_df
 
 
 class Datapipeline(object):
@@ -65,7 +104,7 @@ class Datapipeline(object):
         self.aktionspreise = pd.read_csv(
             os.path.join(self.input_path, '0 Aktionspreise.' + self.type + '.csv'),
             header=1,
-            names=['Artikel', 'DatumAb', 'DatumBis', 'Preis']
+            names=['Artikel', 'DatumAb', 'DatumBis', 'Aktionspreis']
         )
         self.aktionspreise = self.aktionspreise[self.aktionspreise.Artikel.isin(self.artikelmaske)]
         self.aktionspreise['DatumAb'] = pd.to_datetime(self.aktionspreise['DatumAb'], format='%d.%m.%Y')
@@ -118,8 +157,7 @@ class Datapipeline(object):
     pass
 
     def prepare_for_regression(self, **kwargs):
-        # TODO: Datapipeline aus regression.py kopieren
-        # Fehlende Detailwarengruppen mit wahrscheinlich richtiger DetailWarengruppe füllen
+        # region fehlende Detailwarengruppen auffüllen
         wg_group = self.artikelstamm.loc[
                    :,
                    ['Warengruppe', 'Detailwarengruppe']
@@ -133,13 +171,15 @@ class Datapipeline(object):
             inplace=True
         )
         self.artikelstamm.drop(columns=['DetailwarengruppeBackup'], inplace=True)
+        # endregion
 
-        # Restlaufzeit von Anzahl-Tage in kategoriale Gruppen sortieren
+        # region numerisches MHD in kategoriale Variable transformieren
         mhd_labels = [0, 1, 2, 3, 4, 5, 6]
         mhd_bins = [0, 1, 7, 14, 28, 100, 1000, 100000]
         self.artikelstamm['MHDgroup'] = pd.cut(self.artikelstamm.MHD, mhd_bins, right=False, labels=mhd_labels)
+        # endregion
 
-        # Lückenhafte Fremdschlüssel durch eine durchgehende ID ersetzen
+        #  region Lückenhafte Fremdschlüssel durch eine durchgehende ID ersetzen
         detail_warengruppen_index = {
             int(value): index for index, value in enumerate(np.sort(pd.unique(self.artikelstamm.Detailwarengruppe)))
         }
@@ -162,9 +202,13 @@ class Datapipeline(object):
             detail_warengruppen_index)
         self.artikelstamm['Warengruppe'] = self.artikelstamm['Warengruppe'].map(warengruppen_index)
         self.artikelstamm['Einheit'] = self.artikelstamm['Einheit'].map(einheit_index)
+        # endregion
+
+        # region überflüssige Spalten löschen und OSE&Saisonal Kennzeichen auffüllen
         self.artikelstamm.drop(columns=['MHD', 'Region', 'MarkeFK', 'Verkaufseinheit', 'OSEText'], inplace=True)
         self.artikelstamm['OSE'].fillna(0, inplace=True)
         self.artikelstamm['Saisonal'].fillna(0, inplace=True)
+        # endregion
 
         # region Reindexieren des Absatzes
         cal_cls = get_german_holiday_calendar('SL')
@@ -215,12 +259,7 @@ class Datapipeline(object):
         # endregion
 
         # region reguläre Preise aufbereiten
-        self.preise = self.preise.sort_values(by=['Datum', 'Artikel'])
-        # self.preise['Next'] = self.preise.groupby(['Artikel'], as_index=True)['Datum'].shift(-1)
-        # self.preise = self.preise.where(
-        #     ~self.preise.isna(),
-        #     pd.to_datetime(kwargs['EndDatum']) + pd.DateOffset(7)
-        # )
+        self.preise.sort_values(by=['Datum', 'Artikel'], inplace=True)
         # pd.merge_asof ist ein Left Join mit dem nächsten passenden Key.
         # Standardmäßig wird in der rechten Tabelle der Gleiche oder nächste Kleinere gesucht.
         self.absatz = pd.merge_asof(
@@ -230,7 +269,6 @@ class Datapipeline(object):
             right_on='Datum',
             by='Artikel'
         )
-        # Fehlerhafte Daten: Häufig exitieren
         self.absatz['Preis'] = self.absatz.groupby(['Markt', 'Artikel'])['Preis'].fillna(method='bfill')
         neuere_preise = self.preise.groupby('Artikel').last()
         neuere_preise.drop(columns=['Datum', 'Markt'], inplace=True)
@@ -243,8 +281,60 @@ class Datapipeline(object):
             inplace=True
         )
         self.absatz.drop(columns=['PreisBackup'], inplace=True)
-        print('{:.2f} % der Daten verworfen, aufgrund fehlender Preise'.format(np.mean(time.absatz.Preis.isna()) * 100))
+        print('{:.2f} % der Daten aufgrund fehlender Preise verworfen.'.format(np.mean(time.absatz.Preis.isna()) * 100))
         self.absatz.dropna(inplace=True)
+        # endregion
+
+        # region Aktionspreise aufbereiten
+        self.aktionspreise.sort_values(by=['DatumAb', 'DatumBis', 'Artikel'], inplace=True)
+        len_vor = self.absatz.shape[0]
+        self.absatz = pd.merge_asof(
+            self.absatz,
+            self.aktionspreise,
+            left_on='Datum',
+            right_on='DatumAb',
+            tolerance=pd.Timedelta('9d'),
+            by='Artikel')
+        len_nach = self.absatz.shape[0]
+        assert len_vor == len_nach, 'Anfügen der Aktionspreise hat zu einer Verlängerung der Absätze geführt.'
+        self.absatz['Aktionspreis'].where(~(self.absatz.DatumBis < self.absatz.Datum), inplace=True)
+        self.absatz['absRabatt'] = self.absatz.Preis - self.absatz.Aktionspreis
+        self.absatz['relRabatt'] = self.absatz.absRabatt / self.absatz.Preis
+        self.absatz.relRabatt.fillna(0., inplace=True)
+        self.absatz.absRabatt.fillna(0., inplace=True)
+        self.absatz.drop(columns=['DatumAb', 'DatumBis', 'Aktionspreis'], inplace=True)
+        # endregion
+
+        # region Targets erzeugen
+        self.absatz['in1'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-1)
+        self.absatz['in2'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-2)
+        self.absatz['in3'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-3)
+        self.absatz['in4'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-4)
+        self.absatz['in5'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-5)
+        self.absatz.dropna(axis=0, inplace=True)
+        # endregion
+        assert not self.absatz.isna().any().any(), 'NaNs im Datensatz gefunden'
+
+    def create_regression_numpy(self, **kwargs):
+        self.prepare_for_regression(**kwargs)
+        self.absatz.drop(columns=['Datum'], inplace=True)
+        print('INFO - Concatenating dynamic states')
+        y, x, stat_df = concat(self.absatz, kwargs['StepSize'])
+        print('INFO - Reindexing static state')
+        stat_df = self.artikelstamm.reindex(stat_df)
+        print('INFO - Creating categorical states')
+        stat_state = stat_df.loc[:, self.stat_state_scalar_cols].to_numpy(dtype=np.int8)
+        for category, class_numbers in self.stat_state_category_cols.items():
+            category_state = to_categorical(stat_df.loc[:, category], num_classes=class_numbers).astype(np.int8)
+            stat_state = np.concatenate((stat_state, category_state), axis=1)
+        return y, x, stat_state
+
+    def save_regression_numpy(self, **kwargs):
+        lab, dyn, stat = self.create_regression_numpy(**kwargs)
+        print('INFO - Speichere NPZ-Dateien')
+        filename = '-'.join([self.type, kwargs['StartDatum'], kwargs['EndDatum'], str(kwargs['StepSize'])])
+        path = os.path.join(self.output_path, filename)
+        np.savez(path, lab=lab, dyn=dyn, stat=stat)
 
 
 data_dir = os.path.join('files', 'raw')
@@ -252,7 +342,7 @@ output_dir = os.path.join('files', 'prepared')
 warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28]
 dyn_state_scalar_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D',
                          'Regen_1D', 'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D',
-                         'Preis', 'relRabat', 'absRabat', 'vDauer']
+                         'Preis', 'relRabatt', 'absRabatt']
 dyn_state_label_cols = ['in1', 'in2', 'in3', 'in4', 'in5']
 dyn_state_category_cols = {'Wochentag': 7, 'Kalenderwoche': 54}
 stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern', 'Bio', 'Glutenfrei',
@@ -283,8 +373,8 @@ time = Datapipeline(
     StatStateCategoryCols=stat_state_category_cols
 )
 time.read_files()
-time.prepare_for_regression(
+time.save_regression_numpy(
     StartDatum='2016-01-01',
-    EndDatum='2018-12-31'
+    EndDatum='2018-12-31',
+    StepSize=2
 )
-
