@@ -6,6 +6,7 @@ from collections import deque
 import os
 import pickle
 from calender import get_german_holiday_calendar
+from data.preparation.clean import Datapipeline
 
 
 def incremental_mean(step, old_mean, new_x):
@@ -472,6 +473,102 @@ class StockSimulation:
             self.fertig = True
 
         return reward, self.fertig, np.array(self.time_series_state)
+
+
+class StockSimulationV2(object):
+    def __init__(self, **kwargs):
+        self.data = Datapipeline(**kwargs)
+        self.data.read_files()
+        self.data.prepare_for_simulation(**kwargs)
+        self.markt_artikel = self.data.absatz.groupby('Markt')['Artikel'].unique()
+        self.data.absatz = self.data.absatz.set_index(['Markt', 'Artikel'])
+        self.step_size = kwargs['StepSize']
+        self.aktueller_markt = None
+        self.aktueller_artikel = None
+        self.artikel_absatz = None
+        self.vergangene_tage = None
+        self.static_state = None
+        self.dynamic_state = deque(maxlen=self.step_size)
+        self.dynamic_state_data = None
+        self.tage = len(self.data.tage)
+        self.bestand = None
+        self.stat_theo_bestand = None
+        self.stat_fakt_bestand = None
+
+    @property
+    def state(self):
+        state = {
+            'RegressionState': {'dynamic_state': np.array(self.dynamic_state), 'static_state': self.static_state},
+            'AgentState': self.bestand
+        }
+        return state
+
+    @property
+    def info(self):
+        return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt}
+
+    def reset(self, artikel=None, markt=None):
+        if markt:
+            assert markt in self.markt_artikel.index.values, 'Markt nicht bekannt'
+            self.aktueller_markt = markt
+        else:
+            self.aktueller_markt = np.random.choice(self.markt_artikel.index.values)
+        if artikel:
+            assert artikel in self.markt_artikel.loc[self.aktueller_markt], \
+                'Dieser Artikel wird in diesem Markt nicht geführt'
+            self.aktueller_artikel = artikel
+        else:
+            self.aktueller_artikel = np.random.choice(self.markt_artikel.loc[self.aktueller_markt])
+
+        dyn_state = self.data.absatz.loc[:, self.data.dyn_state_scalar_cols].to_numpy(dtype=np.int8)
+        for category, class_numbers in self.data.dyn_state_category_cols.items():
+            category_state = to_categorical(
+                self.data.absatz.loc[:, category],
+                num_classes=class_numbers).astype(np.int8)
+            dyn_state = np.concatenate((dyn_state, category_state), axis=1)
+        self.artikel_absatz = dyn_state[:, 0]
+        self.dynamic_state_data = dyn_state[:, 1:]
+        self.vergangene_tage = 0
+        self.bestand = np.random.randint(10)
+        self.stat_theo_bestand = []
+        self.stat_fakt_bestand = []
+        stat_state = self.data.artikelstamm.loc[
+            self.aktueller_artikel,
+            self.data.stat_state_scalar_cols].to_numpy(dtype=np.int8)
+        for category, class_numbers in self.data.stat_state_category_cols.items():
+            category_state = to_categorical(
+                self.data.artikelstamm.loc[self.aktueller_artikel, category],
+                num_classes=class_numbers).astype(np.int8)
+            stat_state = np.concatenate((stat_state, category_state), axis=0)
+        self.static_state = stat_state
+        for i in range(self.step_size):
+            self.dynamic_state.append(self.dynamic_state_data[self.vergangene_tage][1:])
+        return self.state, self.info
+
+    def make_action(self, action):
+        absatz = self.artikel_absatz[self.vergangene_tage]
+        self.vergangene_tage += 1
+        self.dynamic_state.append(self.dynamic_state_data[self.vergangene_tage][1:])
+        done = self.tage <= self.vergangene_tage + 1
+
+        # Tagsüber Absatz abziehen und bewerten:
+        self.bestand -= absatz
+        self.stat_theo_bestand.append(self.bestand)
+
+        if self.bestand >= 27.5:
+            reward = 0.004992 - (self.bestand - 27.5) / 1000
+        elif self.bestand >= 1:
+            reward = np.exp((1 - self.bestand) / 5)
+        else:
+            reward = np.exp((self.bestand - 1) * 1.5) - 1
+            # Nichtnegativität des Bestandes
+            self.bestand = 0
+        self.stat_fakt_bestand.append(self.bestand)
+
+        # Nachmittag: Bestellung kommt an und wird verräumt
+        self.bestand += action
+
+        return reward, self.state, done
 
 
 def test(simulation, lenght):

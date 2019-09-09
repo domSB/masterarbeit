@@ -60,6 +60,7 @@ class Datapipeline(object):
         self.absatz = None
         self.bewegung = None
         self.wetter = None
+        self.tage = None
         self.dyn_state_scalar_cols = kwargs['DynStateScalarCols']
         self.dyn_state_label_cols = kwargs['DynStateLabelCols']
         self.dyn_state_category_cols = kwargs['DynStateCategoryCols']
@@ -150,11 +151,12 @@ class Datapipeline(object):
         self.wetter.drop(columns=['Unnamed: 0'], inplace=True)
         # endregion
 
-    def prepare_for_simulation(self):
+    def prepare_for_simulation(self, **kwargs):
         """
         Clean the data and prepare it, to be used in the Simulation.
         """
-    pass
+        self.prepare_for_regression(**kwargs)
+        self.artikelstamm = self.artikelstamm.set_index('Artikel')
 
     def prepare_for_regression(self, **kwargs):
         # TODO: Feiertage Hinweis in State aufnehmen
@@ -227,6 +229,7 @@ class Datapipeline(object):
             pd.to_datetime(kwargs['EndDatum']) + pd.DateOffset(7),
             freq=sl_bd
         )
+        self.tage = zeitraum
         self.absatz.set_index('Datum', inplace=True)
         self.absatz = self.absatz.groupby(['Markt', 'Artikel']).apply(lambda x: x.reindex(zeitraum, fill_value=0))
         self.absatz.drop(columns=['Markt', 'Artikel'], inplace=True)
@@ -341,7 +344,7 @@ class Datapipeline(object):
         print('INFO - Concatenating dynamic states')
         y, x, stat_df = concat(self.absatz, kwargs['StepSize'])
         print('INFO - Reindexing static state')
-        self. artikelstamm = self.artikelstamm.set_index('Artikel')
+        self.artikelstamm = self.artikelstamm.set_index('Artikel')
         stat_df = self.artikelstamm.reindex(stat_df)
         assert not stat_df.isna().any().any(), 'NaNs im Artikelstamm'
         print('INFO - Creating categorical states')

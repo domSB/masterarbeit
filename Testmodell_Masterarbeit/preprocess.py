@@ -13,81 +13,81 @@ stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern', 'Bio',
 stat_state_category_cols = {'MHDgroup': 7, 'Warengruppe': 9, 'Detailwarengruppe': None, 'Einheit': None}
 
 # region Markt.Train
-# markt = Datapipeline(
-#     InputPath=data_dir,
-#     OutputPath=output_dir,
-#     ZielWarengruppen=warengruppen_maske,
-#     Type='Markt',
-#     DynStateScalarCols=dyn_state_scalar_cols,
-#     DynStateLabelCols=dyn_state_label_cols,
-#     DynStateCategoryCols=dyn_state_category_cols,
-#     StatStateScalarCols=stat_state_scalar_cols,
-#     StatStateCategoryCols=stat_state_category_cols
-# )
-# markt.read_files()
-# markt.save_regression_numpy(
-#     StartDatum='2017-01-01',
-#     EndDatum='2017-12-31',
-#     StepSize=6
-# )
-# # endregion
-#
-# # region Markt.Test
-# markt = Datapipeline(
-#     InputPath=data_dir,
-#     OutputPath=output_dir,
-#     ZielWarengruppen=warengruppen_maske,
-#     Type='Markt',
-#     DynStateScalarCols=dyn_state_scalar_cols,
-#     DynStateLabelCols=dyn_state_label_cols,
-#     DynStateCategoryCols=dyn_state_category_cols,
-#     StatStateScalarCols=stat_state_scalar_cols,
-#     StatStateCategoryCols=stat_state_category_cols
-# )
-# markt.read_files()
-# markt.save_regression_numpy(
-#     StartDatum='2018-01-01',
-#     EndDatum='2018-12-31',
-#     StepSize=6
-# )
-# # endregion
-#
-# # region Time.Train
-# time = Datapipeline(
-#     InputPath=data_dir,
-#     OutputPath=output_dir,
-#     ZielWarengruppen=warengruppen_maske,
-#     Type='Time',
-#     DynStateScalarCols=dyn_state_scalar_cols,
-#     DynStateLabelCols=dyn_state_label_cols,
-#     DynStateCategoryCols=dyn_state_category_cols,
-#     StatStateScalarCols=stat_state_scalar_cols,
-#     StatStateCategoryCols=stat_state_category_cols
-# )
-# time.read_files()
-# time.save_regression_numpy(
-#     StartDatum='2016-01-01',
-#     EndDatum='2017-12-31',
-#     StepSize=6
-# )
-# # endregion
-#
-# # region Time.Test
-# time = Datapipeline(
-#     InputPath=data_dir,
-#     OutputPath=output_dir,
-#     ZielWarengruppen=warengruppen_maske,
-#     Type='Time',
-#     DynStateScalarCols=dyn_state_scalar_cols,
-#     DynStateLabelCols=dyn_state_label_cols,
-#     DynStateCategoryCols=dyn_state_category_cols,
-#     StatStateScalarCols=stat_state_scalar_cols,
-#     StatStateCategoryCols=stat_state_category_cols
-# )
-# time.read_files()
-# time.save_regression_numpy(
-#     StartDatum='2018-01-01',
-#     EndDatum='2018-12-31',
-#     StepSize=6
-# )
-# # endregion
+markt = Datapipeline(
+    InputPath=data_dir,
+    OutputPath=output_dir,
+    ZielWarengruppen=warengruppen_maske,
+    Type='Markt',
+    DynStateScalarCols=dyn_state_scalar_cols,
+    DynStateLabelCols=dyn_state_label_cols,
+    DynStateCategoryCols=dyn_state_category_cols,
+    StatStateScalarCols=stat_state_scalar_cols,
+    StatStateCategoryCols=stat_state_category_cols
+)
+markt.read_files()
+markt.save_regression_numpy(
+    StartDatum='2017-01-01',
+    EndDatum='2017-12-31',
+    StepSize=6
+)
+# endregion
+
+# region Markt.Test
+markt = Datapipeline(
+    InputPath=data_dir,
+    OutputPath=output_dir,
+    ZielWarengruppen=warengruppen_maske,
+    Type='Markt',
+    DynStateScalarCols=dyn_state_scalar_cols,
+    DynStateLabelCols=dyn_state_label_cols,
+    DynStateCategoryCols=dyn_state_category_cols,
+    StatStateScalarCols=stat_state_scalar_cols,
+    StatStateCategoryCols=stat_state_category_cols
+)
+markt.read_files()
+markt.save_regression_numpy(
+    StartDatum='2018-01-01',
+    EndDatum='2018-12-31',
+    StepSize=6
+)
+# endregion
+
+# region Time.Train
+time = Datapipeline(
+    InputPath=data_dir,
+    OutputPath=output_dir,
+    ZielWarengruppen=warengruppen_maske,
+    Type='Time',
+    DynStateScalarCols=dyn_state_scalar_cols,
+    DynStateLabelCols=dyn_state_label_cols,
+    DynStateCategoryCols=dyn_state_category_cols,
+    StatStateScalarCols=stat_state_scalar_cols,
+    StatStateCategoryCols=stat_state_category_cols
+)
+time.read_files()
+time.save_regression_numpy(
+    StartDatum='2016-01-01',
+    EndDatum='2017-12-31',
+    StepSize=6
+)
+# endregion
+
+# region Time.Test
+time = Datapipeline(
+    InputPath=data_dir,
+    OutputPath=output_dir,
+    ZielWarengruppen=warengruppen_maske,
+    Type='Time',
+    DynStateScalarCols=dyn_state_scalar_cols,
+    DynStateLabelCols=dyn_state_label_cols,
+    DynStateCategoryCols=dyn_state_category_cols,
+    StatStateScalarCols=stat_state_scalar_cols,
+    StatStateCategoryCols=stat_state_category_cols
+)
+time.read_files()
+time.save_regression_numpy(
+    StartDatum='2018-01-01',
+    EndDatum='2018-12-31',
+    StepSize=6
+)
+# endregion
