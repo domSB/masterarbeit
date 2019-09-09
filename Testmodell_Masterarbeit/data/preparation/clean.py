@@ -20,6 +20,7 @@ class Datapipeline(object):
         self.bestand = None
         self.absatz = None
         self.bewegung = None
+        self.wetter = None
         self.dyn_state_scalar_cols = kwargs['DynStateScalarCols']
         self.dyn_state_label_cols = kwargs['DynStateLabelCols']
         self.dyn_state_category_cols = kwargs['DynStateCategoryCols']
@@ -27,6 +28,7 @@ class Datapipeline(object):
         self.stat_state_category_cols = kwargs['StatStateCategoryCols']
 
     def read_files(self):
+        # region Stammdaten
         self.warengruppenstamm = pd.read_csv(
             os.path.join(self.input_path, '0 Warengruppenstamm.csv'),
             header=1,
@@ -44,7 +46,9 @@ class Datapipeline(object):
             )
         self.artikelstamm = artikelstamm[artikelstamm.Warengruppe.isin(self.warengruppenmaske)]
         self.artikelmaske = pd.unique(self.artikelstamm.Artikel)
+        # endregion
 
+        # region Preise
         self.preise = pd.read_csv(
             os.path.join(self.input_path, '0 Preise.' + self.type + '.csv'),
             header=1,
@@ -66,7 +70,9 @@ class Datapipeline(object):
         self.aktionspreise = self.aktionspreise[self.aktionspreise.Artikel.isin(self.artikelmaske)]
         self.aktionspreise['DatumAb'] = pd.to_datetime(self.aktionspreise['DatumAb'], format='%d.%m.%Y')
         self.aktionspreise['DatumBis'] = pd.to_datetime(self.aktionspreise['DatumBis'], format='%d.%m.%Y')
+        # endregion
 
+        # region Warenbewegung
         warenausgang = pd.read_csv(
             os.path.join(self.input_path, '0 Warenausgang.' + self.type + '.csv'),
             header=1,
@@ -96,6 +102,14 @@ class Datapipeline(object):
         warenausgang['Menge'] = -warenausgang['Menge']
 
         self.bewegung = pd.concat([warenausgang, wareneingang])
+        # endregion
+
+        # region Wetter
+        self.wetter = pd.read_csv(
+            os.path.join(self.input_path, '1 Wetter.csv')
+        )
+        self.wetter.drop(columns=['Unnamed: 0'], inplace=True)
+        # endregion
 
     def prepare_for_simulation(self):
         """
@@ -103,7 +117,7 @@ class Datapipeline(object):
         """
     pass
 
-    def prepare_for_regression(self):
+    def prepare_for_regression(self, **kwargs):
         # TODO: Datapipeline aus regression.py kopieren
         # Fehlende Detailwarengruppen mit wahrscheinlich richtiger DetailWarengruppe füllen
         wg_group = self.artikelstamm.loc[
@@ -152,6 +166,86 @@ class Datapipeline(object):
         self.artikelstamm['OSE'].fillna(0, inplace=True)
         self.artikelstamm['Saisonal'].fillna(0, inplace=True)
 
+        # region Reindexieren des Absatzes
+        cal_cls = get_german_holiday_calendar('SL')
+        cal = cal_cls()
+        sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Tue Fri Sat')
+        zeitraum = pd.date_range(
+            pd.to_datetime(kwargs['StartDatum']),
+            pd.to_datetime(kwargs['EndDatum']) + pd.DateOffset(7),
+            freq=sl_bd
+        )
+        self.absatz.set_index('Datum', inplace=True)
+        self.absatz = self.absatz.groupby(['Markt', 'Artikel']).apply(lambda x: x.reindex(zeitraum, fill_value=0))
+        self.absatz.drop(columns=['Markt', 'Artikel'], inplace=True)
+        self.absatz.reset_index(inplace=True)
+        self.absatz.rename(columns={'level_2': 'Datum'}, inplace=True)
+
+        self.absatz['Wochentag'] = self.absatz.Datum.dt.dayofweek
+        self.absatz['Kalenderwoche'] = self.absatz.Datum.dt.weekofyear
+        self.absatz["UNIXDatum"] = self.absatz["Datum"].astype(np.int64)/(1000000000 * 24 * 3600)
+        # endregion
+
+        # region Wetter anfügen
+        self.wetter["date_shifted_oneday"] = self.wetter["date"] - 1
+        self.wetter["date_shifted_twodays"] = self.wetter["date"] - 2
+        self.absatz = pd.merge(
+            self.absatz,
+            self.wetter,
+            left_on='UNIXDatum',
+            right_on='date_shifted_oneday'
+        )
+        self.absatz = pd.merge(
+            self.absatz,
+            self.wetter,
+            left_on='UNIXDatum',
+            right_on='date_shifted_twodays',
+            suffixes=('_1D', '_2D')
+        )
+        self.absatz.drop(
+            columns=["date_shifted_oneday_1D",
+                     "date_shifted_twodays_1D",
+                     "date_shifted_oneday_2D",
+                     "date_shifted_twodays_2D",
+                     "date_1D",
+                     "date_2D"
+                     ],
+            inplace=True
+        )
+        # endregion
+
+        # region reguläre Preise aufbereiten
+        self.preise = self.preise.sort_values(by=['Datum', 'Artikel'])
+        # self.preise['Next'] = self.preise.groupby(['Artikel'], as_index=True)['Datum'].shift(-1)
+        # self.preise = self.preise.where(
+        #     ~self.preise.isna(),
+        #     pd.to_datetime(kwargs['EndDatum']) + pd.DateOffset(7)
+        # )
+        # pd.merge_asof ist ein Left Join mit dem nächsten passenden Key.
+        # Standardmäßig wird in der rechten Tabelle der Gleiche oder nächste Kleinere gesucht.
+        self.absatz = pd.merge_asof(
+            self.absatz,
+            self.preise.loc[:, ["Preis", "Artikel", "Datum"]].copy(),
+            left_on='Datum',
+            right_on='Datum',
+            by='Artikel'
+        )
+        # Fehlerhafte Daten: Häufig exitieren
+        self.absatz['Preis'] = self.absatz.groupby(['Markt', 'Artikel'])['Preis'].fillna(method='bfill')
+        neuere_preise = self.preise.groupby('Artikel').last()
+        neuere_preise.drop(columns=['Datum', 'Markt'], inplace=True)
+        neuere_preise_index = neuere_preise.to_dict()['Preis']
+        self.absatz['PreisBackup'] = self.absatz['Artikel'].map(
+            neuere_preise_index
+        )
+        self.absatz['Preis'].fillna(
+            value=self.absatz['PreisBackup'],
+            inplace=True
+        )
+        self.absatz.drop(columns=['PreisBackup'], inplace=True)
+        print('{:.2f} % der Daten verworfen, aufgrund fehlender Preise'.format(np.mean(time.absatz.Preis.isna()) * 100))
+        self.absatz.dropna(inplace=True)
+
 
 data_dir = os.path.join('files', 'raw')
 output_dir = os.path.join('files', 'prepared')
@@ -189,5 +283,8 @@ time = Datapipeline(
     StatStateCategoryCols=stat_state_category_cols
 )
 time.read_files()
-time.prepare_for_regression()
+time.prepare_for_regression(
+    StartDatum='2016-01-01',
+    EndDatum='2018-12-31'
+)
 

@@ -211,7 +211,7 @@ class DataPipeline(object):
         preise.drop(columns=['Unnamed: 0'], inplace=True)
         preise['Datum'] = pd.to_datetime(preise['Datum'], format='%Y-%m-%d')
         preise.drop_duplicates(inplace=True)
-        preise = preise.sort_values(by=['Datum', 'Artikel'])
+        preise = preise.sort_values(by=['Artikel', 'Datum'])
         preise['Next'] = preise.groupby(['Artikel'], as_index=True)['Datum'].shift(-1)
         preise = preise.where(~preise.isna(), pd.to_datetime(end_date) + pd.DateOffset(7))
         # preise.set_index('Artikel', inplace=True)
