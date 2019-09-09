@@ -168,7 +168,7 @@ params = {
     'time_steps': None,
     'dynamic_state_shape': None,
     'static_state_shape': None,
-    'epochs': 1,
+    'epochs': 20,
     'batch_size': 512
 }
 DATA_PATH = os.path.join('./files/prepared')
