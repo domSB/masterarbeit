@@ -9,7 +9,6 @@ Arbeitsspeicherverbrauch von 20+ GB !
 import os
 import numpy as np
 import tensorflow as tf
-import datetime
 from agents import Predictor
 
 
@@ -52,15 +51,15 @@ params = {
     'batch_size': 512
 }
 DATA_PATH = os.path.join('./files/prepared')
-val_l, val_d, val_s = load_numpy(os.path.join(DATA_PATH, 'Time-2018-01-01-2018-12-31-6.npz'))
-l, d, s = load_numpy(os.path.join(DATA_PATH, 'Time-2016-01-01-2017-12-31-6.npz'))
+val_l, val_d, val_s = load_numpy(os.path.join(DATA_PATH, 'Markt-2018-01-01-2018-12-31-6.npz'))
+l, d, s = load_numpy(os.path.join(DATA_PATH, 'Markt-2017-01-01-2017-12-31-6.npz'))
 params.update({
     'time_steps': d.shape[1],
     'steps_per_epoch': int(d.shape[0] / params['batch_size']),
     'val_steps_per_epoch': int(val_d.shape[0] / params['batch_size']),
     'dynamic_state_shape': d.shape[2],
     'static_state_shape': s.shape[1],
-    'Name': 'FullRegTime'
+    'Name': 'FullRegMarkt'
 })
 print(params)
 dataset = create_dataset(l, d, s, params)
