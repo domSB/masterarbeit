@@ -289,7 +289,7 @@ class Datapipeline(object):
             inplace=True
         )
         self.absatz.drop(columns=['PreisBackup'], inplace=True)
-        print('{:.2f} % der Daten aufgrund fehlender Preise verworfen.'.format(np.mean(time.absatz.Preis.isna()) * 100))
+        print('{:.2f} % der Daten aufgrund fehlender Preise verworfen.'.format(np.mean(self.absatz.Preis.isna()) * 100))
         preis_mean, preis_std = np.mean(self.absatz.Preis), np.std(self.absatz.Preis)
         self.absatz['Preis'] = (self.absatz['Preis'] - preis_mean) / preis_std
         filename = '-'.join([
