@@ -33,6 +33,9 @@
     <Compile Include="main.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="prepare.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="regression.py">
       <SubType>Code</SubType>
     </Compile>
