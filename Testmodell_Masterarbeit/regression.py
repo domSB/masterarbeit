@@ -12,6 +12,7 @@ Arbeitsspeicherverbrauch von 10 GB pro Markt!
 import os
 import numpy as np
 import tensorflow as tf
+import datetime
 
 
 def load_numpy(path):
@@ -110,8 +111,14 @@ class Predictor(object):
         )
 
     def train(self, _dataset, _val_dataset, _params):
+        if os.path.exists(os.path.join('files', 'logging', 'Predictor', _params['Name'])):
+            name = datetime.datetime.now().__str__()
+        else:
+            name = _params['Name']
+        os.mkdir(os.path.join('files', 'logging', 'Predictor', name))
+        os.mkdir(os.path.join('files', 'models', 'Predictor', name))
         tb_callback = tf.keras.callbacks.TensorBoard(
-            log_dir='./logs/Reg3baselineVal',
+            log_dir=os.path.join('files', 'logging', 'Predictor', name),
             histogram_freq=1,
             batch_size=32,
             write_graph=True,
@@ -119,7 +126,7 @@ class Predictor(object):
             update_freq='batch')
         nan_callback = tf.keras.callbacks.TerminateOnNaN()
         save_callback = tf.keras.callbacks.ModelCheckpoint(
-            './model/Reg3baselineVal/weights.{epoch:02d}-{loss:.2f}.hdf5',
+            os.path.join('files', 'models', 'Predictor', name, 'weights.{epoch:02d}-{loss:.2f}.hdf5'),
             monitor='loss',
             verbose=0,
             period=1)
@@ -165,18 +172,15 @@ params = {
     'batch_size': 512
 }
 DATA_PATH = os.path.join('./files/prepared')
-# pipeline = DataPipeline()
-# pipeline.prepare_data('2017-01-01', '2017-12-31')
-# pipeline.get_baseline(params['forecast_state'])
-# pipeline.save_numpy(6)
-val_l, val_d, val_s = load_numpy(os.path.join(DATA_PATH, 'Time-2018-01-01-2018-12-31-2.npz'))
-l, d, s = load_numpy(os.path.join(DATA_PATH, 'Time-2016-01-01-2017-12-31-2.npz'))
+val_l, val_d, val_s = load_numpy(os.path.join(DATA_PATH, 'Time-2018-01-01-2018-12-31-6.npz'))
+l, d, s = load_numpy(os.path.join(DATA_PATH, 'Time-2016-01-01-2017-12-31-6.npz'))
 params.update({
     'time_steps': d.shape[1],
     'steps_per_epoch': int(d.shape[0] / params['batch_size']),
     'val_steps_per_epoch': int(val_d.shape[0] / params['batch_size']),
     'dynamic_state_shape': d.shape[2],
-    'static_state_shape': s.shape[1]
+    'static_state_shape': s.shape[1],
+    'Name': 'FullRegTime'
 })
 print(params)
 dataset = create_dataset(l, d, s, params)

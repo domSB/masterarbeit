@@ -70,24 +70,24 @@ stat_state_category_cols = {'MHDgroup': 7, 'Warengruppe': 9, 'Detailwarengruppe'
 #     EndDatum='2017-12-31',
 #     StepSize=6
 # )
-# endregion
-
-# region Time.Test
-time = Datapipeline(
-    InputPath=data_dir,
-    OutputPath=output_dir,
-    ZielWarengruppen=warengruppen_maske,
-    Type='Time',
-    DynStateScalarCols=dyn_state_scalar_cols,
-    DynStateLabelCols=dyn_state_label_cols,
-    DynStateCategoryCols=dyn_state_category_cols,
-    StatStateScalarCols=stat_state_scalar_cols,
-    StatStateCategoryCols=stat_state_category_cols
-)
-time.read_files()
-time.save_regression_numpy(
-    StartDatum='2018-01-01',
-    EndDatum='2018-12-31',
-    StepSize=6
-)
-# endregion
+# # endregion
+#
+# # region Time.Test
+# time = Datapipeline(
+#     InputPath=data_dir,
+#     OutputPath=output_dir,
+#     ZielWarengruppen=warengruppen_maske,
+#     Type='Time',
+#     DynStateScalarCols=dyn_state_scalar_cols,
+#     DynStateLabelCols=dyn_state_label_cols,
+#     DynStateCategoryCols=dyn_state_category_cols,
+#     StatStateScalarCols=stat_state_scalar_cols,
+#     StatStateCategoryCols=stat_state_category_cols
+# )
+# time.read_files()
+# time.save_regression_numpy(
+#     StartDatum='2018-01-01',
+#     EndDatum='2018-12-31',
+#     StepSize=6
+# )
+# # endregion
