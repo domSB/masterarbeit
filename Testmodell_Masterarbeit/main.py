@@ -3,6 +3,7 @@ from simulation import StockSimulationV2
 from agents import AgentTwo, Predictor
 
 import os
+import numpy as np
 
 # import cProfile
 
@@ -103,6 +104,7 @@ validator = StockSimulationV2(**validator_params)
 
 agent = AgentTwo(**agent_params)
 predictor = Predictor()
+predictor.build_model(**predictor_params)
 
 if use_saved_model:
     agent.load(use_model_path)
@@ -115,25 +117,27 @@ def big_loop():
     global_steps = 0
     stats = {"loss": [], "acc": [], "rew": []}
     for epoch in range(epochs):
-        state, info = simulation.reset()
-        val_state, _ = validator.reset()
+        full_state, info = simulation.reset()
+        full_val_state, _ = validator.reset()
         val_fertig = False
         current_rewards = []
         current_val_rewards = []
         current_actions = []
         while True:
             # Train
-            action = agent.act(state)
+            predict_state = predictor.predict(full_state['RegressionState'])
+            agent_state = np.concatenate((predict_state, np.array([full_state['AgentState']])), axis=0)
+            action = agent.act(agent_state)
             global_steps += 1
-            reward, fertig, new_state = simulation.make_action(action)
+            reward, fertig, new_full_state = simulation.make_action(action)
             current_rewards.append(reward)
             current_actions.append(action)
-            agent.remember(state, action, reward, new_state, fertig)
+            agent.remember(agent_state, action, reward, new_state, fertig)
 
             # Validate
             if not val_fertig:  # Validation Zeitraum ggf. kürzer oder gleichlang
                 val_action = agent.act(val_state)
-                val_reward, val_fertig, new_val_state= validator.make_action(val_action)
+                val_reward, val_fertig, new_val_state = validator.make_action(val_action)
                 current_val_rewards.append(val_reward)
                 val_state = new_val_state
 
