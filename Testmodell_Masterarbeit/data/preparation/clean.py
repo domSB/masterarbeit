@@ -21,11 +21,11 @@ def concat(df, length):
     for i in range(1, length):
         df = pd.concat((df, df_s.shift(-i)), axis=1)
     df.columns = cols
-    print(df.shape)
     df.dropna(axis=0, inplace=True)
-    print(df.shape)
     for i in range(1, length):
         df = df[df['Artikel'] == df['Artikel_' + str(i)]]
+    for i in range(1, length):
+        df = df[df['Markt'] == df['Markt_' + str(i)]]
     x_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D', 'Regen_1D',
               'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D', 'Preis', 'relRabatt', 'absRabatt']
     x_cols = extend_list(x_cols, length)
@@ -157,6 +157,7 @@ class Datapipeline(object):
     pass
 
     def prepare_for_regression(self, **kwargs):
+        # TODO: Feiertage Hinweis in State aufnehmen
         # region fehlende Detailwarengruppen auffüllen
         wg_group = self.artikelstamm.loc[
                    :,
@@ -196,7 +197,14 @@ class Datapipeline(object):
             'Warengruppe': warengruppen_index,
             'Einheit': einheit_index
         }
-        with open(os.path.join(self.output_path, 'ValueMapping.json'), 'w') as file:
+        filename = '-'.join([
+            self.type,
+            kwargs['StartDatum'],
+            kwargs['EndDatum'],
+            str(kwargs['StepSize']),
+            'ValueMapping.json'
+        ])
+        with open(os.path.join(self.output_path, filename), 'w') as file:
             json.dump(mapping, file)
         self.artikelstamm['Detailwarengruppe'] = self.artikelstamm['Detailwarengruppe'].map(
             detail_warengruppen_index)
@@ -282,6 +290,17 @@ class Datapipeline(object):
         )
         self.absatz.drop(columns=['PreisBackup'], inplace=True)
         print('{:.2f} % der Daten aufgrund fehlender Preise verworfen.'.format(np.mean(time.absatz.Preis.isna()) * 100))
+        preis_mean, preis_std = np.mean(self.absatz.Preis), np.std(self.absatz.Preis)
+        self.absatz['Preis'] = (self.absatz['Preis'] - preis_mean) / preis_std
+        filename = '-'.join([
+            self.type,
+            kwargs['StartDatum'],
+            kwargs['EndDatum'],
+            str(kwargs['StepSize']),
+            'PreisStd.json'
+        ])
+        with open(os.path.join(self.output_path, filename), 'w') as file:
+            json.dump({'PreisStandardDerivation': preis_std, 'PreisMean': preis_mean}, file)
         self.absatz.dropna(inplace=True)
         # endregion
 
@@ -312,6 +331,7 @@ class Datapipeline(object):
         self.absatz['in4'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-4)
         self.absatz['in5'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-5)
         self.absatz.dropna(axis=0, inplace=True)
+        self.absatz.sort_values(['Markt', 'Artikel', 'Datum'], inplace=True)
         # endregion
         assert not self.absatz.isna().any().any(), 'NaNs im Datensatz gefunden'
 
@@ -321,7 +341,9 @@ class Datapipeline(object):
         print('INFO - Concatenating dynamic states')
         y, x, stat_df = concat(self.absatz, kwargs['StepSize'])
         print('INFO - Reindexing static state')
+        self. artikelstamm = self.artikelstamm.set_index('Artikel')
         stat_df = self.artikelstamm.reindex(stat_df)
+        assert not stat_df.isna().any().any(), 'NaNs im Artikelstamm'
         print('INFO - Creating categorical states')
         stat_state = stat_df.loc[:, self.stat_state_scalar_cols].to_numpy(dtype=np.int8)
         for category, class_numbers in self.stat_state_category_cols.items():
@@ -348,6 +370,8 @@ dyn_state_category_cols = {'Wochentag': 7, 'Kalenderwoche': 54}
 stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern', 'Bio', 'Glutenfrei',
                           'Laktosefrei']
 stat_state_category_cols = {'MHDgroup': 7, 'Warengruppe': 9, 'Detailwarengruppe': None, 'Einheit': None}
+
+# region Markt.Train
 markt = Datapipeline(
     InputPath=data_dir,
     OutputPath=output_dir,
@@ -359,8 +383,35 @@ markt = Datapipeline(
     StatStateScalarCols=stat_state_scalar_cols,
     StatStateCategoryCols=stat_state_category_cols
 )
-# markt.read_files()
+markt.read_files()
+markt.save_regression_numpy(
+    StartDatum='2017-01-01',
+    EndDatum='2017-12-31',
+    StepSize=6
+)
+# endregion
 
+# region Markt.Test
+markt = Datapipeline(
+    InputPath=data_dir,
+    OutputPath=output_dir,
+    ZielWarengruppen=warengruppen_maske,
+    Type='Markt',
+    DynStateScalarCols=dyn_state_scalar_cols,
+    DynStateLabelCols=dyn_state_label_cols,
+    DynStateCategoryCols=dyn_state_category_cols,
+    StatStateScalarCols=stat_state_scalar_cols,
+    StatStateCategoryCols=stat_state_category_cols
+)
+markt.read_files()
+markt.save_regression_numpy(
+    StartDatum='2018-01-01',
+    EndDatum='2018-12-31',
+    StepSize=6
+)
+# endregion
+
+# region Time.Train
 time = Datapipeline(
     InputPath=data_dir,
     OutputPath=output_dir,
@@ -375,6 +426,42 @@ time = Datapipeline(
 time.read_files()
 time.save_regression_numpy(
     StartDatum='2016-01-01',
-    EndDatum='2018-12-31',
-    StepSize=2
+    EndDatum='2017-12-31',
+    StepSize=6
 )
+# endregion
+
+# region Time.Test
+time = Datapipeline(
+    InputPath=data_dir,
+    OutputPath=output_dir,
+    ZielWarengruppen=warengruppen_maske,
+    Type='Time',
+    DynStateScalarCols=dyn_state_scalar_cols,
+    DynStateLabelCols=dyn_state_label_cols,
+    DynStateCategoryCols=dyn_state_category_cols,
+    StatStateScalarCols=stat_state_scalar_cols,
+    StatStateCategoryCols=stat_state_category_cols
+)
+time.read_files()
+time.save_regression_numpy(
+    StartDatum='2018-01-01',
+    EndDatum='2018-12-31',
+    StepSize=3
+)
+# endregion
+# TODO: Baseline in Klasse einbauen
+# bewegung = self.dynamic_state.loc[:, ['Markt', 'Artikel', 'Datum', 'Menge', 'UNIXDatum']].copy()
+# bewegung.reset_index(inplace=True, drop=True)
+# bewegung['Prediction'] = bewegung.groupby(['Markt', 'Artikel'])['Menge'].shift(1)
+# bewegung['AError'] = np.abs(bewegung['Menge'] - bewegung['Prediction'])
+# bewegung['SError'] = np.square(bewegung['AError'])
+# bewegung.dropna(inplace=True)
+# bewegung['MAE'] = bewegung['AError'].rolling(prediction_days).mean()
+# bewegung['MSE'] = bewegung['SError'].rolling(prediction_days).mean()
+# self.mae = np.mean(bewegung['MAE'])
+# self.mse = np.mean(bewegung['MSE'])
+# print('BASELINE\n---\nMean Average Error: {mae} \nMean Squared Error: {mse}'.format(
+#     mae=self.mae,
+#     mse=self.mse
+# ))
