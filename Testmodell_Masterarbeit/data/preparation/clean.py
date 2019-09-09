@@ -5,6 +5,13 @@ import matplotlib.pyplot as plt
 import json
 from calender.german_holidays import get_german_holiday_calendar
 from keras.utils import to_categorical
+if os.path.split(os.getcwd())[1] == 'preparation':
+    # Falls clean.py nicht mit wdir-Parameter gestartet wird.
+    print('Changed current directory')
+    os.chdir(os.path.join('..', '..'))
+    print(os.getcwd())
+else:
+    print(os.getcwd())
 
 
 def extend_list(list_of_str, length):
