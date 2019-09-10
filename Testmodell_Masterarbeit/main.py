@@ -60,19 +60,19 @@ possible_actions = [
     order_four,
     order_five
     ]
-n_step = 32
-update_target_network = n_step * 25
+n_step = 64
+update_target_network = n_step * 10
 use_model_path = os.path.join('files', 'models', 'AgentV2', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
 
 agent_params = {
-    'MemorySize': 2000,
+    'MemorySize': 300*40,
     'StateShape': 6,
     'AktionSpace': 6,
     'Gamma': 0.9,
     'LearningRate': 0.001,
     'LearningRateDecay': 0.001/epochs,
-    'BatchSize': 128,
+    'BatchSize': 256,
     'Epsilon': 1,
     'EpsilonDecay': 0.99,
     'EpsilonMin': 0.01,
