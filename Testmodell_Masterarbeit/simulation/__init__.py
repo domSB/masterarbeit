@@ -498,8 +498,11 @@ class StockSimulationV2(object):
     @property
     def state(self):
         state = {
-            'RegressionState': {'dynamic_state': np.array(self.dynamic_state), 'static_state': self.static_state},
-            'AgentState': self.bestand
+            'RegressionState': {
+                'dynamic_input': np.array([self.dynamic_state]),
+                'static_input': np.array([self.static_state])
+            },
+            'AgentState': np.array([self.bestand])
         }
         return state
 
@@ -527,7 +530,8 @@ class StockSimulationV2(object):
                 num_classes=class_numbers).astype(np.int8)
             dyn_state = np.concatenate((dyn_state, category_state), axis=1)
         self.artikel_absatz = dyn_state[:, 0]
-        self.dynamic_state_data = dyn_state[:, 1:]
+        self.dynamic_state_data = dyn_state
+        # TODO: Predictor ohne vDauer trainieren, da nicht relevant
         self.vergangene_tage = 0
         self.bestand = np.random.randint(10)
         self.stat_theo_bestand = []
@@ -568,7 +572,7 @@ class StockSimulationV2(object):
         # Nachmittag: Bestellung kommt an und wird verräumt
         self.bestand += action
 
-        return reward, self.state, done
+        return reward,  done, self.state
 
 
 def test(simulation, lenght):

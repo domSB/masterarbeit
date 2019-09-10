@@ -260,7 +260,7 @@ class Predictor(object):
     def __init__(self):
         self.model = None
 
-    def build_model(self, _params):
+    def build_model(self, **_params):
         dynamic_inputs = tf.keras.Input(shape=(_params['time_steps'], _params['dynamic_state_shape']),
                                         name='dynamic_input')
         static_inputs = tf.keras.Input(shape=(_params['static_state_shape'],), name='static_input')
@@ -378,9 +378,9 @@ class AgentTwo(object):
         log_dir = './files/logging/AgentV2/' + kwargs['RunDescription']
         model_dir = './files/models/AgentV2/' + kwargs['RunDescription']
         if os.path.exists(log_dir):
-            log_dir = './files/logging/AgentV1/' + datetime.datetime.today().date().__str__() + "-" \
+            log_dir = './files/logging/AgentV2/' + datetime.datetime.today().date().__str__() + "-" \
                       + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
-            model_dir = './files/logging/AgentV1/' + datetime.datetime.today().date().__str__() + "-" \
+            model_dir = './files/models/AgentV2/' + datetime.datetime.today().date().__str__() + "-" \
                         + datetime.datetime.today().time().__str__()[:8].replace(":", ".")
         os.mkdir(log_dir)
         os.mkdir(model_dir)
