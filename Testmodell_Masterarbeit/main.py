@@ -43,7 +43,7 @@ validator_params.update({
 # endregion
 
 # region  Hyperparameter
-epochs = 300
+epochs = 600
 do_train = True
 order_none = 0
 order_one = 1

@@ -489,28 +489,28 @@ class AgentTwo(object):
             inputs = tf.keras.Input(shape=(self.state_shape, ))
             x = tf.keras.layers.Dense(
                 64,
-                activation='tanh',
+                activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_1"
             )(inputs)
             x = tf.keras.layers.Dropout(0.2)(x)
             x = tf.keras.layers.Dense(
                 64,
-                activation='tanh',
+                activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_2"
             )(x)
             x = tf.keras.layers.Dropout(0.2)(x)
             x = tf.keras.layers.Dense(
                 128,
-                activation='tanh',
+                activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_3"
             )(x)
             predictions = tf.keras.layers.Dense(self.action_space, activation='relu', name="Predictions")(x)
             model = tf.keras.Model(inputs=inputs, outputs=predictions)
-            adam = tf.keras.optimizers.Adam(lr=self.learning_rate, decay=self.lr_decay)
-            model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
+            rms = tf.keras.optimizers.RMSprop(lr=self.learning_rate)
+            model.compile(optimizer=rms, loss='mse', metrics=["accuracy"])
 
         return model
 
