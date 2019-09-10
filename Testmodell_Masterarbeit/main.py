@@ -77,7 +77,7 @@ agent_params = {
     'EpsilonDecay': 0.99,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '7mehrKomplexNeueAktiv'
+    'RunDescription': '8letsGotRMSProp'
 }
 if not do_train:
     agent_params.update(
