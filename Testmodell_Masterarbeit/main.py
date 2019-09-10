@@ -61,7 +61,7 @@ possible_actions = [
     order_five
     ]
 n_step = 64
-update_target_network = n_step * 10
+update_target_network = n_step * 11
 use_model_path = os.path.join('files', 'models', 'AgentV2', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
 
@@ -77,7 +77,7 @@ agent_params = {
     'EpsilonDecay': 0.99,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '5AndereDynamicState'
+    'RunDescription': '7mehrKomplexNeueAktiv'
 }
 if not do_train:
     agent_params.update(
@@ -111,11 +111,7 @@ if use_saved_model:
 # endregion
 
 # region Training Loop
-
-
-
 global_steps = 0
-stats = {"loss": [], "acc": [], "rew": []}
 for epoch in range(epochs):
     full_state, info = simulation.reset()
     predict_state = predictor.predict(full_state['RegressionState'])
@@ -157,8 +153,6 @@ for epoch in range(epochs):
                 if history:
                     curr_loss = history["loss"][0]
                     curr_acc = history["acc"][0]
-                    stats["loss"].append(curr_loss)
-                    stats["acc"].append(curr_acc)
             else:
                 curr_loss = 0
                 curr_acc = 0
@@ -169,8 +163,12 @@ for epoch in range(epochs):
         if fertig:
             if do_train:
                 history = agent.replay()
-                curr_loss = history["loss"][0]
-                curr_acc = history["acc"][0]
+                if history:
+                    curr_loss = history["loss"][0]
+                    curr_acc = history["acc"][0]
+                else:
+                    curr_loss = 0
+                    curr_acc = 0
             else:
                 curr_loss = 0
                 curr_acc = 0
@@ -191,13 +189,9 @@ for epoch in range(epochs):
             if epoch % 10 == 0:
                 print("Epoche {}".format(epoch))
                 agent.save()
-                # TODO: Validate Model with a trial Period in a seperate Simulation
             else:
                 print('.', end='')
             break
 agent.writer.close()
 agent.sess.close()
-
-
-#big_loop()
 # endregion

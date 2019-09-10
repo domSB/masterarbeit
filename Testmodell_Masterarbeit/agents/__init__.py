@@ -487,24 +487,23 @@ class AgentTwo(object):
     def create_model(self, name):
         with tf.name_scope(name):
             inputs = tf.keras.Input(shape=(self.state_shape, ))
-            x = tf.keras.layers.Dropout(0.2)(inputs)
             x = tf.keras.layers.Dense(
-                32,
-                activation='relu',
+                64,
+                activation='tanh',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_1"
-            )(x)
+            )(inputs)
             x = tf.keras.layers.Dropout(0.2)(x)
             x = tf.keras.layers.Dense(
-                32,
-                activation='relu',
+                64,
+                activation='tanh',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_2"
             )(x)
             x = tf.keras.layers.Dropout(0.2)(x)
             x = tf.keras.layers.Dense(
-                32,
-                activation='relu',
+                128,
+                activation='tanh',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_3"
             )(x)
