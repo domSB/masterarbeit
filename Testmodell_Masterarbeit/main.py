@@ -43,7 +43,7 @@ validator_params.update({
 # endregion
 
 # region  Hyperparameter
-epochs = 2000
+epochs = 200
 do_train = True
 order_none = 0
 order_one = 1
@@ -60,24 +60,24 @@ possible_actions = [
     order_four,
     order_five
     ]
-n_step = 128
+n_step = 32
 update_target_network = n_step * 25
 use_model_path = os.path.join('files', 'models', 'AgentV2', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
 
 agent_params = {
-    'MemorySize': 300*100,
+    'MemorySize': 2000,
     'StateShape': 6,
     'AktionSpace': 6,
     'Gamma': 0.9,
-    'LearningRate': 0.01,
-    'LearningRateDecay': 0.01/epochs,
+    'LearningRate': 0.001,
+    'LearningRateDecay': 0.001/epochs,
     'BatchSize': 128,
     'Epsilon': 1,
-    'EpsilonDecay': 0.999,
+    'EpsilonDecay': 0.99,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '1Baseline'
+    'RunDescription': '2Schneller'
 }
 if not do_train:
     agent_params.update(

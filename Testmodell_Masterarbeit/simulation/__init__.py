@@ -7,6 +7,7 @@ import os
 import pickle
 from calender import get_german_holiday_calendar
 from data.preparation.clean import Datapipeline
+import copy
 
 
 def incremental_mean(step, old_mean, new_x):
@@ -557,7 +558,7 @@ class StockSimulationV2(object):
 
         # Tagsüber Absatz abziehen und bewerten:
         self.bestand -= absatz
-        self.stat_theo_bestand.append(self.bestand)
+        self.stat_theo_bestand.append(copy.copy(self.bestand))
 
         if self.bestand >= 27.5:
             reward = 0.004992 - (self.bestand - 27.5) / 1000
@@ -567,7 +568,7 @@ class StockSimulationV2(object):
             reward = np.exp((self.bestand - 1) * 1.5) - 1
             # Nichtnegativität des Bestandes
             self.bestand = 0
-        self.stat_fakt_bestand.append(self.bestand)
+        self.stat_fakt_bestand.append(copy.copy(self.bestand))
 
         # Nachmittag: Bestellung kommt an und wird verräumt
         self.bestand += action
