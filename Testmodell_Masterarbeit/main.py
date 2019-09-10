@@ -43,7 +43,7 @@ validator_params.update({
 # endregion
 
 # region  Hyperparameter
-epochs = 200
+epochs = 300
 do_train = True
 order_none = 0
 order_one = 1
@@ -77,7 +77,7 @@ agent_params = {
     'EpsilonDecay': 0.99,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '2Schneller'
+    'RunDescription': '3WenigerLernrate'
 }
 if not do_train:
     agent_params.update(
