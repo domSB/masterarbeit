@@ -77,7 +77,7 @@ agent_params = {
     'EpsilonDecay': 0.99,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '3WenigerLernrate'
+    'RunDescription': '5AndereDynamicState'
 }
 if not do_train:
     agent_params.update(

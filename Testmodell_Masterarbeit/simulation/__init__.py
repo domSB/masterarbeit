@@ -552,8 +552,8 @@ class StockSimulationV2(object):
 
     def make_action(self, action):
         absatz = self.artikel_absatz[self.vergangene_tage]
-        self.vergangene_tage += 1
         self.dynamic_state.append(self.dynamic_state_data[self.vergangene_tage][1:])
+        self.vergangene_tage += 1
         done = self.tage <= self.vergangene_tage + 1
 
         # Tagsüber Absatz abziehen und bewerten:
@@ -565,7 +565,7 @@ class StockSimulationV2(object):
         elif self.bestand >= 1:
             reward = np.exp((1 - self.bestand) / 5)
         else:
-            reward = np.exp((self.bestand - 1) * 1.5) - 1
+            reward = np.exp((self.bestand - 1) / 3) - 1
             # Nichtnegativität des Bestandes
             self.bestand = 0
         self.stat_fakt_bestand.append(copy.copy(self.bestand))
