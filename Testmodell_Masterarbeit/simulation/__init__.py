@@ -7,7 +7,7 @@ import os
 import pickle
 from calender import get_german_holiday_calendar
 from data.preparation.clean import Datapipeline
-import copy
+import matplotlib.pyplot as plt
 
 
 def incremental_mean(step, old_mean, new_x):
@@ -476,6 +476,74 @@ class StockSimulation:
         return reward, self.fertig, np.array(self.time_series_state)
 
 
+class Statistics(object):
+    def __init__(self):
+        self.data = {}
+        self.artikel = -1
+
+    def set_artikel(self, artikel):
+        """
+        Legt den Artikel fest, für den die aktuellen Statistiken erfasst werden sollen
+        :param artikel: Artikelnummer
+        :return:
+        """
+        self.artikel = artikel
+        if artikel in self.data.keys():
+            print("Statistik für diesen Artikel schon vorhanden. Überschreibe Daten.")
+        self.data[self.artikel] = np.zeros((0, 6))
+
+    def add(self, other):
+        """
+        Fügt einen neuen Statistikdatensatz für einen Tag hinzu.
+        :param other: np.array([day, action, reward, theo_bestand, fakt_bestand])
+        :return:
+        """
+        assert other.shape == (6, )
+        self.data[self.artikel] = np.concatenate((self.data[self.artikel], other.reshape(1, 6)), axis=0)
+
+    def tage(self, artikel=None):
+        if artikel is None:
+            artikel = self.artikel
+        return self.data[artikel][:, 0]
+
+    def actions(self, artikel=None):
+        if artikel is None:
+            artikel = self.artikel
+        return self.data[artikel][:, 1]
+
+    def absaetze(self, artikel=None):
+        if artikel is None:
+            artikel = self.artikel
+        return self.data[artikel][:, 2]
+
+    def rewards(self, artikel=None):
+        if artikel is None:
+            artikel = self.artikel
+        return self.data[artikel][:, 3]
+
+    def theo_bestaende(self, artikel=None):
+        if artikel is None:
+            artikel = self.artikel
+        return self.data[artikel][:, 4]
+
+    def fakt_bestaende(self, artikel=None):
+        if artikel is None:
+            artikel = self.artikel
+        return self.data[artikel][:, 5]
+
+    def plot(self, artikel):
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+        x = self.tage(artikel)
+        ax1.plot(x, self.theo_bestaende(artikel))
+        ax1.set_title('Bestandsentwicklung')
+        ax2.bar(x, self.actions(artikel))
+        ax2.bar(x, self.absaetze(artikel))
+        ax2.set_title('Getroffene Bestellaktionen')
+        ax3.bar(x, self.rewards(artikel))
+        ax3.set_title('Belohungen')
+        plt.show()
+
+
 class StockSimulationV2(object):
     def __init__(self, **kwargs):
         self.data = Datapipeline(**kwargs)
@@ -493,8 +561,7 @@ class StockSimulationV2(object):
         self.dynamic_state_data = None
         self.tage = len(self.data.tage)
         self.bestand = None
-        self.stat_theo_bestand = None
-        self.stat_fakt_bestand = None
+        self.statistics = Statistics()
 
     @property
     def state(self):
@@ -535,8 +602,7 @@ class StockSimulationV2(object):
         # TODO: Predictor ohne vDauer trainieren, da nicht relevant
         self.vergangene_tage = 0
         self.bestand = np.random.randint(10)
-        self.stat_theo_bestand = []
-        self.stat_fakt_bestand = []
+        self.statistics.set_artikel(self.aktueller_artikel)
         stat_state = self.data.artikelstamm.loc[
             self.aktueller_artikel,
             self.data.stat_state_scalar_cols].to_numpy(dtype=np.int8)
@@ -558,7 +624,7 @@ class StockSimulationV2(object):
 
         # Tagsüber Absatz abziehen und bewerten:
         self.bestand -= absatz
-        self.stat_theo_bestand.append(copy.copy(self.bestand))
+        theo_bestand = self.bestand
 
         if self.bestand >= 27.5:
             reward = 0.004992 - (self.bestand - 27.5) / 1000
@@ -568,8 +634,8 @@ class StockSimulationV2(object):
             reward = np.exp((self.bestand - 1) / 3) - 1
             # Nichtnegativität des Bestandes
             self.bestand = 0
-        self.stat_fakt_bestand.append(copy.copy(self.bestand))
-
+        fakt_bestand = self.bestand
+        self.statistics.add(np.array([self.vergangene_tage, action, absatz, reward, theo_bestand, fakt_bestand]))
         # Nachmittag: Bestellung kommt an und wird verräumt
         self.bestand += action
 
