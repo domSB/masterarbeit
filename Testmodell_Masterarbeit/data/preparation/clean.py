@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import json
 from calender.german_holidays import get_german_holiday_calendar
 from keras.utils import to_categorical
@@ -45,335 +44,302 @@ def concat(df, length):
     return y_arr, big_x_arr, stat_df
 
 
-class Datapipeline(object):
-    def __init__(self, **kwargs):
-        self.input_path = kwargs['InputPath']
-        self.output_path = kwargs['OutputPath']
-        self.type = kwargs['Type']
-        self.artikelstamm = None
-        self.warengruppenstamm = None
-        self.artikelmaske = None
-        self.warengruppenmaske = kwargs['ZielWarengruppen']
-        self.preise = None
-        self.aktionspreise = None
-        self.bestand = None
-        self.absatz = None
-        self.bewegung = None
-        self.wetter = None
-        self.tage = None
-        self.dyn_state_scalar_cols = kwargs['DynStateScalarCols']
-        self.dyn_state_label_cols = kwargs['DynStateLabelCols']
-        self.dyn_state_category_cols = kwargs['DynStateCategoryCols']
-        self.stat_state_scalar_cols = kwargs['StatStateScalarCols']
-        self.stat_state_category_cols = kwargs['StatStateCategoryCols']
-
-    def read_files(self):
-        # region Stammdaten
-        self.warengruppenstamm = pd.read_csv(
-            os.path.join(self.input_path, '0 Warengruppenstamm.csv'),
-            header=1,
-            names=['WG', 'WGNr', 'WGBez', 'Abt', 'AbtNr', 'AbtBez']
-        )
-
-        artikelstamm = pd.read_csv(
-            os.path.join(self.input_path, '0 ArtikelstammV4.csv'),
-            header=0,
-            names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
-                   'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
-                   'GuG', 'OSE', 'OSEText', 'Saisonal',
-                   'Kern', 'Bio', 'Glutenfrei',
-                   'Laktosefrei', 'MarkeFK', 'Region']
-            )
-        self.artikelstamm = artikelstamm[artikelstamm.Warengruppe.isin(self.warengruppenmaske)]
-        self.artikelmaske = pd.unique(self.artikelstamm.Artikel)
-        # endregion
-
-        # region Preise
-        self.preise = pd.read_csv(
-            os.path.join(self.input_path, '0 Preise.' + self.type + '.csv'),
-            header=1,
-            names=['Preis', 'Artikel', 'Datum']
-        )
-        self.preise = self.preise[self.preise.Artikel.isin(self.artikelmaske)]
-        self.preise.drop_duplicates(inplace=True)
-        self.preise = self.preise[(self.preise.Preis < 100) & (self.preise.Preis != 99.99)]
-        # TODO: Preise mit relativem Vergleich in der Gruppe sortieren
-        self.preise['Datum'] = pd.to_datetime(self.preise['Datum'], format='%d.%m.%Y')
-        if 'Markt' not in self.preise.columns:
-            self.preise['Markt'] = 5
-
-        self.aktionspreise = pd.read_csv(
-            os.path.join(self.input_path, '0 Aktionspreise.' + self.type + '.csv'),
-            header=1,
-            names=['Artikel', 'DatumAb', 'DatumBis', 'Aktionspreis']
-        )
-        self.aktionspreise = self.aktionspreise[self.aktionspreise.Artikel.isin(self.artikelmaske)]
-        self.aktionspreise['DatumAb'] = pd.to_datetime(self.aktionspreise['DatumAb'], format='%d.%m.%Y')
-        self.aktionspreise['DatumBis'] = pd.to_datetime(self.aktionspreise['DatumBis'], format='%d.%m.%Y')
-        # endregion
-
-        # region Warenbewegung
-        warenausgang = pd.read_csv(
-            os.path.join(self.input_path, '0 Warenausgang.' + self.type + '.csv'),
-            header=1,
-            names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
-        )
-        warenausgang = warenausgang[warenausgang.Artikel.isin(self.artikelmaske)]
-        warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
-
-        wareneingang = pd.read_csv(
-            os.path.join(self.input_path, '0 Wareneingang.' + self.type + '.csv'),
-            header=1,
-            names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
-        )
-        wareneingang = wareneingang[wareneingang.Artikel.isin(self.artikelmaske)]
-        wareneingang['Datum'] = pd.to_datetime(wareneingang['Datum'], format='%d.%m.%y')
-
-        self.bestand = pd.read_csv(
-            os.path.join(self.input_path, '0 Warenbestand.' + self.type + '.csv'),
-            header=1,
-            names=['Markt', 'Artikel', 'Bestand', 'EK', 'VK', 'Anfangsbestand', 'Datum']
-        )
-        self.bestand['Datum'] = pd.to_datetime(self.bestand['Datum'], format='%d.%m.%y')
-
-        self.absatz = warenausgang[warenausgang.Belegtyp.isin(['UMSATZ_SCANNING', 'UMSATZ_AKTION'])]
-        self.absatz = self.absatz.groupby(['Markt', 'Artikel', 'Datum'],  as_index=False).sum()
-
-        warenausgang['Menge'] = -warenausgang['Menge']
-
-        self.bewegung = pd.concat([warenausgang, wareneingang])
-        # endregion
-
-        # region Wetter
-        self.wetter = pd.read_csv(
-            os.path.join(self.input_path, '1 Wetter.csv')
-        )
-        self.wetter.drop(columns=['Unnamed: 0'], inplace=True)
-        # endregion
-
-    def prepare_for_simulation(self, **kwargs):
-        """
-        Clean the data and prepare it, to be used in the Simulation.
-        """
-        self.prepare_for_regression(**kwargs)
-        self.artikelstamm = self.artikelstamm.set_index('Artikel')
-
-    def prepare_for_regression(self, **kwargs):
-        # TODO: Feiertage Hinweis in State aufnehmen
-        # region fehlende Detailwarengruppen auffüllen
-        wg_group = self.artikelstamm.loc[
-                   :,
-                   ['Warengruppe', 'Detailwarengruppe']
-                   ].groupby('Warengruppe').median()
-        detail_warengruppen_nan_index = wg_group.to_dict()['Detailwarengruppe']
-        self.artikelstamm['DetailwarengruppeBackup'] = self.artikelstamm['Warengruppe'].map(
-            detail_warengruppen_nan_index
-        )
-        self.artikelstamm['Detailwarengruppe'].fillna(
-            value=self.artikelstamm['DetailwarengruppeBackup'],
-            inplace=True
-        )
-        self.artikelstamm.drop(columns=['DetailwarengruppeBackup'], inplace=True)
-        # endregion
-
-        # region numerisches MHD in kategoriale Variable transformieren
-        mhd_labels = [0, 1, 2, 3, 4, 5, 6]
-        mhd_bins = [0, 1, 7, 14, 28, 100, 1000, 100000]
-        self.artikelstamm['MHDgroup'] = pd.cut(self.artikelstamm.MHD, mhd_bins, right=False, labels=mhd_labels)
-        # endregion
-
-        #  region Lückenhafte Fremdschlüssel durch eine durchgehende ID ersetzen
-        detail_warengruppen_index = {
-            int(value): index for index, value in enumerate(np.sort(pd.unique(self.artikelstamm.Detailwarengruppe)))
-        }
-        self.stat_state_category_cols['Detailwarengruppe'] = len(detail_warengruppen_index)
-        warengruppen_index = {
-            int(value): index for index, value in enumerate(np.sort(pd.unique(self.artikelstamm.Warengruppe)))
-        }
-        einheit_index = {
-            int(value): index for index, value in enumerate(np.sort(pd.unique(self.artikelstamm.Einheit)))
-        }
-        self.stat_state_category_cols['Einheit'] = len(einheit_index)
-        mapping = {
-            'Detailwarengruppe': detail_warengruppen_index,
-            'Warengruppe': warengruppen_index,
-            'Einheit': einheit_index
-        }
-        filename = '-'.join([
-            self.type,
-            kwargs['StartDatum'],
-            kwargs['EndDatum'],
-            str(kwargs['StepSize']),
-            'ValueMapping.json'
-        ])
-        with open(os.path.join(self.output_path, filename), 'w') as file:
-            json.dump(mapping, file)
-        self.artikelstamm['Detailwarengruppe'] = self.artikelstamm['Detailwarengruppe'].map(
-            detail_warengruppen_index)
-        self.artikelstamm['Warengruppe'] = self.artikelstamm['Warengruppe'].map(warengruppen_index)
-        self.artikelstamm['Einheit'] = self.artikelstamm['Einheit'].map(einheit_index)
-        # endregion
-
-        # region überflüssige Spalten löschen und OSE&Saisonal Kennzeichen auffüllen
-        self.artikelstamm.drop(columns=['MHD', 'Region', 'MarkeFK', 'Verkaufseinheit', 'OSEText'], inplace=True)
-        self.artikelstamm['OSE'].fillna(0, inplace=True)
-        self.artikelstamm['Saisonal'].fillna(0, inplace=True)
-        # endregion
-
-        # region Reindexieren des Absatzes
-        cal_cls = get_german_holiday_calendar('SL')
-        cal = cal_cls()
-        sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Tue Fri Sat')
-        zeitraum = pd.date_range(
-            pd.to_datetime(kwargs['StartDatum']),
-            pd.to_datetime(kwargs['EndDatum']) + pd.DateOffset(7),
-            freq=sl_bd
-        )
-        self.tage = zeitraum
-        self.absatz.set_index('Datum', inplace=True)
-        self.absatz = self.absatz.groupby(['Markt', 'Artikel']).apply(lambda x: x.reindex(zeitraum, fill_value=0))
-        self.absatz.drop(columns=['Markt', 'Artikel'], inplace=True)
-        self.absatz.reset_index(inplace=True)
-        self.absatz.rename(columns={'level_2': 'Datum'}, inplace=True)
-
-        self.absatz['Wochentag'] = self.absatz.Datum.dt.dayofweek
-        self.absatz['Kalenderwoche'] = self.absatz.Datum.dt.weekofyear
-        self.absatz["UNIXDatum"] = self.absatz["Datum"].astype(np.int64)/(1000000000 * 24 * 3600)
-        # endregion
-
-        # region Wetter anfügen
-        self.wetter["date_shifted_oneday"] = self.wetter["date"] - 1
-        self.wetter["date_shifted_twodays"] = self.wetter["date"] - 2
-        self.absatz = pd.merge(
-            self.absatz,
-            self.wetter,
-            left_on='UNIXDatum',
-            right_on='date_shifted_oneday'
-        )
-        self.absatz = pd.merge(
-            self.absatz,
-            self.wetter,
-            left_on='UNIXDatum',
-            right_on='date_shifted_twodays',
-            suffixes=('_1D', '_2D')
-        )
-        self.absatz.drop(
-            columns=["date_shifted_oneday_1D",
-                     "date_shifted_twodays_1D",
-                     "date_shifted_oneday_2D",
-                     "date_shifted_twodays_2D",
-                     "date_1D",
-                     "date_2D"
-                     ],
-            inplace=True
-        )
-        # endregion
-
-        # region reguläre Preise aufbereiten
-        self.preise.sort_values(by=['Datum', 'Artikel'], inplace=True)
-        # pd.merge_asof ist ein Left Join mit dem nächsten passenden Key.
-        # Standardmäßig wird in der rechten Tabelle der Gleiche oder nächste Kleinere gesucht.
-        self.absatz = pd.merge_asof(
-            self.absatz,
-            self.preise.loc[:, ["Preis", "Artikel", "Datum"]].copy(),
-            left_on='Datum',
-            right_on='Datum',
-            by='Artikel'
-        )
-        self.absatz['Preis'] = self.absatz.groupby(['Markt', 'Artikel'])['Preis'].fillna(method='bfill')
-        neuere_preise = self.preise.groupby('Artikel').last()
-        neuere_preise.drop(columns=['Datum', 'Markt'], inplace=True)
-        neuere_preise_index = neuere_preise.to_dict()['Preis']
-        self.absatz['PreisBackup'] = self.absatz['Artikel'].map(
-            neuere_preise_index
-        )
-        self.absatz['Preis'].fillna(
-            value=self.absatz['PreisBackup'],
-            inplace=True
-        )
-        self.absatz.drop(columns=['PreisBackup'], inplace=True)
-        print('{:.2f} % der Daten aufgrund fehlender Preise verworfen.'.format(np.mean(self.absatz.Preis.isna()) * 100))
-        preis_mean, preis_std = np.mean(self.absatz.Preis), np.std(self.absatz.Preis)
-        self.absatz['Preis'] = (self.absatz['Preis'] - preis_mean) / preis_std
-        filename = '-'.join([
-            self.type,
-            kwargs['StartDatum'],
-            kwargs['EndDatum'],
-            str(kwargs['StepSize']),
-            'PreisStd.json'
-        ])
-        with open(os.path.join(self.output_path, filename), 'w') as file:
-            json.dump({'PreisStandardDerivation': preis_std, 'PreisMean': preis_mean}, file)
-        self.absatz.dropna(inplace=True)
-        # endregion
-
-        # region Aktionspreise aufbereiten
-        self.aktionspreise.sort_values(by=['DatumAb', 'DatumBis', 'Artikel'], inplace=True)
-        len_vor = self.absatz.shape[0]
-        self.absatz = pd.merge_asof(
-            self.absatz,
-            self.aktionspreise,
-            left_on='Datum',
-            right_on='DatumAb',
-            tolerance=pd.Timedelta('9d'),
-            by='Artikel')
-        len_nach = self.absatz.shape[0]
-        assert len_vor == len_nach, 'Anfügen der Aktionspreise hat zu einer Verlängerung der Absätze geführt.'
-        self.absatz['Aktionspreis'].where(~(self.absatz.DatumBis < self.absatz.Datum), inplace=True)
-        self.absatz['absRabatt'] = self.absatz.Preis - self.absatz.Aktionspreis
-        self.absatz['relRabatt'] = self.absatz.absRabatt / self.absatz.Preis
-        self.absatz.relRabatt.fillna(0., inplace=True)
-        self.absatz.absRabatt.fillna(0., inplace=True)
-        self.absatz.drop(columns=['DatumAb', 'DatumBis', 'Aktionspreis'], inplace=True)
-        # endregion
-
-        # region Targets erzeugen
-        self.absatz['in1'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-1)
-        self.absatz['in2'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-2)
-        self.absatz['in3'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-3)
-        self.absatz['in4'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-4)
-        self.absatz['in5'] = self.absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-5)
-        self.absatz.dropna(axis=0, inplace=True)
-        self.absatz.sort_values(['Markt', 'Artikel', 'Datum'], inplace=True)
-        # endregion
-        assert not self.absatz.isna().any().any(), 'NaNs im Datensatz gefunden'
-
-    def create_regression_numpy(self, **kwargs):
-        self.prepare_for_regression(**kwargs)
-        self.absatz.drop(columns=['Datum'], inplace=True)
-        print('INFO - Concatenating dynamic states')
-        y, x, stat_df = concat(self.absatz, kwargs['StepSize'])
-        print('INFO - Reindexing static state')
-        self.artikelstamm = self.artikelstamm.set_index('Artikel')
-        stat_df = self.artikelstamm.reindex(stat_df)
-        assert not stat_df.isna().any().any(), 'NaNs im Artikelstamm'
-        print('INFO - Creating categorical states')
-        stat_state = stat_df.loc[:, self.stat_state_scalar_cols].to_numpy(dtype=np.int8)
-        for category, class_numbers in self.stat_state_category_cols.items():
-            category_state = to_categorical(stat_df.loc[:, category], num_classes=class_numbers).astype(np.int8)
-            stat_state = np.concatenate((stat_state, category_state), axis=1)
-        return y, x, stat_state
-
-    def save_regression_numpy(self, **kwargs):
-        lab, dyn, stat = self.create_regression_numpy(**kwargs)
-        print('INFO - Speichere NPZ-Dateien')
-        filename = '-'.join([self.type, kwargs['StartDatum'], kwargs['EndDatum'], str(kwargs['StepSize'])])
-        path = os.path.join(self.output_path, filename)
-        np.savez(path, lab=lab, dyn=dyn, stat=stat)
+def create_numpy_from_frame(params, absatz, artikelstamm):
+    """
+    Erstellt 3 Numpy-Arrays für den Prädiktor, speichert diese in einer .npz-Datei und gibt sie zum direkten Verarbeiten
+    auch weiter.
+    :param params:
+    :param absatz: Absatz-Frame
+    :param artikelstamm Artikelstamm-Frame
+    :return:
+    """
+    absatz.drop(columns=['Datum'], inplace=True)
+    print('INFO - Concatenating dynamic states')
+    lab, dyn, stat_df = concat(absatz, params.ts_length)
+    print('INFO - Reindexing static state')
+    stat_df = artikelstamm.reindex(stat_df)
+    assert not stat_df.isna().any().any(), 'NaNs im Artikelstamm'
+    print('INFO - Creating categorical states')
+    stat = stat_df.loc[:, params.stat_state_scalar_cols].to_numpy(dtype=np.int8)
+    for category, class_numbers in params.stat_state_category_cols.items():
+        category_state = to_categorical(stat_df.loc[:, category], num_classes=class_numbers).astype(np.int8)
+        stat = np.concatenate((stat, category_state), axis=1)
+    print('INFO - Speichere NPZ-Dateien')
+    filename = '-'.join([params.data_group, params.train_start, params.train_stop, str(params.ts_length)])
+    path = os.path.join(params.output_dir, filename)
+    np.savez(path, lab=lab, dyn=dyn, stat=stat)
+    return lab, dyn, stat
 
 
-# TODO: Baseline in Klasse einbauen
-# bewegung = self.dynamic_state.loc[:, ['Markt', 'Artikel', 'Datum', 'Menge', 'UNIXDatum']].copy()
-# bewegung.reset_index(inplace=True, drop=True)
-# bewegung['Prediction'] = bewegung.groupby(['Markt', 'Artikel'])['Menge'].shift(1)
-# bewegung['AError'] = np.abs(bewegung['Menge'] - bewegung['Prediction'])
-# bewegung['SError'] = np.square(bewegung['AError'])
-# bewegung.dropna(inplace=True)
-# bewegung['MAE'] = bewegung['AError'].rolling(prediction_days).mean()
-# bewegung['MSE'] = bewegung['SError'].rolling(prediction_days).mean()
-# self.mae = np.mean(bewegung['MAE'])
-# self.mse = np.mean(bewegung['MSE'])
-# print('BASELINE\n---\nMean Average Error: {mae} \nMean Squared Error: {mse}'.format(
-#     mae=self.mae,
-#     mse=self.mse
-# ))
+def create_frame_from_raw_data(params):
+    """
+    Returns Absatz-Frame, Bewegung-Frame & Artikelstamm-Frame und speichert die Frames in einem HDF-Store
+    :param params:
+    :return:
+    """
+    warengruppenstamm = pd.read_csv(
+        os.path.join(params.input_dir, '0 Warengruppenstamm.csv'),
+        header=1,
+        names=['WG', 'WGNr', 'WGBez', 'Abt', 'AbtNr', 'AbtBez']
+    )
+
+    artikelstamm = pd.read_csv(
+        os.path.join(params.input_dir, '0 ArtikelstammV4.csv'),
+        header=0,
+        names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
+               'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
+               'GuG', 'OSE', 'OSEText', 'Saisonal',
+               'Kern', 'Bio', 'Glutenfrei',
+               'Laktosefrei', 'MarkeFK', 'Region']
+    )
+    artikelstamm = artikelstamm[artikelstamm.Warengruppe.isin(params.warengruppenmaske)]
+    artikelmaske = pd.unique(artikelstamm.Artikel)
+    # endregion
+
+    # region Preise
+    preise = pd.read_csv(
+        os.path.join(params.input_dir, '0 Preise.' + params.data_group + '.csv'),
+        header=1,
+        names=['Preis', 'Artikel', 'Datum']
+    )
+    preise = preise[preise.Artikel.isin(artikelmaske)]
+    preise.drop_duplicates(inplace=True)
+    preise = preise[(preise.Preis < 100) & (preise.Preis != 99.99)]
+    # TODO: Preise mit relativem Vergleich in der Gruppe sortieren
+    preise['Datum'] = pd.to_datetime(preise['Datum'], format='%d.%m.%Y')
+    if 'Markt' not in preise.columns:
+        preise['Markt'] = 5
+
+    aktionspreise = pd.read_csv(
+        os.path.join(params.input_dir, '0 Aktionspreise.' + params.data_group + '.csv'),
+        header=1,
+        names=['Artikel', 'DatumAb', 'DatumBis', 'Aktionspreis']
+    )
+    aktionspreise = aktionspreise[aktionspreise.Artikel.isin(artikelmaske)]
+    aktionspreise['DatumAb'] = pd.to_datetime(aktionspreise['DatumAb'], format='%d.%m.%Y')
+    aktionspreise['DatumBis'] = pd.to_datetime(aktionspreise['DatumBis'], format='%d.%m.%Y')
+    # endregion
+
+    # region Warenbewegung
+    warenausgang = pd.read_csv(
+        os.path.join(params.input_dir, '0 Warenausgang.' + params.data_group + '.csv'),
+        header=1,
+        names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
+    )
+    warenausgang = warenausgang[warenausgang.Artikel.isin(artikelmaske)]
+    warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
+
+    wareneingang = pd.read_csv(
+        os.path.join(params.input_dir, '0 Wareneingang.' + params.data_group + '.csv'),
+        header=1,
+        names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
+    )
+    wareneingang = wareneingang[wareneingang.Artikel.isin(artikelmaske)]
+    wareneingang['Datum'] = pd.to_datetime(wareneingang['Datum'], format='%d.%m.%y')
+
+    bestand = pd.read_csv(
+        os.path.join(params.input_dir, '0 Warenbestand.' + params.data_group + '.csv'),
+        header=1,
+        names=['Markt', 'Artikel', 'Bestand', 'EK', 'VK', 'Anfangsbestand', 'Datum']
+    )
+    bestand['Datum'] = pd.to_datetime(bestand['Datum'], format='%d.%m.%y')
+
+    absatz = warenausgang[warenausgang.Belegtyp.isin(['UMSATZ_SCANNING', 'UMSATZ_AKTION'])]
+    absatz = absatz.groupby(['Markt', 'Artikel', 'Datum'], as_index=False).sum()
+
+    warenausgang['Menge'] = -warenausgang['Menge']
+
+    bewegung = pd.concat([warenausgang, wareneingang])
+    # endregion
+
+    # region Wetter
+    wetter = pd.read_csv(
+        os.path.join(params.input_dir, '1 Wetter.csv')
+    )
+    wetter.drop(columns=['Unnamed: 0'], inplace=True)
+    # endregion
+
+    artikelstamm = artikelstamm.set_index('Artikel')
+
+    # TODO: Feiertage Hinweis in State aufnehmen
+    # region fehlende Detailwarengruppen auffüllen
+    wg_group = artikelstamm.loc[
+               :,
+               ['Warengruppe', 'Detailwarengruppe']
+               ].groupby('Warengruppe').median()
+    detail_warengruppen_nan_index = wg_group.to_dict()['Detailwarengruppe']
+    artikelstamm['DetailwarengruppeBackup'] = artikelstamm['Warengruppe'].map(
+        detail_warengruppen_nan_index
+    )
+    artikelstamm['Detailwarengruppe'].fillna(
+        value=artikelstamm['DetailwarengruppeBackup'],
+        inplace=True
+    )
+    artikelstamm.drop(columns=['DetailwarengruppeBackup'], inplace=True)
+    # endregion
+
+    # region numerisches MHD in kategoriale Variable transformieren
+    mhd_labels = [0, 1, 2, 3, 4, 5, 6]
+    mhd_bins = [0, 1, 7, 14, 28, 100, 1000, 100000]
+    artikelstamm['MHDgroup'] = pd.cut(artikelstamm.MHD, mhd_bins, right=False, labels=mhd_labels)
+    # endregion
+
+    #  region Lückenhafte Fremdschlüssel durch eine durchgehende ID ersetzen
+    detail_warengruppen_index = {
+        int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Detailwarengruppe)))
+    }
+    params.stat_state_category_cols['Detailwarengruppe'] = len(detail_warengruppen_index)
+    warengruppen_index = {
+        int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Warengruppe)))
+    }
+    einheit_index = {
+        int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Einheit)))
+    }
+    params.stat_state_category_cols['Einheit'] = len(einheit_index)
+    mapping = {
+        'Detailwarengruppe': detail_warengruppen_index,
+        'Warengruppe': warengruppen_index,
+        'Einheit': einheit_index
+    }
+    filename = '-'.join([
+        params.data_group,
+        params.train_start,
+        params.train_stop,
+        str(params.ts_length),
+        'ValueMapping.json'
+    ])
+    with open(os.path.join(params.output_dir, filename), 'w') as file:
+        json.dump(mapping, file)
+    artikelstamm['Detailwarengruppe'] = artikelstamm['Detailwarengruppe'].map(
+        detail_warengruppen_index)
+    artikelstamm['Warengruppe'] = artikelstamm['Warengruppe'].map(warengruppen_index)
+    artikelstamm['Einheit'] = artikelstamm['Einheit'].map(einheit_index)
+    # endregion
+
+    # region überflüssige Spalten löschen und OSE&Saisonal Kennzeichen auffüllen
+    artikelstamm.drop(columns=['MHD', 'Region', 'MarkeFK', 'Verkaufseinheit', 'OSEText'], inplace=True)
+    artikelstamm['OSE'].fillna(0, inplace=True)
+    artikelstamm['Saisonal'].fillna(0, inplace=True)
+    # endregion
+
+    # region Reindexieren des Absatzes
+    cal_cls = get_german_holiday_calendar('SL')
+    cal = cal_cls()
+    sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Tue Fri Sat')
+    zeitraum = pd.date_range(
+        pd.to_datetime(params.train_start),
+        pd.to_datetime(params.train_stop) + pd.DateOffset(7),
+        freq=sl_bd
+    )
+    absatz.set_index('Datum', inplace=True)
+    absatz = absatz.groupby(['Markt', 'Artikel']).apply(lambda x: x.reindex(zeitraum, fill_value=0))
+    absatz.drop(columns=['Markt', 'Artikel'], inplace=True)
+    absatz.reset_index(inplace=True)
+    absatz.rename(columns={'level_2': 'Datum'}, inplace=True)
+
+    absatz['Wochentag'] = absatz.Datum.dt.dayofweek
+    absatz['Kalenderwoche'] = absatz.Datum.dt.weekofyear
+    absatz["UNIXDatum"] = absatz["Datum"].astype(np.int64) / (1000000000 * 24 * 3600)
+    # endregion
+
+    # region Wetter anfügen
+    wetter["date_shifted_oneday"] = wetter["date"] - 1
+    wetter["date_shifted_twodays"] = wetter["date"] - 2
+    absatz = pd.merge(
+        absatz,
+        wetter,
+        left_on='UNIXDatum',
+        right_on='date_shifted_oneday'
+    )
+    absatz = pd.merge(
+        absatz,
+        wetter,
+        left_on='UNIXDatum',
+        right_on='date_shifted_twodays',
+        suffixes=('_1D', '_2D')
+    )
+    absatz.drop(
+        columns=["date_shifted_oneday_1D",
+                 "date_shifted_twodays_1D",
+                 "date_shifted_oneday_2D",
+                 "date_shifted_twodays_2D",
+                 "date_1D",
+                 "date_2D"
+                 ],
+        inplace=True
+    )
+    # endregion
+
+    # region reguläre Preise aufbereiten
+    preise.sort_values(by=['Datum', 'Artikel'], inplace=True)
+    # pd.merge_asof ist ein Left Join mit dem nächsten passenden Key.
+    # Standardmäßig wird in der rechten Tabelle der Gleiche oder nächste Kleinere gesucht.
+    absatz = pd.merge_asof(
+        absatz,
+        preise.loc[:, ["Preis", "Artikel", "Datum"]].copy(),
+        left_on='Datum',
+        right_on='Datum',
+        by='Artikel'
+    )
+    absatz['Preis'] = absatz.groupby(['Markt', 'Artikel'])['Preis'].fillna(method='bfill')
+    neuere_preise = preise.groupby('Artikel').last()
+    neuere_preise.drop(columns=['Datum', 'Markt'], inplace=True)
+    neuere_preise_index = neuere_preise.to_dict()['Preis']
+    absatz['PreisBackup'] = absatz['Artikel'].map(
+        neuere_preise_index
+    )
+    absatz['Preis'].fillna(
+        value=absatz['PreisBackup'],
+        inplace=True
+    )
+    absatz.drop(columns=['PreisBackup'], inplace=True)
+    print('{:.2f} % der Daten aufgrund fehlender Preise verworfen.'.format(np.mean(absatz.Preis.isna()) * 100))
+    preis_mean, preis_std = np.mean(absatz.Preis), np.std(absatz.Preis)
+    absatz['Preis'] = (absatz['Preis'] - preis_mean) / preis_std
+    filename = '-'.join([
+        params.data_group,
+        params.train_start,
+        params.train_stop,
+        str(params.ts_length),
+        'PreisStd.json'
+    ])
+    with open(os.path.join(params.output_dir, filename), 'w') as file:
+        json.dump({'PreisStandardDerivation': preis_std, 'PreisMean': preis_mean}, file)
+    absatz.dropna(inplace=True)
+    # endregion
+
+    # region Aktionspreise aufbereiten
+    aktionspreise.sort_values(by=['DatumAb', 'DatumBis', 'Artikel'], inplace=True)
+    len_vor = absatz.shape[0]
+    absatz = pd.merge_asof(
+        absatz,
+        aktionspreise,
+        left_on='Datum',
+        right_on='DatumAb',
+        tolerance=pd.Timedelta('9d'),
+        by='Artikel')
+    len_nach = absatz.shape[0]
+    assert len_vor == len_nach, 'Anfügen der Aktionspreise hat zu einer Verlängerung der Absätze geführt.'
+    absatz['Aktionspreis'].where(~(absatz.DatumBis < absatz.Datum), inplace=True)
+    absatz['absRabatt'] = absatz.Preis - absatz.Aktionspreis
+    absatz['relRabatt'] = absatz.absRabatt / absatz.Preis
+    absatz.relRabatt.fillna(0., inplace=True)
+    absatz.absRabatt.fillna(0., inplace=True)
+    absatz.drop(columns=['DatumAb', 'DatumBis', 'Aktionspreis'], inplace=True)
+    # endregion
+
+    # region Targets erzeugen
+    absatz['in1'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-1)
+    absatz['in2'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-2)
+    absatz['in3'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-3)
+    absatz['in4'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-4)
+    absatz['in5'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-5)
+    absatz.dropna(axis=0, inplace=True)
+    absatz.sort_values(['Markt', 'Artikel', 'Datum'], inplace=True)
+    # endregion
+    # TODO:Bestand und weitere Stammdaten für Statistiken zurückgeben
+    # TODO: Fertige Frames in HDF-Store ablegen
+    # TODO: Checken, ob das Updaten der Dicts zu kategorialen Variable Einfluss auf den Dateinamen hat.
+    return absatz, bewegung, artikelstamm
+
+

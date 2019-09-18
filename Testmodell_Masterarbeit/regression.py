@@ -5,7 +5,6 @@ ACHTUNG!!
 Script läd komplette Absatzdaten inkl. Zusatzinfos zu Artikel in einen Numpy-Array.
 Arbeitsspeicherverbrauch von 20+ GB !
 """
-# TODO: Regression von State auf Absatz
 import os
 import numpy as np
 import tensorflow as tf

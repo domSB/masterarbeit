@@ -180,6 +180,7 @@ for epoch in range(epochs):
                     agent.rewards: current_rewards,
                     agent.val_rewards: current_val_rewards,
                     agent.theo_bestand: simulation.stat_theo_bestand,
+                    # TODO: Auf neue stats umbauen
                     agent.fakt_bestand: simulation.stat_fakt_bestand,
                     agent.actions: current_actions,
                     agent.tf_epsilon: agent.epsilon
