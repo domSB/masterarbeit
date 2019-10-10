@@ -132,28 +132,40 @@ class DataPipeLine(object):
         return lab, dyn, stat
 
     def get_simulation_data(self):
-        filename = self.params.get_name()
-        if (filename + '.h5') in os.listdir(self.params.output_dir):
+        filename = str(self.params.warengruppenmaske) + ' store.h5'
+        if filename in os.listdir(self.params.output_dir):
             print('Vorberechnete Daten vorhanden\nLese HDF-Store ...')
-            with pd.HDFStore(os.path.join(self.params.output_dir, (filename + '.h5'))) as store:
-                absatz = store.get('absatz')
-                artikelstamm = store.get('artikelstamm')
+            with pd.HDFStore(os.path.join(self.params.output_dir, filename)) as store:
+                absatz = store.get('Absatz')
+                artikelstamm = store.get('Artikelstamm')
         else:
             print('Keine vorberechneten Daten\nErstelle DataFrames aus Rohdaten')
-            absatz, _, artikelstamm = create_frame_from_raw_data(self.params)
+            absatz, bewegung, artikelstamm = create_frame_from_raw_data(self.params)
+
+            print('Speichere neu berechnete Frames')
+            with pd.HDFStore(os.path.join(self.params.output_dir, filename)) as store:
+                store.put('Artikelstamm', artikelstamm, format="table")
+                store.put('Absatz', absatz)
+                store.put('Bewegung', bewegung)
 
         return absatz, artikelstamm
 
     def get_statistics_data(self):
-        filename = self.params.get_name()
-        if (filename + '.h5') in os.listdir(self.params.output_dir):
+        filename = str(self.params.warengruppenmaske) + ' store.h5'
+        if filename in os.listdir(self.params.output_dir):
             print('Vorberechnete Daten vorhanden\nLese HDF-Store ...')
-            with pd.HDFStore(os.path.join(self.params.output_dir, (filename + '.h5'))) as store:
-                absatz = store.get('absatz')
-                bewegung = store.get('bewegung')
-                artikelstamm = store.get('artikelstamm')
+            with pd.HDFStore(os.path.join(self.params.output_dir, filename)) as store:
+                absatz = store.get('Absatz')
+                bewegung = store.get('Bewegung')
+                artikelstamm = store.get('Artikelstamm')
         else:
             print('Keine vorberechneten Daten\nErstelle DataFrames aus Rohdaten')
             absatz, bewegung, artikelstamm = create_frame_from_raw_data(self.params)
+
+            print('Speichere neu berechnete Frames')
+            with pd.HDFStore(os.path.join(self.params.output_dir, filename)) as store:
+                store.put('Artikelstamm', artikelstamm, format="table")
+                store.put('Absatz', absatz)
+                store.put('Bewegung', bewegung)
 
         return absatz, bewegung, artikelstamm

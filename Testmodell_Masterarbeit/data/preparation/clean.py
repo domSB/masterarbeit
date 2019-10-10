@@ -57,83 +57,20 @@ def day_of_week(day):
         return 1, 1, 1
 
 
-def extend_list(list_of_str, length):
-    list_copy = list_of_str.copy()
-    for i in range(1, length):
-        list_of_str.extend([name + '_' + str(i) for name in list_copy])
-    return list_of_str
-
-
-def concat(df, length):
-    cols = list(df.columns)
-    cols = extend_list(cols, length)
-    df_s = df.copy()
-    for i in range(1, length):
-        df = pd.concat((df, df_s.shift(-i)), axis=1)
-    df.columns = cols
-    df.dropna(axis=0, inplace=True)
-    for i in range(1, length):
-        df = df[df['Artikel'] == df['Artikel_' + str(i)]]
-    for i in range(1, length):
-        df = df[df['Markt'] == df['Markt_' + str(i)]]
-    x_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D', 'Regen_1D',
-              'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D', 'Preis', 'relRabatt', 'absRabatt']
-    x_cols = extend_list(x_cols, length)
-    weekday_col = ['Wochentag']
-    weekday_col = extend_list(weekday_col, length)
-    yearweek_col = ['Kalenderwoche']
-    yearweek_col = extend_list(yearweek_col, length)
-    y_cols = ['in1', 'in2', 'in3', 'in4', 'in5']
-    x_arr = df[x_cols].to_numpy(dtype=np.float32).reshape(-1, length, int(len(x_cols) / length))
-    weekday_arr = df[weekday_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
-    weekday_arr = to_categorical(weekday_arr, num_classes=7)
-    yearweek_arr = df[yearweek_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
-    yearweek_arr = to_categorical(yearweek_arr, num_classes=54)
-    big_x_arr = np.concatenate((x_arr, weekday_arr, yearweek_arr), axis=2)
-    y_arr = df[y_cols].to_numpy(dtype=np.float32)
-    stat_df = df['Artikel']
-    return y_arr, big_x_arr, stat_df
-
-
-def create_numpy_from_frame(params, absatz, artikelstamm):
-    """
-    Erstellt 3 Numpy-Arrays für den Prädiktor, speichert diese in einer .npz-Datei und gibt sie zum direkten Verarbeiten
-    auch weiter.
-    :param params:
-    :param absatz: Absatz-Frame
-    :param artikelstamm Artikelstamm-Frame
-    :return:
-    """
-    absatz.drop(columns=['Datum'], inplace=True)
-    print('INFO - Concatenating dynamic states')
-    lab, dyn, stat_df = concat(absatz, 6)
-    print('INFO - Reindexing static state')
-    stat_df = artikelstamm.reindex(stat_df)
-    assert not stat_df.isna().any().any(), 'NaNs im Artikelstamm'
-    print('INFO - Creating categorical states')
-    stat = stat_df.loc[:, params.stat_state_scalar_cols].to_numpy(dtype=np.int8)
-    for category, class_numbers in params.stat_state_category_cols.items():
-        category_state = to_categorical(stat_df.loc[:, category], num_classes=class_numbers).astype(np.int8)
-        stat = np.concatenate((stat, category_state), axis=1)
-    print('INFO - Speichere NPZ-Dateien')
-    filename = str(params.warengruppenmaske) + ' .npz'
-    path = os.path.join(params.output_dir, filename)
-    np.savez(path, lab=lab, dyn=dyn, stat=stat)
-    return lab, dyn, stat
-
-
 def create_frame_from_raw_data(params):
     """
     Returns Absatz-Frame, Bewegung-Frame & Artikelstamm-Frame und speichert die Frames in einem HDF-Store
     :param params:
     :return:
     """
+    # derzeit nicht genutzt
     warengruppenstamm = pd.read_csv(
         os.path.join(params.input_dir, '0 Warengruppenstamm.csv'),
         header=1,
         names=['WG', 'WGNr', 'WGBez', 'Abt', 'AbtNr', 'AbtBez']
     )
 
+    print('Lese Artikelstammdaten')
     artikelstamm = pd.read_csv(
         os.path.join(params.input_dir, '0 ArtikelstammV4.csv'),
         header=0,
@@ -148,6 +85,7 @@ def create_frame_from_raw_data(params):
     # endregion
 
     # region Warenbewegung
+    print('Lese Warenbewegungen ein')
     warenausgang = pd.read_csv(
         os.path.join(params.input_dir, '0 Warenausgang.Markt.csv'),
         header=1,
@@ -202,6 +140,7 @@ def create_frame_from_raw_data(params):
     # endregion
 
     # region Preise
+    print('Lese Preise ein')
     preise = pd.read_csv(
         os.path.join(params.input_dir, '0 Preise.Markt.csv'),
         header=1,
@@ -226,6 +165,7 @@ def create_frame_from_raw_data(params):
     # endregion
 
     # region Wetter
+    print('Lese Wetter ein')
     wetter = pd.read_csv(
         os.path.join(params.input_dir, '1 Wetter.csv')
     )
@@ -236,6 +176,7 @@ def create_frame_from_raw_data(params):
 
     # TODO: Feiertage Hinweis in State aufnehmen
     # region fehlende Detailwarengruppen auffüllen
+    print('Beginne mit Aufbereitungsmaßnahmen')
     wg_group = artikelstamm.loc[
                :,
                ['Warengruppe', 'Detailwarengruppe']
@@ -309,13 +250,11 @@ def create_frame_from_raw_data(params):
     absatz['q_m'] = absatz.Datum.dt.quarter.apply(quarter_month)
     absatz['w1'], absatz['w2'] = zip(*absatz.Datum.apply(week_of_month))
     absatz['t1'], absatz['t2'], absatz['t3'] = zip(*absatz.Datum.dt.dayofweek.apply(day_of_week))
-
-    # absatz['Wochentag'] = absatz.Datum.dt.dayofweek
-    # absatz['Kalenderwoche'] = absatz.Datum.dt.weekofyear
     absatz["UNIXDatum"] = absatz["Datum"].astype(np.int64) / (1000000000 * 24 * 3600)
     # endregion
 
     # region Wetter anfügen
+    print('Starte mit dem Zusammenfügen der Tabellen')
     wetter["date_shifted_oneday"] = wetter["date"] - 1
     wetter["date_shifted_twodays"] = wetter["date"] - 2
     absatz = pd.merge(
@@ -405,12 +344,7 @@ def create_frame_from_raw_data(params):
     absatz.dropna(axis=0, inplace=True)
     absatz.sort_values(['Markt', 'Artikel', 'Datum'], inplace=True)
     # endregion
-    filename = str(params.warengruppenmaske) + ' store.h5'
-    store = pd.HDFStore(os.path.join(params.output_dir, filename))
-    store.put('Artikelstamm', artikelstamm)
-    store.put('Absatz', absatz)
-    store.put('Bewegung', bewegung)
-    store.close()
+    print('Frames sind erstellt')
     # TODO: Bestand und weitere Stammdaten für Statistiken zurückgeben
     # TODO: Checken, ob das Updaten der Dicts zu kategorialen Variable Einfluss auf den Dateinamen hat.
     return absatz, bewegung, artikelstamm
