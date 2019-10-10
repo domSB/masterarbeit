@@ -3,10 +3,10 @@ import numpy as np
 import pandas as pd
 import json
 from calender.german_holidays import get_german_holiday_calendar
-from keras.utils import to_categorical
 
 
 def quarters(q):
+    """ Erstellt ein One-Hot-Encoding für das Quartal"""
     first = int(q/2.5)
     if 1 < q < 4:
         second = 1
@@ -16,7 +16,7 @@ def quarters(q):
 
 
 def quarter_month(m):
-    """ Erstellt ein One-Hot-Encoding für das Quartal"""
+    """ Erstellt ein One-Hot-Encoding für den Monat des Quartals"""
     q_m = m % 3 - 2
     if q_m == -2:
         q_m = 1
@@ -59,17 +59,10 @@ def day_of_week(day):
 
 def create_frame_from_raw_data(params):
     """
-    Returns Absatz-Frame, Bewegung-Frame & Artikelstamm-Frame und speichert die Frames in einem HDF-Store
+    Returns Absatz-Frame, Bewegung-Frame & Artikelstamm-Frame
     :param params:
     :return:
     """
-    # derzeit nicht genutzt
-    warengruppenstamm = pd.read_csv(
-        os.path.join(params.input_dir, '0 Warengruppenstamm.csv'),
-        header=1,
-        names=['WG', 'WGNr', 'WGBez', 'Abt', 'AbtNr', 'AbtBez']
-    )
-
     print('Lese Artikelstammdaten')
     artikelstamm = pd.read_csv(
         os.path.join(params.input_dir, '0 ArtikelstammV4.csv'),
@@ -174,7 +167,6 @@ def create_frame_from_raw_data(params):
 
     artikelstamm = artikelstamm.set_index('Artikel')
 
-    # TODO: Feiertage Hinweis in State aufnehmen
     # region fehlende Detailwarengruppen auffüllen
     print('Beginne mit Aufbereitungsmaßnahmen')
     wg_group = artikelstamm.loc[
@@ -251,6 +243,7 @@ def create_frame_from_raw_data(params):
     absatz['w1'], absatz['w2'] = zip(*absatz.Datum.apply(week_of_month))
     absatz['t1'], absatz['t2'], absatz['t3'] = zip(*absatz.Datum.dt.dayofweek.apply(day_of_week))
     absatz["UNIXDatum"] = absatz["Datum"].astype(np.int64) / (1000000000 * 24 * 3600)
+    # TODO: Feiertage Hinweis in State aufnehmen
     # endregion
 
     # region Wetter anfügen

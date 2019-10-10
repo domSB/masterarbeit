@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import pandas as pd
+from keras.utils import to_categorical
 
 
 def extend_list(list_of_str, length):
@@ -24,22 +25,14 @@ def concat(df, length):
     for i in range(1, length):
         df = df[df['Markt'] == df['Markt_' + str(i)]]
     x_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D', 'Regen_1D',
-              'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D', 'Preis', 'relRabatt', 'absRabatt']
+              'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D', 'Preis', 'relRabatt', 'absRabatt',
+              'j', 'q1', 'q2', 'q_m', 'w1', 'w2', 't1', 't2', 't3']
     x_cols = extend_list(x_cols, length)
-    weekday_col = ['Wochentag']
-    weekday_col = extend_list(weekday_col, length)
-    yearweek_col = ['Kalenderwoche']
-    yearweek_col = extend_list(yearweek_col, length)
-    y_cols = ['in1', 'in2', 'in3', 'in4', 'in5']
+    y_cols = ['in1', 'in2', 'in3', 'in4', 'in5', 'in6']
     x_arr = df[x_cols].to_numpy(dtype=np.float32).reshape(-1, length, int(len(x_cols) / length))
-    weekday_arr = df[weekday_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
-    weekday_arr = to_categorical(weekday_arr, num_classes=7)
-    yearweek_arr = df[yearweek_col].to_numpy(dtype=np.float32).reshape(-1, length, 1)
-    yearweek_arr = to_categorical(yearweek_arr, num_classes=54)
-    big_x_arr = np.concatenate((x_arr, weekday_arr, yearweek_arr), axis=2)
     y_arr = df[y_cols].to_numpy(dtype=np.float32)
     stat_df = df['Artikel']
-    return y_arr, big_x_arr, stat_df
+    return y_arr, x_arr, stat_df
 
 
 def create_numpy_from_frame(params, absatz, artikelstamm):
@@ -58,12 +51,10 @@ def create_numpy_from_frame(params, absatz, artikelstamm):
     stat_df = artikelstamm.reindex(stat_df)
     assert not stat_df.isna().any().any(), 'NaNs im Artikelstamm'
     print('INFO - Creating categorical states')
-    stat = stat_df.loc[:, params.stat_state_scalar_cols].to_numpy(dtype=np.int8)
+    stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern', 'Bio', 'Glutenfrei', 'Laktosefrei']
+    stat = stat_df.loc[:, stat_state_scalar_cols].to_numpy(dtype=np.int8)
     for category, class_numbers in params.stat_state_category_cols.items():
         category_state = to_categorical(stat_df.loc[:, category], num_classes=class_numbers).astype(np.int8)
         stat = np.concatenate((stat, category_state), axis=1)
     print('INFO - Speichere NPZ-Dateien')
-    filename = str(params.warengruppenmaske) + ' .npz'
-    path = os.path.join(params.output_dir, filename)
-    np.savez(path, lab=lab, dyn=dyn, stat=stat)
     return lab, dyn, stat
