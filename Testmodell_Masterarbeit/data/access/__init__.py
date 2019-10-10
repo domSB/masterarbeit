@@ -73,14 +73,17 @@ class DataPipeLine(object):
             lab = files['lab']
             dyn = files['dyn']
             stat = files['stat']
+            split_helper = files['split_helper']
         elif (filename + '.h5') in os.listdir(self.params.output_dir):
             print('Teilweise vorberechnete Daten vorhanden\n(1/2)\tLese HDF-Store ...')
             with pd.HDFStore(os.path.join(self.params.output_dir, (filename + '.h5'))) as store:
                 absatz = store.get('Absatz')
                 artikelstamm = store.get('Artikelstamm')
             print('(2/2)\tErstelle Numpy-Arrays aus DataFrames')
-            lab, dyn, stat = create_numpy_from_frame(self.params, absatz, artikelstamm)
-            np.savez(os.path.join(self.params.output_dir, (filename + '.npz')), lab=lab, dyn=dyn, stat=stat)
+            lab, dyn, stat, split_helper = create_numpy_from_frame(self.params, absatz, artikelstamm)
+            np.savez(
+                os.path.join(self.params.output_dir, (filename + '.npz')),
+                lab=lab, dyn=dyn, stat=stat, split_helper=split_helper)
 
         else:
             print('Keine vorberechneten Daten\n(1/2)\tErstelle DataFrames aus Rohdaten')
@@ -91,10 +94,12 @@ class DataPipeLine(object):
                 store.put('Absatz', absatz)
                 store.put('Bewegung', bewegung)
             print('(2/2)\tErstelle Numpy-Arrays aus DataFrames')
-            lab, dyn, stat = create_numpy_from_frame(self.params, absatz, artikelstamm)
-            np.savez(os.path.join(self.params.output_dir, (filename + '.npz')), lab=lab, dyn=dyn, stat=stat)
+            lab, dyn, stat, split_helper = create_numpy_from_frame(self.params, absatz, artikelstamm)
+            np.savez(
+                os.path.join(self.params.output_dir, (filename + '.npz')),
+                lab=lab, dyn=dyn, stat=stat, split_helper=split_helper)
 
-        return lab, dyn, stat
+        return lab, dyn, stat, split_helper
 
     def get_simulation_data(self):
         filename = str(self.params.warengruppenmaske) + ' store.h5'

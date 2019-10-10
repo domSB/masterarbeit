@@ -260,7 +260,7 @@ class Predictor(object):
     def __init__(self):
         self.model = None
 
-    def build_model(self, **_params):
+    def build_model(self, _params):
         dynamic_inputs = tf.keras.Input(shape=(_params['time_steps'], _params['dynamic_state_shape']),
                                         name='dynamic_input')
         static_inputs = tf.keras.Input(shape=(_params['static_state_shape'],), name='static_input')

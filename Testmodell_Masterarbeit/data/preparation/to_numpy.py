@@ -13,6 +13,7 @@ def extend_list(list_of_str, length):
 
 
 def concat(df, length):
+    print('Ausgang: ', df.shape)
     cols = list(df.columns)
     cols = extend_list(cols, length)
     df_s = df.copy()
@@ -33,6 +34,8 @@ def concat(df, length):
     y_arr = df[y_cols].to_numpy(dtype=np.float32)
     stat_df = df['Artikel']
     markt = df['Markt']
+    print('Ende Concat')
+    print(y_arr.shape, x_arr.shape, stat_df.shape, markt.shape)
     return y_arr, x_arr, stat_df, markt
 
 
@@ -50,7 +53,8 @@ def create_numpy_from_frame(params, absatz, artikelstamm):
     lab, dyn, stat_df, markt = concat(absatz, 6)
     print('INFO - Reindexing static state')
     stat_df = artikelstamm.reindex(stat_df)
-    stat_df['Markt'] = markt
+    stat_df['Markt'] = markt.values
+    split_helper = stat_df['Markt'].reset_index().to_numpy()
     assert not stat_df.isna().any().any(), 'NaNs im Artikelstamm'
     print('INFO - Creating categorical states')
     stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern', 'Bio', 'Glutenfrei', 'Laktosefrei']
@@ -60,4 +64,4 @@ def create_numpy_from_frame(params, absatz, artikelstamm):
         category_state = to_categorical(stat_df.loc[:, category], num_classes=class_numbers).astype(np.int8)
         stat = np.concatenate((stat, category_state), axis=1)
     print('INFO - Speichere NPZ-Dateien')
-    return lab, dyn, stat
+    return lab, dyn, stat, split_helper

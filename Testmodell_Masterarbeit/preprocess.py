@@ -14,4 +14,5 @@ simulation_params = {
     'StatStateCategoricals': stat_state_category_cols,
 }
 pipeline = DataPipeLine(**simulation_params)
-a, b, c = pipeline.get_regression_data()
+w, r, = pipeline.get_simulation_data()
+a, b, c, d = pipeline.get_regression_data()
