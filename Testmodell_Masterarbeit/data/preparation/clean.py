@@ -202,6 +202,14 @@ def create_frame_from_raw_data(params):
         int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Einheit)))
     }
     params.stat_state_category_cols['Einheit'] = len(einheit_index)
+    markt_index = {
+        27: 0,
+        67: 1,
+        87: 2,
+        128: 3,
+        129: 4,
+        147: 5
+    }
     mapping = {
         'Detailwarengruppe': detail_warengruppen_index,
         'Warengruppe': warengruppen_index,
@@ -214,6 +222,7 @@ def create_frame_from_raw_data(params):
         detail_warengruppen_index)
     artikelstamm['Warengruppe'] = artikelstamm['Warengruppe'].map(warengruppen_index)
     artikelstamm['Einheit'] = artikelstamm['Einheit'].map(einheit_index)
+    absatz['Markt'] = absatz['Markt'].map(markt_index)
     # endregion
 
     # region überflüssige Spalten löschen und OSE&Saisonal Kennzeichen auffüllen

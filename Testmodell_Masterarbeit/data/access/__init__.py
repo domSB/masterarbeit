@@ -35,7 +35,8 @@ class Parameter(object):
                 'MHDgroup': 7,
                 'Warengruppe': 9,
                 'Detailwarengruppe': None,
-                'Einheit': None
+                'Einheit': None,
+                'Markt': 6
             }
 
         if 'ValidationSplit' in kwargs:
@@ -83,7 +84,12 @@ class DataPipeLine(object):
 
         else:
             print('Keine vorberechneten Daten\n(1/2)\tErstelle DataFrames aus Rohdaten')
-            absatz, _, artikelstamm = create_frame_from_raw_data(self.params)
+            absatz, bewegung, artikelstamm = create_frame_from_raw_data(self.params)
+            print('Speichere neu berechnete Frames')
+            with pd.HDFStore(os.path.join(self.params.output_dir, (filename + '.h5'))) as store:
+                store.put('Artikelstamm', artikelstamm, format="table")
+                store.put('Absatz', absatz)
+                store.put('Bewegung', bewegung)
             print('(2/2)\tErstelle Numpy-Arrays aus DataFrames')
             lab, dyn, stat = create_numpy_from_frame(self.params, absatz, artikelstamm)
             np.savez(os.path.join(self.params.output_dir, (filename + '.npz')), lab=lab, dyn=dyn, stat=stat)
