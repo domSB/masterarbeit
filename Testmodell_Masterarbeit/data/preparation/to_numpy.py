@@ -32,6 +32,8 @@ def concat(df, length):
     y_cols = ['in1', 'in2', 'in3', 'in4', 'in5', 'in6']
     x_arr = df[x_cols].to_numpy(dtype=np.float32).reshape(-1, length, int(len(x_cols) / length))
     y_arr = df[y_cols].to_numpy(dtype=np.float32)
+    bins = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 19, 27, 35, 50, 1000000])
+    y_arr = to_categorical(np.digitize(y_arr * 8, bins) - 1, num_classes=16)
     stat_df = df['Artikel']
     markt = df['Markt']
     print('Ende Concat')

@@ -14,4 +14,7 @@ def split_np_arrays(lab, dyn, stat, split_helper, percentage=0.3):
     dyn_train = dyn[args_train]
     stat_test = stat[args_test]
     stat_train = stat[args_train]
+    assert not np.isnan(lab_test).any()
+    assert not np.isnan(dyn_test).any()
+    assert not np.isnan(stat_test).any()
     return (lab_train, dyn_train, stat_train), (lab_test, dyn_test, stat_test)

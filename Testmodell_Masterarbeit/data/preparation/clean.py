@@ -106,7 +106,7 @@ def create_frame_from_raw_data(params):
     absatz.set_index(['Artikel', 'Markt'], drop=False, inplace=True)
     absatz = absatz.loc[list(art_abs_unter_10)]
     absatz.reset_index(drop=True, inplace=True)
-
+    absatz['Menge'] = absatz['Menge'] / 8
     # Artikelmaske auf relevante beschränken
     artikelmaske = absatz.Artikel.unique()
     warenausgang = warenausgang[warenausgang.Artikel.isin(artikelmaske)]
@@ -308,11 +308,6 @@ def create_frame_from_raw_data(params):
     )
     absatz.drop(columns=['PreisBackup'], inplace=True)
     print('{:.2f} % der Daten aufgrund fehlender Preise verworfen.'.format(np.mean(absatz.Preis.isna()) * 100))
-    preis_mean, preis_std = np.mean(absatz.Preis), np.std(absatz.Preis)
-    absatz['Preis'] = (absatz['Preis'] - preis_mean) / preis_std
-    filename = str(params.warengruppenmaske) + ' PreisStd.json'
-    with open(os.path.join(params.output_dir, filename), 'w') as file:
-        json.dump({'PreisStandardDerivation': preis_std, 'PreisMean': preis_mean}, file)
     absatz.dropna(inplace=True)
     # endregion
 
@@ -334,6 +329,11 @@ def create_frame_from_raw_data(params):
     absatz.relRabatt.fillna(0., inplace=True)
     absatz.absRabatt.fillna(0., inplace=True)
     absatz.drop(columns=['DatumAb', 'DatumBis', 'Aktionspreis'], inplace=True)
+    preis_mean, preis_std = np.mean(absatz.Preis), np.std(absatz.Preis)
+    absatz['Preis'] = (absatz['Preis'] - preis_mean) / preis_std
+    filename = str(params.warengruppenmaske) + ' PreisStd.json'
+    with open(os.path.join(params.output_dir, filename), 'w') as file:
+        json.dump({'PreisStandardDerivation': preis_std, 'PreisMean': preis_mean}, file)
     # endregion
 
     # region Targets erzeugen

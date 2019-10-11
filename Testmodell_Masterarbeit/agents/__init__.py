@@ -261,61 +261,56 @@ class Predictor(object):
         self.model = None
 
     def build_model(self, _params):
-        dynamic_inputs = tf.keras.Input(shape=(_params['time_steps'], _params['dynamic_state_shape']),
+        dynamic_inputs = tf.keras.Input(shape=(6, _params['dynamic_state_shape']),
                                         name='dynamic_input')
         static_inputs = tf.keras.Input(shape=(_params['static_state_shape'],), name='static_input')
         dynamic_x = tf.keras.layers.LSTM(
-            64,
+            32,
             activation='relu',
             kernel_regularizer=tf.keras.regularizers.l2(0.001),
             name="LSTM_1",
             return_sequences=True
         )(dynamic_inputs)
         dynamic_x = tf.keras.layers.LSTM(
-            64,
+            32,
             activation='relu',
             kernel_regularizer=tf.keras.regularizers.l2(0.001),
             name="LSTM_2"
         )(dynamic_x)
         x = tf.keras.layers.concatenate([dynamic_x, static_inputs])
         x = tf.keras.layers.Dense(
-            128,
+            64,
             activation='relu',
             kernel_regularizer=tf.keras.regularizers.l2(0.001),
             name="Dense_1"
         )(x)
-        x = tf.keras.layers.Dropout(0.2)(x)
-        x = tf.keras.layers.Dense(
-            128,
-            activation='relu',
-            kernel_regularizer=tf.keras.regularizers.l2(0.001),
-            name="Dense_2"
-        )(x)
-        x = tf.keras.layers.Dropout(0.2)(x)
-        x = tf.keras.layers.Dense(
-            256,
-            activation='relu',
-            kernel_regularizer=tf.keras.regularizers.l2(0.001),
-            name="Dense_3"
-        )(x)
-        predictions = tf.keras.layers.Dense(_params['forecast_state'], activation='relu', name="predictions")(x)
-        self.model = tf.keras.Model(inputs=[dynamic_inputs, static_inputs], outputs=predictions)
-        rms = tf.keras.optimizers.RMSprop(lr=_params['learning_rate'])
+        predictions_1d = tf.keras.layers.Dense(16, activation='softmax', name="1day")(x)
+        predictions_2d = tf.keras.layers.Dense(16, activation='softmax', name="2day")(x)
+        predictions_3d = tf.keras.layers.Dense(16, activation='softmax', name="3day")(x)
+        predictions_4d = tf.keras.layers.Dense(16, activation='softmax', name="4day")(x)
+        predictions_5d = tf.keras.layers.Dense(16, activation='softmax', name="5day")(x)
+        predictions_6d = tf.keras.layers.Dense(16, activation='softmax', name="6day")(x)
+        self.model = tf.keras.Model(
+            inputs=[dynamic_inputs, static_inputs],
+            outputs=[predictions_1d, predictions_2d, predictions_3d, predictions_4d, predictions_5d, predictions_6d])
+        rms = tf.keras.optimizers.Adam(lr=_params['learning_rate'])
         self.model.compile(
             optimizer=rms,
-            loss='mean_squared_error',
-            metrics=['mean_squared_error', 'mean_absolute_error']
+            loss='categorical_crossentropy',
+            loss_weights={'1day': 0.6, '2day': 0.5, '3day': 0.4, '4day': 0.3,
+                          '5day': 0.3, '6day': 0.3},
+            metrics=[tf.keras.metrics.categorical_accuracy]
         )
 
     def train(self, _dataset, _val_dataset, _params):
-        if os.path.exists(os.path.join('files', 'logging', 'Predictor', _params['Name'])):
+        if os.path.exists(os.path.join('files', 'logging', 'PredictorV2', _params['Name'])):
             name = datetime.datetime.now().__str__()
         else:
             name = _params['Name']
-        os.mkdir(os.path.join('files', 'logging', 'Predictor', name))
-        os.mkdir(os.path.join('files', 'models', 'Predictor', name))
+        os.mkdir(os.path.join('files', 'logging', 'PredictorV2', name))
+        os.mkdir(os.path.join('files', 'models', 'PredictorV2', name))
         tb_callback = tf.keras.callbacks.TensorBoard(
-            log_dir=os.path.join('files', 'logging', 'Predictor', name),
+            log_dir=os.path.join('files', 'logging', 'PredictorV2', name),
             histogram_freq=1,
             batch_size=32,
             write_graph=True,
@@ -323,7 +318,7 @@ class Predictor(object):
             update_freq='batch')
         nan_callback = tf.keras.callbacks.TerminateOnNaN()
         save_callback = tf.keras.callbacks.ModelCheckpoint(
-            os.path.join('files', 'models', 'Predictor', name, 'weights.{epoch:02d}-{loss:.2f}.hdf5'),
+            os.path.join('files', 'models', 'PredictorV2', name, 'weights.{epoch:02d}-{loss:.2f}.hdf5'),
             monitor='loss',
             verbose=0,
             period=1)

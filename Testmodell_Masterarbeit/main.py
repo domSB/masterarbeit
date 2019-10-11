@@ -9,36 +9,13 @@ import numpy as np
 
 """ Hyperparameters """
 # region Simulation Parameters
-data_dir = os.path.join('files', 'raw')
-output_dir = os.path.join('files', 'prepared')
-warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28]
-dyn_state_scalar_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D',
-                         'Regen_1D', 'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D',
-                         'Preis', 'relRabatt', 'absRabatt', 'vDauer']
-dyn_state_label_cols = ['in1', 'in2', 'in3', 'in4', 'in5']
-dyn_state_category_cols = {'Wochentag': 7, 'Kalenderwoche': 54}
-stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern', 'Bio', 'Glutenfrei',
-                          'Laktosefrei']
-stat_state_category_cols = {'MHDgroup': 7, 'Warengruppe': 9, 'Detailwarengruppe': None, 'Einheit': None}
 simulation_params = {
-    'InputPath': data_dir,
-    'OutputPath': output_dir,
-    'ZielWarengruppen': warengruppen_maske,
-    'Type': 'Markt',
-    'DynStateScalarCols': dyn_state_scalar_cols,
-    'DynStateLabelCols': dyn_state_label_cols,
-    'DynStateCategoryCols': dyn_state_category_cols,
-    'StatStateScalarCols': stat_state_scalar_cols,
-    'StatStateCategoryCols': stat_state_category_cols,
-    'StartDatum': '2017-01-01',
-    'EndDatum': '2017-12-31',
-    'StepSize': 6
+    'InputDirectory': os.path.join('files', 'raw'),
+    'OutputDirectory': os.path.join('files', 'prepared'),
+    'ZielWarengruppen': [71],
+    'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
 validator_params = simulation_params
-validator_params.update({
-    'StartDatum': '2018-01-01',
-    'EndDatum': '2018-12-31'
-})
 
 # endregion
 
@@ -77,7 +54,7 @@ agent_params = {
     'EpsilonDecay': 0.99,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '8letsGotRMSProp'
+    'RunDescription': '9NeuerPredictor'
 }
 if not do_train:
     agent_params.update(
@@ -94,7 +71,7 @@ predictor_params = {
     'dynamic_state_shape': 73,
     'static_state_shape': 490
 }
-predictor_path = os.path.join('files', 'models', 'Predictor', '1RegBaselineTime', 'weights.15-0.02.hdf5')
+predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG17', 'weights.17-0.32.hdf5')
 
 # endregion
 
