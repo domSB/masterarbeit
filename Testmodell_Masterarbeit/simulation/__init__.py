@@ -546,29 +546,33 @@ class Statistics(object):
 
 class StockSimulationV2(object):
     def __init__(self, **kwargs):
-        self.data = Datapipeline(**kwargs)
-        self.data.read_files()
-        self.data.prepare_for_simulation(**kwargs)
-        self.markt_artikel = self.data.absatz.groupby('Markt')['Artikel'].unique()
-        self.data.absatz = self.data.absatz.set_index(['Markt', 'Artikel'])
-        self.step_size = kwargs['StepSize']
+        pipeline = Datapipeline(**kwargs)
+        self.lab, self.dyn, self.stat, self.split_helper = pipeline.get_regression_data()
+        assert max(self.split_helper[:, 0]) < 1000000
+        self.ids = self.split_helper[:, 0] + self.split_helper[:, 1] * 1000000
+        self.possibles = np.unique(self.ids)
         self.aktueller_markt = None
         self.aktueller_artikel = None
         self.artikel_absatz = None
         self.vergangene_tage = None
         self.static_state = None
-        self.dynamic_state = deque(maxlen=self.step_size)
-        self.dynamic_state_data = None
-        self.tage = len(self.data.tage)
+        self.dynamic_state = None
+        self.tage = None
         self.bestand = None
+        self.bestands_frische = None
+        self.break_bestand = None
+        self.artikel_einkaufspreis = None
+        self.artikel_verkaufspreis = None
+        self.artikel_rohertrag = None
+        # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
 
     @property
     def state(self):
         state = {
             'RegressionState': {
-                'dynamic_input': np.array([self.dynamic_state]),
-                'static_input': np.array([self.static_state])
+                'dynamic_input': np.array([self.dynamic_state, self.vergangene_tage]),
+                'static_input': np.array([self.static_state, self.vergangene_tage])
             },
             'AgentState': np.array([self.bestand])
         }
@@ -578,66 +582,77 @@ class StockSimulationV2(object):
     def info(self):
         return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt}
 
-    def reset(self, artikel=None, markt=None):
-        if markt:
-            assert markt in self.markt_artikel.index.values, 'Markt nicht bekannt'
-            self.aktueller_markt = markt
+    def reset(self, artikel_markt_tupel=None):
+        """
+        wahl = np.random.choice(len(possibles), int(len(possibles) * percentage))
+            args_test = np.argwhere(np.isin(idx, possibles[wahl])).reshape(-1)
+            idx = self.split_helper[:, 0] + self.split_helper[:, 1] * 1000000
+        """
+        if artikel_markt_tupel:
+            id_wahl = artikel_markt_tupel[0] + artikel_markt_tupel[1] * 1000000
         else:
-            self.aktueller_markt = np.random.choice(self.markt_artikel.index.values)
-        if artikel:
-            assert artikel in self.markt_artikel.loc[self.aktueller_markt], \
-                'Dieser Artikel wird in diesem Markt nicht geführt'
-            self.aktueller_artikel = artikel
-        else:
-            self.aktueller_artikel = np.random.choice(self.markt_artikel.loc[self.aktueller_markt])
+            id_wahl = np.random.choice(len(self.possibles))
+        self.aktueller_markt, self.aktueller_artikel = int(str(id_wahl)[:-6]), int(str(id_wahl)[-6:])
+        ids_wahl = np.argwhere(np.isin(self.ids, self.possibles[id_wahl])).reshape(-1)
+        self.static_state = self.stat[ids_wahl]
+        self.dynamic_state = self.dyn[ids_wahl]
+#        self.artikel_absatz = self.dyn[ids_wahl, 0, 0] * 8
+        self.artikel_absatz = self.dyn[ids_wahl, 0, 0]
+        # Zufälliger Bestand mit maximaler Reichweite von 6 Tagen.
+        self.bestand = np.random.choice(np.sum(self.artikel_absatz[0:6]))
+        placeholder_mhd = 14
+        self.bestands_frische = np.ones((self.bestand,)) * placeholder_mhd
+        self.break_bestand = np.sum(self.artikel_absatz) * 2
 
-        dyn_state = self.data.absatz.loc[:, self.data.dyn_state_scalar_cols].to_numpy(dtype=np.int8)
-        for category, class_numbers in self.data.dyn_state_category_cols.items():
-            category_state = to_categorical(
-                self.data.absatz.loc[:, category],
-                num_classes=class_numbers).astype(np.int8)
-            dyn_state = np.concatenate((dyn_state, category_state), axis=1)
-        self.artikel_absatz = dyn_state[:, 0]
-        self.dynamic_state_data = dyn_state
-        # TODO: Predictor ohne vDauer trainieren, da nicht relevant
         self.vergangene_tage = 0
-        self.bestand = np.random.randint(10)
+        self.tage = self.dynamic_state.shape[0]
+
+        self.artikel_einkaufspreis = 0.7
+        self.artikel_verkaufspreis = 1
+        self.artikel_rohertrag = self.artikel_verkaufspreis - self.artikel_einkaufspreis
+
         self.statistics.set_artikel(self.aktueller_artikel)
-        stat_state = self.data.artikelstamm.loc[
-            self.aktueller_artikel,
-            self.data.stat_state_scalar_cols].to_numpy(dtype=np.int8)
-        for category, class_numbers in self.data.stat_state_category_cols.items():
-            category_state = to_categorical(
-                self.data.artikelstamm.loc[self.aktueller_artikel, category],
-                num_classes=class_numbers).astype(np.int8)
-            stat_state = np.concatenate((stat_state, category_state), axis=0)
-        self.static_state = stat_state
-        for i in range(self.step_size):
-            self.dynamic_state.append(self.dynamic_state_data[self.vergangene_tage][1:])
         return self.state, self.info
 
     def make_action(self, action):
-        absatz = self.artikel_absatz[self.vergangene_tage]
-        self.dynamic_state.append(self.dynamic_state_data[self.vergangene_tage][1:])
         self.vergangene_tage += 1
+        absatz = self.artikel_absatz[self.vergangene_tage]
         done = self.tage <= self.vergangene_tage + 1
-
+        anz_fehlartikel = 0
+        # Produkte sind ein Tag älter
+        self.bestands_frische -= 1
+        abgelaufene = np.argwhere(self.bestands_frische <= 0).reshape(-1)
+        if len(abgelaufene) > 0:
+            self.bestands_frische = np.delete(self.bestands_frische, abgelaufene)
         # Tagsüber Absatz abziehen und bewerten:
-        self.bestand -= absatz
-        theo_bestand = self.bestand
+        if absatz > 0:
+            if absatz <= self.bestand:
+                self.bestands_frische = self.bestands_frische[absatz:]
+                self.bestand -= absatz
+            else:
+                self.bestands_frische = np.ones((0,))
+                anz_fehlartikel = absatz - self.bestand
+                self.bestand = 0
 
-        if self.bestand >= 27.5:
-            reward = 0.004992 - (self.bestand - 27.5) / 1000
-        elif self.bestand >= 1:
-            reward = np.exp((1 - self.bestand) / 5)
-        else:
-            reward = np.exp((self.bestand - 1) / 3) - 1
-            # Nichtnegativität des Bestandes
-            self.bestand = 0
-        fakt_bestand = self.bestand
-        self.statistics.add(np.array([self.vergangene_tage, action, absatz, reward, theo_bestand, fakt_bestand]))
-        # Nachmittag: Bestellung kommt an und wird verräumt
         self.bestand += action
+
+        # Rewardberechnung
+        # Abschrift
+        r_abschrift = len(abgelaufene) * -self.artikel_einkaufspreis
+        # Umsatzausfall
+        r_ausfall = anz_fehlartikel * -self.artikel_rohertrag
+        # Umsatz
+        r_umsatz = absatz * self.artikel_rohertrag
+        # Kapitalbindung
+        r_bestand = -(self.bestand * self.artikel_einkaufspreis) * 0.05/365
+        # Abbruch der Episode
+        if self.bestand > self.break_bestand:
+            reward = -30
+            done = True
+        else:
+            reward = r_abschrift + r_ausfall + r_umsatz + r_bestand
+
+        self.statistics.add(np.array([self.vergangene_tage, action, absatz, reward, self.bestand, anz_fehlartikel]))
 
         return reward,  done, self.state
 
