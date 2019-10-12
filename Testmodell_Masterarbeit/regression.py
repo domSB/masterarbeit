@@ -95,8 +95,8 @@ params.update({
     'Name': '01RegWG71'
 })
 print(params)
-dataset = create_dataset(*train_data, params)
-val_dataset = create_dataset(*test_data, params)
+dataset = create_dataset(*train_data[:3], params)
+val_dataset = create_dataset(*test_data[:3], params)
 predictor = Predictor()
 predictor.build_model(params)
 hist = predictor.train(dataset, val_dataset, params)

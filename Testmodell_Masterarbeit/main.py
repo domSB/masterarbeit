@@ -1,6 +1,8 @@
 
-from simulation import StockSimulationV2
-from agents import AgentTwo, Predictor
+from simulation import StockSimulation
+from agents import Agent, Predictor
+from data.access import DataPipeLine
+from data.preparation import split_np_arrays
 
 import os
 import numpy as np
@@ -12,11 +14,9 @@ import numpy as np
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
     'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [71],
+    'ZielWarengruppen': [17],
     'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
-validator_params = simulation_params
-
 # endregion
 
 # region  Hyperparameter
@@ -64,24 +64,20 @@ if not do_train:
         }
     )
 
-predictor_params = {
-    'forecast_state': 5,
-    'learning_rate': 0.001,
-    'time_steps': 6,
-    'dynamic_state_shape': 73,
-    'static_state_shape': 490
-}
 predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG17', 'weights.17-0.32.hdf5')
 
 # endregion
 
 # region Initilize
-simulation = StockSimulationV2(**simulation_params)
-validator = StockSimulationV2(**validator_params)
+pipeline = DataPipeLine(**simulation_params)
+simulation_data = pipeline.get_regression_data()
+train_data, test_data = split_np_arrays(*simulation_data)
+simulation = StockSimulation(train_data)
+validator = StockSimulation(test_data)
 
-agent = AgentTwo(**agent_params)
+agent = Agent(**agent_params)
 predictor = Predictor()
-predictor.build_model(**predictor_params)
+predictor.build_model(dynamic_state_shape=train_data[1].shape[2], static_state_shape=train_data[2].shape[1])
 predictor.load_from_weights(predictor_path)
 if use_saved_model:
     agent.load(use_model_path)
@@ -92,24 +88,19 @@ global_steps = 0
 for epoch in range(epochs):
     full_state, info = simulation.reset()
     predict_state = predictor.predict(full_state['RegressionState'])
-    agent_state = np.concatenate((predict_state, np.array([full_state['AgentState']])), axis=1)
+    agent_state = {'predicted_sales': predict_state, 'current_stock': full_state['AgentState']}
     val_full_state, _ = validator.reset()
     val_predict_state = predictor.predict(val_full_state['RegressionState'])
-    val_agent_state = np.concatenate((val_predict_state, np.array([val_full_state['AgentState']])), axis=1)
+    val_agent_state = {'predicted_sales': val_predict_state, 'current_stock': val_full_state['AgentState']}
     val_fertig = False
-    current_rewards = []
-    current_val_rewards = []
-    current_actions = []
     while True:
         # Train
         action = agent.act(agent_state)
         global_steps += 1
         reward, fertig, new_full_state = simulation.make_action(action)
         new_predict_state = predictor.predict(new_full_state['RegressionState'])
-        new_agent_state = np.concatenate((new_predict_state, np.array([new_full_state['AgentState']])), axis=1)
-        current_rewards.append(reward)
-        current_actions.append(action)
-        agent.remember(agent_state[0], action, reward, new_agent_state[0], fertig)
+        new_agent_state = {'predicted_sales': new_predict_state, 'current_stock': new_full_state['AgentState']}
+        agent.remember(agent_state, action, reward, new_agent_state, fertig)
         agent_state = new_agent_state
 
         # Validate
@@ -117,11 +108,10 @@ for epoch in range(epochs):
             val_action = agent.act(val_agent_state)
             val_reward, val_fertig, new_val_full_state = validator.make_action(val_action)
             new_val_predict_state = predictor.predict(new_val_full_state['RegressionState'])
-            new_val_agent_state = np.concatenate(
-                (new_val_predict_state, np.array([new_val_full_state['AgentState']])),
-                axis=1
-            )
-            current_val_rewards.append(val_reward)
+            new_val_agent_state = {
+                'predicted_sales': new_val_predict_state,
+                'current_stock': new_val_full_state['AgentState']
+            }
             val_agent_state = new_val_agent_state
 
         if global_steps % n_step == 0:
@@ -154,12 +144,12 @@ for epoch in range(epochs):
                 feed_dict={
                     agent.loss: curr_loss,
                     agent.accuracy: curr_acc,
-                    agent.rewards: current_rewards,
-                    agent.val_rewards: current_val_rewards,
-                    agent.theo_bestand: simulation.stat_theo_bestand,
-                    # TODO: Auf neue stats umbauen
-                    agent.fakt_bestand: simulation.stat_fakt_bestand,
-                    agent.actions: current_actions,
+                    agent.rewards: simulation.statistics.rewards(),
+                    agent.val_rewards: validator.statistics.rewards(),
+                    agent.bestand: simulation.statistics.bestand(),
+                    agent.fehlmenge: simulation.statistics.fehlmenge(),
+                    agent.abschrift: simulation.statistics.abschrift(),
+                    agent.actions: simulation.statistics.actions(),
                     agent.tf_epsilon: agent.epsilon
                     }
                 )

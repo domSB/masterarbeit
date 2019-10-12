@@ -17,4 +17,5 @@ def split_np_arrays(lab, dyn, stat, split_helper, percentage=0.3):
     assert not np.isnan(lab_test).any()
     assert not np.isnan(dyn_test).any()
     assert not np.isnan(stat_test).any()
-    return (lab_train, dyn_train, stat_train), (lab_test, dyn_test, stat_test)
+    return (lab_train, dyn_train, stat_train, idx[np.isin(idx, possibles[wahl], invert=True)]),\
+           (lab_test, dyn_test, stat_test, idx[np.isin(idx, possibles[wahl])])
