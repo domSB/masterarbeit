@@ -269,10 +269,22 @@ class Agent(object):
             )(article_input)
             x = tf.keras.layers.concatenate([sales_hidden, stock_input, article_hidden])
             x = tf.keras.layers.Dense(
-                64,
+                20,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_Concat"
+            )(x)
+            x = tf.keras.layers.Dense(
+                20,
+                activation='relu',
+                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                name="Dense_middle"
+            )(x)
+            x = tf.keras.layers.Dense(
+                20,
+                activation='relu',
+                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                name="Dense_top"
             )(x)
             predictions = tf.keras.layers.Dense(self.action_space, activation='relu', name="Predictions")(x)
             model = tf.keras.Model(inputs=[sales_input, stock_input, article_input], outputs=predictions)
