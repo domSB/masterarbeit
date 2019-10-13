@@ -53,7 +53,7 @@ agent_params = {
     'EpsilonDecay': 0.99,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '10KeinGewinnReward'
+    'RunDescription': '11AbschriftFehlmengeState'
 }
 if not do_train:
     agent_params.update(

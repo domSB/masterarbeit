@@ -252,7 +252,7 @@ class Agent(object):
     def create_model(self, name):
         with tf.name_scope(name):
             sales_input = tf.keras.Input(shape=(6, 16), name='predicted_sales')
-            stock_input = tf.keras.Input(shape=(1,), name='current_stock')
+            stock_input = tf.keras.Input(shape=(3,), name='current_stock')
             article_input = tf.keras.Input(shape=(self.article_state_shape,), name='article_info')
             flat_sales_input = tf.keras.layers.Flatten()(sales_input)
             sales_hidden = tf.keras.layers.Dense(

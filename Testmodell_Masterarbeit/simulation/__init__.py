@@ -15,7 +15,7 @@ class Statistics(object):
         """
         self.artikel = artikel
         if artikel in self.data.keys():
-            print("Statistik für diesen Artikel schon vorhanden. Überschreibe Daten.")
+            print('|', end='')
         self.data[self.artikel] = np.zeros((0, 7))
 
     def add(self, other):
@@ -92,6 +92,8 @@ class StockSimulation(object):
         self.bestand = None
         self.bestands_frische = None
         self.break_bestand = None
+        self.abschriften = 0
+        self.fehlmenge = 0
         self.artikel_einkaufspreis = None
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
@@ -106,7 +108,7 @@ class StockSimulation(object):
                 'dynamic_input': np.expand_dims(self.dyn[self.vergangene_tage], axis=0),
                 'static_input': np.expand_dims(self.stat[self.vergangene_tage], axis=0)
             },
-            'AgentState': np.array([self.bestand])
+            'AgentState': np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
         }
         return state
 
@@ -142,6 +144,9 @@ class StockSimulation(object):
         self.vergangene_tage = 0
         self.tage = self.dynamic_state.shape[0]
 
+        self.abschriften = 0
+        self.fehlmenge = 0
+
         self.artikel_einkaufspreis = 0.7
         self.artikel_verkaufspreis = 1
         self.artikel_rohertrag = self.artikel_verkaufspreis - self.artikel_einkaufspreis
@@ -151,14 +156,17 @@ class StockSimulation(object):
 
     def make_action(self, action):
         self.vergangene_tage += 1
+        self.abschriften = 0
+        self.fehlmenge = 0
         absatz = self.artikel_absatz[self.vergangene_tage]
         done = self.tage <= self.vergangene_tage + 1
-        anz_fehlartikel = 0
         # Produkte sind ein Tag älter
+        # BUG: Wenn ein Feier- oder Sonntag zwischen den Absatztagen lag, altern die Produkte trotzdem nur um einen Tag
         self.bestands_frische -= 1
         abgelaufene = np.argwhere(self.bestands_frische <= 0).reshape(-1)
         if len(abgelaufene) > 0:
             self.bestands_frische = np.delete(self.bestands_frische, abgelaufene)
+            self.abschriften = len(abgelaufene)
         # Tagsüber Absatz abziehen und bewerten:
         if absatz > 0:
             if absatz <= self.bestand:
@@ -166,17 +174,17 @@ class StockSimulation(object):
                 self.bestand -= absatz
             else:
                 self.bestands_frische = np.ones((0,))
-                anz_fehlartikel = absatz - self.bestand
+                self.fehlmenge = absatz - self.bestand
                 self.bestand = 0
 
         self.bestand += action
-        self.bestands_frische = np.concatenate(self.bestands_frische, np.ones((action,)) * self.placeholder_mhd)
+        self.bestands_frische = np.concatenate((self.bestands_frische, np.ones((action,)) * self.placeholder_mhd))
 
         # Rewardberechnung
         # Abschrift
-        r_abschrift = len(abgelaufene) * -self.artikel_einkaufspreis
+        r_abschrift = self.abschriften * -self.artikel_einkaufspreis
         # Umsatzausfall
-        r_ausfall = anz_fehlartikel * -self.artikel_rohertrag
+        r_ausfall = self.fehlmenge * -self.artikel_rohertrag
         # Umsatz
         # r_umsatz = absatz * self.artikel_rohertrag
         # Kapitalbindung
@@ -189,7 +197,7 @@ class StockSimulation(object):
             reward = r_abschrift + r_ausfall + r_bestand  # + r_umsatz
 
         self.statistics.add(
-            np.array([self.vergangene_tage, action, absatz, reward, self.bestand, anz_fehlartikel, len(abgelaufene)])
+            np.array([self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften])
         )
 
         return reward,  done, self.state
