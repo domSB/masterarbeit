@@ -1,12 +1,4 @@
-import pandas as pd
 import numpy as np
-from keras.utils import to_categorical
-from tqdm import tqdm
-from collections import deque
-import os
-import pickle
-from calender import get_german_holiday_calendar
-
 import matplotlib.pyplot as plt
 
 
@@ -78,11 +70,9 @@ class Statistics(object):
         ax2.bar(x, self.actions(artikel), label='Bestellmenge')
         ax2.bar(x, self.absaetze(artikel), label='Absatz')
         ax2.set_title('Getroffene Bestellaktionen')
-        ax2.legent()
         ax3.bar(x, self.abschrift(artikel), label='Abschriften')
         ax3.bar(x, self.fehlmenge(artikel), label='Fehlmengen')
         ax3.set_title('Abschriften und Fehlmengen')
-        ax3.legent()
         ax4.bar(x, self.rewards(artikel))
         ax4.set_title('Belohungen')
         plt.show()
@@ -105,6 +95,7 @@ class StockSimulation(object):
         self.artikel_einkaufspreis = None
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
+        self.placeholder_mhd = 14
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
 
@@ -145,8 +136,7 @@ class StockSimulation(object):
             self.bestand = np.random.choice(start_absatz)
         else:
             self.bestand = 0
-        placeholder_mhd = 14
-        self.bestands_frische = np.ones((self.bestand,)) * placeholder_mhd
+        self.bestands_frische = np.ones((self.bestand,)) * self.placeholder_mhd
         self.break_bestand = np.sum(self.artikel_absatz) * 2
 
         self.vergangene_tage = 0
@@ -180,6 +170,7 @@ class StockSimulation(object):
                 self.bestand = 0
 
         self.bestand += action
+        self.bestands_frische = np.concatenate(self.bestands_frische, np.ones((action,)) * self.placeholder_mhd)
 
         # Rewardberechnung
         # Abschrift
@@ -187,15 +178,15 @@ class StockSimulation(object):
         # Umsatzausfall
         r_ausfall = anz_fehlartikel * -self.artikel_rohertrag
         # Umsatz
-        r_umsatz = absatz * self.artikel_rohertrag
+        # r_umsatz = absatz * self.artikel_rohertrag
         # Kapitalbindung
         r_bestand = -(self.bestand * self.artikel_einkaufspreis) * 0.05/365
         # Abbruch der Episode
         if self.bestand > self.break_bestand:
-            reward = -30
+            reward = -300
             done = True
         else:
-            reward = r_abschrift + r_ausfall + r_umsatz + r_bestand
+            reward = r_abschrift + r_ausfall + r_bestand  # + r_umsatz
 
         self.statistics.add(
             np.array([self.vergangene_tage, action, absatz, reward, self.bestand, anz_fehlartikel, len(abgelaufene)])

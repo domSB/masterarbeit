@@ -20,7 +20,7 @@ simulation_params = {
 # endregion
 
 # region  Hyperparameter
-epochs = 600
+epochs = 2000
 do_train = True
 order_none = 0
 order_one = 1
@@ -37,24 +37,23 @@ possible_actions = [
     order_four,
     order_five
     ]
-n_step = 64
-update_target_network = n_step * 11
+n_step = 16
+update_target_network = n_step * 8
 use_model_path = os.path.join('files', 'models', 'AgentV2', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
 
 agent_params = {
     'MemorySize': 300*40,
-    'StateShape': 6,
     'AktionSpace': 6,
     'Gamma': 0.9,
     'LearningRate': 0.001,
     'LearningRateDecay': 0.001/epochs,
-    'BatchSize': 256,
+    'BatchSize': 32,
     'Epsilon': 1,
     'EpsilonDecay': 0.99,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '9NeuerPredictor'
+    'RunDescription': '10KeinGewinnReward'
 }
 if not do_train:
     agent_params.update(
@@ -75,7 +74,7 @@ train_data, test_data = split_np_arrays(*simulation_data)
 simulation = StockSimulation(train_data)
 validator = StockSimulation(test_data)
 
-agent = Agent(**agent_params)
+agent = Agent(**agent_params, ArticleStateShape=train_data[2].shape[1])
 predictor = Predictor()
 predictor.build_model(dynamic_state_shape=train_data[1].shape[2], static_state_shape=train_data[2].shape[1])
 predictor.load_from_weights(predictor_path)
@@ -88,10 +87,18 @@ global_steps = 0
 for epoch in range(epochs):
     full_state, info = simulation.reset()
     predict_state = predictor.predict(full_state['RegressionState'])
-    agent_state = {'predicted_sales': predict_state, 'current_stock': full_state['AgentState']}
+    agent_state = {
+        'predicted_sales': predict_state,
+        'current_stock': full_state['AgentState'],
+        'article_info': full_state['RegressionState']['static_input'].reshape(-1)
+    }
     val_full_state, _ = validator.reset()
     val_predict_state = predictor.predict(val_full_state['RegressionState'])
-    val_agent_state = {'predicted_sales': val_predict_state, 'current_stock': val_full_state['AgentState']}
+    val_agent_state = {
+        'predicted_sales': val_predict_state,
+        'current_stock': val_full_state['AgentState'],
+        'article_info': val_full_state['RegressionState']['static_input'].reshape(-1)
+    }
     val_fertig = False
     while True:
         # Train
@@ -99,7 +106,11 @@ for epoch in range(epochs):
         global_steps += 1
         reward, fertig, new_full_state = simulation.make_action(action)
         new_predict_state = predictor.predict(new_full_state['RegressionState'])
-        new_agent_state = {'predicted_sales': new_predict_state, 'current_stock': new_full_state['AgentState']}
+        new_agent_state = {
+            'predicted_sales': new_predict_state,
+            'current_stock': new_full_state['AgentState'],
+            'article_info': new_full_state['RegressionState']['static_input'].reshape(-1)
+        }
         agent.remember(agent_state, action, reward, new_agent_state, fertig)
         agent_state = new_agent_state
 
@@ -110,7 +121,8 @@ for epoch in range(epochs):
             new_val_predict_state = predictor.predict(new_val_full_state['RegressionState'])
             new_val_agent_state = {
                 'predicted_sales': new_val_predict_state,
-                'current_stock': new_val_full_state['AgentState']
+                'current_stock': new_val_full_state['AgentState'],
+                'article_info': new_val_full_state['RegressionState']['static_input'].reshape(-1)
             }
             val_agent_state = new_val_agent_state
 

@@ -118,7 +118,7 @@ class Predictor(object):
 class Agent(object):
     def __init__(self, **kwargs):
         self.memory_size = kwargs['MemorySize']
-        self.state_shape = kwargs['StateShape']
+        self.article_state_shape = kwargs['ArticleStateShape']
         self.action_space = kwargs['AktionSpace']
         self.gamma = kwargs['Gamma']
         self.learning_rate = kwargs['LearningRate']
@@ -253,23 +253,29 @@ class Agent(object):
         with tf.name_scope(name):
             sales_input = tf.keras.Input(shape=(6, 16), name='predicted_sales')
             stock_input = tf.keras.Input(shape=(1,), name='current_stock')
-            # TODO:  Wenn Simulation Preis des Artikels berücksichtigt, muss der stat-state auch eingegeben werden.
+            article_input = tf.keras.Input(shape=(self.article_state_shape,), name='article_info')
             flat_sales_input = tf.keras.layers.Flatten()(sales_input)
             sales_hidden = tf.keras.layers.Dense(
                 32,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
-                name="Dense_1"
+                name="Dense_Sales"
             )(flat_sales_input)
-            x = tf.keras.layers.concatenate([sales_hidden, stock_input])
-            x = tf.keras.layers.Dense(
+            article_hidden = tf.keras.layers.Dense(
                 16,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
-                name="Dense_2"
+                name="Dense_Article"
+            )(article_input)
+            x = tf.keras.layers.concatenate([sales_hidden, stock_input, article_hidden])
+            x = tf.keras.layers.Dense(
+                64,
+                activation='relu',
+                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                name="Dense_Concat"
             )(x)
             predictions = tf.keras.layers.Dense(self.action_space, activation='relu', name="Predictions")(x)
-            model = tf.keras.Model(inputs=[sales_input, stock_input], outputs=predictions)
+            model = tf.keras.Model(inputs=[sales_input, stock_input, article_input], outputs=predictions)
             rms = tf.keras.optimizers.RMSprop(lr=self.learning_rate)
             model.compile(optimizer=rms, loss='mse', metrics=["accuracy"])
 
@@ -289,12 +295,22 @@ class Agent(object):
 
         predicted_sales = [sample[0]['predicted_sales'] for sample in samples]
         current_stock = [sample[0]['current_stock'] for sample in samples]
-        states = {'predicted_sales': np.array(predicted_sales), 'current_stock': np.array(current_stock)}
+        article_info = [sample[0]['article_info'] for sample in samples]
+        states = {
+            'predicted_sales': np.array(predicted_sales),
+            'current_stock': np.array(current_stock),
+            'article_info': np.array(article_info)
+        }
         actions = [sample[1] for sample in samples]
         rewards = [sample[2] for sample in samples]
         predicted_sales = [sample[3]['predicted_sales'] for sample in samples]
         current_stock = [sample[3]['current_stock'] for sample in samples]
-        new_states = {'predicted_sales': np.array(predicted_sales), 'current_stock': np.array(current_stock)}
+        article_info = [sample[0]['article_info'] for sample in samples]
+        new_states = {
+            'predicted_sales': np.array(predicted_sales),
+            'current_stock': np.array(current_stock),
+            'article_info': np.array(article_info)
+        }
         dones = [sample[4] for sample in samples]
         targets = self.target_model.predict(states)
         qs_new_states = self.target_model.predict(new_states)
@@ -330,7 +346,8 @@ class Agent(object):
         predictions = self.model.predict(
             {
                 'predicted_sales': np.expand_dims(state['predicted_sales'], axis=0),
-                'current_stock': np.expand_dims(state['current_stock'], axis=0)
+                'current_stock': np.expand_dims(state['current_stock'], axis=0),
+                'article_info': np.expand_dims(state['article_info'], axis=0)
             }
         )[0]
         return np.argmax(predictions)
