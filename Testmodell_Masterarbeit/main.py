@@ -45,13 +45,13 @@ use_saved_model = False
 agent_params = {
     'MemorySize': 300*40,
     'AktionSpace': 6,
-    'Gamma': 0.9,
+    'Gamma': 1,
     'LearningRate': 0.001,
     'LearningRateDecay': 0.001/epochs,
     'BatchSize': 32,
     'Epsilon': 1,
-    'EpsilonDecay': 0.99,
-    'EpsilonMin': 0.01,
+    'EpsilonDecay': 0.999,
+    'EpsilonMin': 0.03,
     'PossibleActions': possible_actions,
     'RunDescription': '11AbschriftFehlmengeState'
 }
