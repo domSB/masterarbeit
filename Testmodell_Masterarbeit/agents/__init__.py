@@ -20,10 +20,10 @@ class Predictor(object):
     def __init__(self):
         self.model = None
 
-    def build_model(self, **_params):
-        dynamic_inputs = tf.keras.Input(shape=(6, _params['dynamic_state_shape']),
+    def build_model(self, **kwargs):
+        dynamic_inputs = tf.keras.Input(shape=(6, kwargs['dynamic_state_shape']),
                                         name='dynamic_input')
-        static_inputs = tf.keras.Input(shape=(_params['static_state_shape'],), name='static_input')
+        static_inputs = tf.keras.Input(shape=(kwargs['static_state_shape'],), name='static_input')
         dynamic_x = tf.keras.layers.LSTM(
             32,
             activation='relu',
@@ -53,7 +53,7 @@ class Predictor(object):
         self.model = tf.keras.Model(
             inputs=[dynamic_inputs, static_inputs],
             outputs=[predictions_1d, predictions_2d, predictions_3d, predictions_4d, predictions_5d, predictions_6d])
-        rms = tf.keras.optimizers.Adam(lr=_params.get('learning_rate', 0.001))
+        rms = tf.keras.optimizers.Adam(lr=kwargs.get('learning_rate', 0.001))
         self.model.compile(
             optimizer=rms,
             loss='categorical_crossentropy',

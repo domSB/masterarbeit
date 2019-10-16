@@ -88,6 +88,7 @@ class StockSimulation(object):
         self.vergangene_tage = None
         self.static_state = None
         self.dynamic_state = None
+        self.kristall_glas = None
         self.tage = None
         self.bestand = None
         self.bestands_frische = None
@@ -114,7 +115,7 @@ class StockSimulation(object):
 
     @property
     def info(self):
-        return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt}
+        return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt, 'Kristallglas': self.kristall_glas}
 
     def reset(self, artikel_markt_tupel=None):
         """
@@ -130,6 +131,7 @@ class StockSimulation(object):
         ids_wahl = np.argwhere(np.isin(self.ids, self.possibles[id_wahl])).reshape(-1)
         self.static_state = self.stat[ids_wahl]
         self.dynamic_state = self.dyn[ids_wahl]
+        self.kristall_glas = self.lab[ids_wahl]
 #        self.artikel_absatz = self.dyn[ids_wahl, 0, 0] * 8
         self.artikel_absatz = self.dyn[ids_wahl, 0, 0]
         # Zufälliger Bestand mit maximaler Reichweite von 6 Tagen.

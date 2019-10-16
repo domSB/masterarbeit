@@ -1,48 +1,75 @@
-from simulation import StockSimulationV2
-from agents import AgentTwo, Predictor
+
+from simulation import StockSimulation
+from agents import Agent, Predictor
+from data.access import DataPipeLine
+from data.preparation import split_np_arrays
 
 import os
 import numpy as np
+import tensorflow as tf
 
 # import cProfile
 
+
+def create_dataset(_lab, _dyn, _stat, _params):
+    def gen():
+        while True:
+            rand_idx = np.random.randint(0, _lab.shape[0])
+            labels = _lab[rand_idx]
+            yield {'dynamic_input': _dyn[rand_idx], 'static_input': _stat[rand_idx]}, \
+                  {
+                      '1day': labels[0],
+                      '2day': labels[1],
+                      '3day': labels[2],
+                      '4day': labels[3],
+                      '5day': labels[4],
+                      '6day': labels[5],
+                  }
+
+    _dataset = tf.data.Dataset.from_generator(
+        gen,
+        output_types=(
+            {'dynamic_input': tf.float32, 'static_input': tf.int8},
+            {
+                '1day': tf.int8,
+                '2day': tf.int8,
+                '3day': tf.int8,
+                '4day': tf.int8,
+                '5day': tf.int8,
+                '6day': tf.int8,
+            }
+        ),
+        output_shapes=(
+            {'dynamic_input': tf.TensorShape([_params['time_steps'], _params['dynamic_state_shape']]),
+             'static_input': tf.TensorShape([_params['static_state_shape']])},
+            {
+                '1day': tf.TensorShape([16]),
+                '2day': tf.TensorShape([16]),
+                '3day': tf.TensorShape([16]),
+                '4day': tf.TensorShape([16]),
+                '5day': tf.TensorShape([16]),
+                '6day': tf.TensorShape([16]),
+            }
+        )
+    )
+    _dataset = _dataset.batch(_params['batch_size'])
+    _dataset = _dataset.repeat()
+    _dataset = _dataset.prefetch(tf.contrib.data.AUTOTUNE)
+    return _dataset
+
 """ Hyperparameters """
 # region Simulation Parameters
-data_dir = os.path.join('files', 'raw')
-output_dir = os.path.join('files', 'prepared')
-warengruppen_maske = [1, 12, 55, 80, 17, 77, 71, 6, 28]
-dyn_state_scalar_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D',
-                         'Regen_1D', 'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D',
-                         'Preis', 'relRabatt', 'absRabatt', 'vDauer']
-dyn_state_label_cols = ['in1', 'in2', 'in3', 'in4', 'in5']
-dyn_state_category_cols = {'Wochentag': 7, 'Kalenderwoche': 54}
-stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern', 'Bio', 'Glutenfrei',
-                          'Laktosefrei']
-stat_state_category_cols = {'MHDgroup': 7, 'Warengruppe': 9, 'Detailwarengruppe': None, 'Einheit': None}
 simulation_params = {
-    'InputPath': data_dir,
-    'OutputPath': output_dir,
-    'ZielWarengruppen': warengruppen_maske,
-    'Type': 'Markt',
-    'DynStateScalarCols': dyn_state_scalar_cols,
-    'DynStateLabelCols': dyn_state_label_cols,
-    'DynStateCategoryCols': dyn_state_category_cols,
-    'StatStateScalarCols': stat_state_scalar_cols,
-    'StatStateCategoryCols': stat_state_category_cols,
-    'StartDatum': '2017-01-01',
-    'EndDatum': '2017-12-31',
-    'StepSize': 6
+    'InputDirectory': os.path.join('files', 'raw'),
+    'OutputDirectory': os.path.join('files', 'prepared'),
+    'ZielWarengruppen': [71],
+    'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
-validator_params = simulation_params
-validator_params.update({
-    'StartDatum': '2018-01-01',
-    'EndDatum': '2018-12-31'
-})
-
 # endregion
 
 # region  Hyperparameter
 epochs = 1000
+do_train = True
 order_none = 0
 order_one = 1
 order_two = 2
@@ -58,95 +85,89 @@ possible_actions = [
     order_four,
     order_five
     ]
-
-use_model_path = os.path.join('files', 'models', 'AgentV2', '5AndereDynamicState', 'model.h5')
-use_saved_model = True
+n_step = 16
+update_target_network = n_step * 16
+use_model_path = os.path.join('files', 'models', 'AgentV2', '2019-08-27-23.54.59', 'model.h5')
+use_saved_model = False
 
 agent_params = {
-    'MemorySize': 300*40,
-    'StateShape': 6,
+    'MemorySize': 300*200,
     'AktionSpace': 6,
-    'Gamma': 0.9,
+    'Gamma': 1,
     'LearningRate': 0.001,
     'LearningRateDecay': 0.001/epochs,
-    'BatchSize': 256,
-    'Epsilon': 0,
-    'EpsilonDecay': 0,
-    'EpsilonMin': 0.01,
+    'BatchSize': 32,
+    'Epsilon': 1,
+    'EpsilonDecay': 0.999,
+    'EpsilonMin': 0.03,
     'PossibleActions': possible_actions,
-    'RunDescription': 'EvaluateIt'
+    'RunDescription': '13GrosserExpSpeicher'
 }
+if not do_train:
+    agent_params.update(
+        {
+            'Epsilon': 0,
+            'EpsilonDecay': 0
+        }
+    )
 
-predictor_params = {
-    'forecast_state': 5,
-    'learning_rate': 0.001,
-    'time_steps': 6,
-    'dynamic_state_shape': 73,
-    'static_state_shape': 490
-}
-predictor_path = os.path.join('files', 'models', 'Predictor', '1RegBaselineTime', 'weights.15-0.02.hdf5')
+predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'weights.30-0.21.hdf5')
 
 # endregion
 
 # region Initilize
-validator = StockSimulationV2(**validator_params)
+pipeline = DataPipeLine(**simulation_params)
+simulation_data = pipeline.get_regression_data()
+train_data, test_data = split_np_arrays(*simulation_data)
+# simulation = StockSimulation(train_data)
+# validator = StockSimulation(test_data)
+# agent = Agent(**agent_params, ArticleStateShape=train_data[2].shape[1])
 
-agent = AgentTwo(**agent_params)
+params = {
+    'forecast_state': 6,
+    'learning_rate': 0.0001,
+    'time_steps': None,
+    'dynamic_state_shape': None,
+    'static_state_shape': None,
+    'epochs': 30,
+    'batch_size': 32
+}
+params.update({
+    'steps_per_epoch': int(train_data[1].shape[0] / params['batch_size']),
+    'val_steps_per_epoch': int(test_data[1].shape[0] / params['batch_size']),
+    'dynamic_state_shape': train_data[1].shape[2],
+    'static_state_shape': train_data[2].shape[1],
+    'Name': '01RegWG71'
+})
+
+dataset = create_dataset(*train_data[:3], params)
+val_dataset = create_dataset(*test_data[:3], params)
+
 predictor = Predictor()
-predictor.build_model(**predictor_params)
+predictor.build_model(dynamic_state_shape=train_data[1].shape[2], static_state_shape=train_data[2].shape[1])
 predictor.load_from_weights(predictor_path)
-if use_saved_model:
-    agent.load(use_model_path)
+# if use_saved_model:
+#     agent.load(use_model_path)
 # endregion
 
-# region Training Loop
-global_steps = 0
-for epoch in range(epochs):
-    val_full_state, _ = validator.reset()
-    val_predict_state = predictor.predict(val_full_state['RegressionState'])
-    val_agent_state = np.concatenate((val_predict_state, np.array([val_full_state['AgentState']])), axis=1)
-    val_fertig = False
-    while True:
-        # Train
-        global_steps += 1
-        if not val_fertig:  # Validation Zeitraum ggf. kürzer oder gleichlang
-            val_action = agent.act(val_agent_state)
-            val_reward, val_fertig, new_val_full_state = validator.make_action(val_action)
-            new_val_predict_state = predictor.predict(new_val_full_state['RegressionState'])
-            new_val_agent_state = np.concatenate(
-                (new_val_predict_state, np.array([new_val_full_state['AgentState']])),
-                axis=1
-            )
-            val_agent_state = new_val_agent_state
+# TODO: let predictor predict a hole set for one article
+# TODO: compare predictions to actual labels
+# TODO: evaluate predictor with same dataset
 
-        if val_fertig:
-            curr_loss = 0
-            curr_acc = 0
-            tf_summary = agent.sess.run(
-                agent.merged,
-                feed_dict={
-                    agent.loss: curr_loss,
-                    agent.accuracy: curr_acc,
-                    agent.rewards: validator.statistics.rewards(),
-                    agent.val_rewards: [0, 0],
-                    agent.theo_bestand: validator.statistics.theo_bestaende(),
-                    agent.fakt_bestand: validator.statistics.fakt_bestaende(),
-                    agent.actions: validator.statistics.actions(),
-                    agent.tf_epsilon: agent.epsilon
-                    }
-                )
-            agent.writer.add_summary(tf_summary, epoch)
-            if epoch % 10 == 0:
-                print("Epoche {}".format(epoch))
-            else:
-                print('.', end='')
-            break
-agent.writer.close()
-agent.sess.close()
-# endregion
-for i in range(30, 40):
-    validator.statistics.plot(list(validator.statistics.data.keys())[i])
-for i in range(len(validator.statistics.data.keys())):
-    actions = np.sum(validator.statistics.actions(list(validator.statistics.data.keys())[i]))
-    if actions != 0:
-        print(actions)
+history = predictor.model.evaluate(
+    val_dataset,
+    verbose=1,
+    steps=params['steps_per_epoch']
+)
+lab, dyn, stat, _ = test_data
+max_idx = lab.shape[0]
+for i in range(10):
+    print('Neue Runde\n-----')
+    idx = np.random.randint(0, max_idx)
+    inputs = {'dynamic_input': np.expand_dims(dyn[idx], axis=0), 'static_input': np.expand_dims(stat[idx], axis=0)}
+    print(np.argmax(lab[idx], axis=1))
+    print(np.argmax(predictor.predict(inputs), axis=1))
+
+for value, name in zip(history, predictor.model.metrics_names):
+    print(name, value)
+

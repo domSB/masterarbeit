@@ -14,13 +14,13 @@ import numpy as np
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
     'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [17],
+    'ZielWarengruppen': [71],
     'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
 # endregion
 
 # region  Hyperparameter
-epochs = 2000
+epochs = 1000
 do_train = True
 order_none = 0
 order_one = 1
@@ -38,12 +38,12 @@ possible_actions = [
     order_five
     ]
 n_step = 16
-update_target_network = n_step * 8
+update_target_network = n_step * 16
 use_model_path = os.path.join('files', 'models', 'AgentV2', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
 
 agent_params = {
-    'MemorySize': 300*40,
+    'MemorySize': 300*200,
     'AktionSpace': 6,
     'Gamma': 1,
     'LearningRate': 0.001,
@@ -53,7 +53,7 @@ agent_params = {
     'EpsilonDecay': 0.999,
     'EpsilonMin': 0.03,
     'PossibleActions': possible_actions,
-    'RunDescription': '11AbschriftFehlmengeState'
+    'RunDescription': '13GrosserExpSpeicher'
 }
 if not do_train:
     agent_params.update(
@@ -63,7 +63,7 @@ if not do_train:
         }
     )
 
-predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG17', 'weights.17-0.32.hdf5')
+predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'weights.30-0.21.hdf5')
 
 # endregion
 
@@ -83,6 +83,9 @@ if use_saved_model:
 # endregion
 
 # region Training Loop
+#
+agent_states = []
+#
 global_steps = 0
 for epoch in range(epochs):
     full_state, info = simulation.reset()
@@ -112,6 +115,7 @@ for epoch in range(epochs):
             'article_info': new_full_state['RegressionState']['static_input'].reshape(-1)
         }
         agent.remember(agent_state, action, reward, new_agent_state, fertig)
+        agent_states.append(agent_state)
         agent_state = new_agent_state
 
         # Validate
