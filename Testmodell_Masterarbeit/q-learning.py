@@ -37,22 +37,22 @@ possible_actions = [
     order_four,
     order_five
     ]
-n_step = 16
-update_target_network = n_step * 16
+n_step = 4
+update_target_network = n_step * 1000
 use_model_path = os.path.join('files', 'models', 'AgentV2', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
 
 agent_params = {
-    'MemorySize': 300*200,
+    'MemorySize': 300*20,
     'AktionSpace': 6,
     'Gamma': 1,
     'LearningRate': 0.0001,
     'BatchSize': 32,
     'Epsilon': 0.99,
-    'EpsilonDecay': 0.999,
+    'EpsilonDecay': 0.995,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '15UndWeiterVersuchen'
+    'RunDescription': '17MehrKomplexität'
 }
 if not do_train:
     agent_params.update(

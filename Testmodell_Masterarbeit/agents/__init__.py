@@ -122,7 +122,7 @@ class Agent(object):
         self.action_space = kwargs['AktionSpace']
         self.gamma = kwargs['Gamma']
         self.learning_rate = kwargs['LearningRate']
-        self.lr_decay = kwargs['LearningRateDecay']
+        # self.lr_decay = kwargs['LearningRateDecay']
         self.batch_size = kwargs['BatchSize']
         self.epsilon = kwargs['Epsilon']
         self.epsilon_decay = kwargs['EpsilonDecay']
@@ -256,7 +256,7 @@ class Agent(object):
             article_input = tf.keras.Input(shape=(self.article_state_shape,), name='article_info')
             flat_sales_input = tf.keras.layers.Flatten()(sales_input)
             sales_hidden = tf.keras.layers.Dense(
-                32,
+                64,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_Sales"
@@ -269,19 +269,19 @@ class Agent(object):
             )(article_input)
             x = tf.keras.layers.concatenate([sales_hidden, stock_input, article_hidden])
             x = tf.keras.layers.Dense(
-                20,
+                64,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_Concat"
             )(x)
             x = tf.keras.layers.Dense(
-                20,
+                64,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_middle"
             )(x)
             x = tf.keras.layers.Dense(
-                20,
+                128,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_top"
