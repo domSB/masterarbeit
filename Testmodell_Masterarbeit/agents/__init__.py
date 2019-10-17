@@ -317,7 +317,7 @@ class Agent(object):
         rewards = [sample[2] for sample in samples]
         predicted_sales = [sample[3]['predicted_sales'] for sample in samples]
         current_stock = [sample[3]['current_stock'] for sample in samples]
-        article_info = [sample[0]['article_info'] for sample in samples]
+        article_info = [sample[3]['article_info'] for sample in samples]
         new_states = {
             'predicted_sales': np.array(predicted_sales),
             'current_stock': np.array(current_stock),
@@ -369,7 +369,7 @@ class Agent(object):
 
     def load(self, path):
         model = tf.keras.models.load_model(path, compile=False)
-        adam = tf.keras.optimizers.Adam(lr=self.learning_rate, decay=self.lr_decay)
-        model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
+        rms = tf.keras.optimizers.RMSprop(lr=self.learning_rate)
+        model.compile(optimizer=rms, loss='mse', metrics=["accuracy"])
         self.target_model = model
         self.model = model

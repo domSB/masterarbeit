@@ -20,7 +20,7 @@ simulation_params = {
 # endregion
 
 # region  Hyperparameter
-epochs = 1000
+epochs = 2000
 do_train = True
 order_none = 0
 order_one = 1
@@ -46,14 +46,13 @@ agent_params = {
     'MemorySize': 300*200,
     'AktionSpace': 6,
     'Gamma': 1,
-    'LearningRate': 0.001,
-    'LearningRateDecay': 0.001/epochs,
+    'LearningRate': 0.0001,
     'BatchSize': 32,
-    'Epsilon': 1,
+    'Epsilon': 0.99,
     'EpsilonDecay': 0.999,
-    'EpsilonMin': 0.03,
+    'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '13GrosserExpSpeicher'
+    'RunDescription': '15UndWeiterVersuchen'
 }
 if not do_train:
     agent_params.update(
