@@ -45,14 +45,14 @@ use_saved_model = False
 agent_params = {
     'MemorySize': 300*20,
     'AktionSpace': 6,
-    'Gamma': 1,
+    'Gamma': 0.9,
     'LearningRate': 0.0001,
     'BatchSize': 32,
-    'Epsilon': 0.99,
+    'Epsilon': 1,
     'EpsilonDecay': 0.995,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '17MehrKomplexität'
+    'RunDescription': '18AdamGamma'
 }
 if not do_train:
     agent_params.update(

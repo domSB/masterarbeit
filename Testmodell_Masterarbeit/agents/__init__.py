@@ -269,27 +269,27 @@ class Agent(object):
             )(article_input)
             x = tf.keras.layers.concatenate([sales_hidden, stock_input, article_hidden])
             x = tf.keras.layers.Dense(
-                64,
+                32,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_Concat"
             )(x)
             x = tf.keras.layers.Dense(
-                64,
+                32,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_middle"
             )(x)
             x = tf.keras.layers.Dense(
-                128,
+                64,
                 activation='relu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_top"
             )(x)
-            predictions = tf.keras.layers.Dense(self.action_space, activation='relu', name="Predictions")(x)
+            predictions = tf.keras.layers.Dense(self.action_space, activation=None, name="Predictions")(x)
             model = tf.keras.Model(inputs=[sales_input, stock_input, article_input], outputs=predictions)
-            rms = tf.keras.optimizers.RMSprop(lr=self.learning_rate)
-            model.compile(optimizer=rms, loss='mse', metrics=["accuracy"])
+            adam = tf.keras.optimizers.Adam()
+            model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
 
         return model
 
@@ -369,7 +369,7 @@ class Agent(object):
 
     def load(self, path):
         model = tf.keras.models.load_model(path, compile=False)
-        rms = tf.keras.optimizers.RMSprop(lr=self.learning_rate)
-        model.compile(optimizer=rms, loss='mse', metrics=["accuracy"])
+        adam = tf.keras.optimizers.Adam()
+        model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
         self.target_model = model
         self.model = model
