@@ -52,7 +52,7 @@ agent_params = {
     'EpsilonDecay': 0.995,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '18AdamGamma'
+    'RunDescription': '19OhneReluUndKlein'
 }
 if not do_train:
     agent_params.update(
