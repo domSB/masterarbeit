@@ -106,8 +106,8 @@ class StockSimulation(object):
     def state(self):
         state = {
             'RegressionState': {
-                'dynamic_input': np.expand_dims(self.dyn[self.vergangene_tage], axis=0),
-                'static_input': np.expand_dims(self.stat[self.vergangene_tage], axis=0)
+                'dynamic_input': np.expand_dims(self.dynamic_state[self.vergangene_tage], axis=0),
+                'static_input': np.expand_dims(self.static_state[self.vergangene_tage], axis=0)
             },
             'AgentState': np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
         }
