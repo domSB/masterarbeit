@@ -253,7 +253,6 @@ class Agent(object):
         with tf.name_scope(name):
             sales_input = tf.keras.Input(shape=(6, 16), name='predicted_sales')
             stock_input = tf.keras.Input(shape=(3,), name='current_stock')
-            article_input = tf.keras.Input(shape=(self.article_state_shape,), name='article_info')
             flat_sales_input = tf.keras.layers.Flatten()(sales_input)
             sales_hidden = tf.keras.layers.Dense(
                 32,
@@ -261,13 +260,7 @@ class Agent(object):
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_Sales"
             )(flat_sales_input)
-            article_hidden = tf.keras.layers.Dense(
-                16,
-                activation='relu',
-                kernel_regularizer=tf.keras.regularizers.l2(0.001),
-                name="Dense_Article"
-            )(article_input)
-            x = tf.keras.layers.concatenate([sales_hidden, stock_input, article_hidden])
+            x = tf.keras.layers.concatenate([sales_hidden, stock_input])
             x = tf.keras.layers.Dense(
                 16,
                 activation='relu',
@@ -287,7 +280,7 @@ class Agent(object):
                 name="Dense_top"
             )(x)
             predictions = tf.keras.layers.Dense(self.action_space, activation=None, name="Predictions")(x)
-            model = tf.keras.Model(inputs=[sales_input, stock_input, article_input], outputs=predictions)
+            model = tf.keras.Model(inputs=[sales_input, stock_input], outputs=predictions)
             adam = tf.keras.optimizers.Adam()
             model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
 
@@ -307,21 +300,17 @@ class Agent(object):
 
         predicted_sales = [sample[0]['predicted_sales'] for sample in samples]
         current_stock = [sample[0]['current_stock'] for sample in samples]
-        article_info = [sample[0]['article_info'] for sample in samples]
         states = {
             'predicted_sales': np.array(predicted_sales),
-            'current_stock': np.array(current_stock),
-            'article_info': np.array(article_info)
+            'current_stock': np.array(current_stock)
         }
         actions = [sample[1] for sample in samples]
         rewards = [sample[2] for sample in samples]
         predicted_sales = [sample[3]['predicted_sales'] for sample in samples]
         current_stock = [sample[3]['current_stock'] for sample in samples]
-        article_info = [sample[3]['article_info'] for sample in samples]
         new_states = {
             'predicted_sales': np.array(predicted_sales),
-            'current_stock': np.array(current_stock),
-            'article_info': np.array(article_info)
+            'current_stock': np.array(current_stock)
         }
         dones = [sample[4] for sample in samples]
         targets = self.target_model.predict(states)
@@ -358,8 +347,7 @@ class Agent(object):
         predictions = self.model.predict(
             {
                 'predicted_sales': np.expand_dims(state['predicted_sales'], axis=0),
-                'current_stock': np.expand_dims(state['current_stock'], axis=0),
-                'article_info': np.expand_dims(state['article_info'], axis=0)
+                'current_stock': np.expand_dims(state['current_stock'], axis=0)
             }
         )[0]
         return np.argmax(predictions)
