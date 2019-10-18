@@ -172,6 +172,7 @@ class StockSimulation(object):
         if len(abgelaufene) > 0:
             self.bestands_frische = np.delete(self.bestands_frische, abgelaufene)
             self.abschriften = len(abgelaufene)
+            self.bestand -= self.abschriften
         # Tagsüber Absatz abziehen und bewerten:
         if absatz > 0:
             if absatz <= self.bestand:
