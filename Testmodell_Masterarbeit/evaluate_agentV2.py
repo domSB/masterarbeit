@@ -55,3 +55,17 @@ while True:
     rewards.append(r)
     prediction = predictor.predict(state['RegressionState'])
     print(np.argmax(prediction, axis=1))
+
+# Spiele optimal
+state, _ = simulation.reset()
+rewards = []
+while True:
+    prediction = predictor.predict(state['RegressionState'])
+    aktion = np.argmax(prediction, axis=1)[1]
+    # print('Action:', action)
+    r, done, state = simulation.make_action(int(aktion))
+    # print('Belohnung', r, '\nStatus', state['AgentState'], end='\n---\n')
+    if done:
+        print('Fertig mit Belohnung', np.sum(rewards))
+        break
+    rewards.append(r)

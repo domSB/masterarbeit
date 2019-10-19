@@ -95,6 +95,7 @@ class StockSimulation(object):
         self.break_bestand = None
         self.abschriften = 0
         self.fehlmenge = 0
+        self.optimal_flag = None
         self.artikel_einkaufspreis = None
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
@@ -151,6 +152,7 @@ class StockSimulation(object):
 
         self.abschriften = 0
         self.fehlmenge = 0
+        self.optimal_flag = True
 
         self.artikel_einkaufspreis = 0.7
         self.artikel_verkaufspreis = 1
@@ -173,6 +175,7 @@ class StockSimulation(object):
             self.bestands_frische = np.delete(self.bestands_frische, abgelaufene)
             self.abschriften = len(abgelaufene)
             self.bestand -= self.abschriften
+            self.optimal_flag = False
         # Tagsüber Absatz abziehen und bewerten:
         if absatz > 0:
             if absatz <= self.bestand:
@@ -181,6 +184,7 @@ class StockSimulation(object):
             else:
                 self.bestands_frische = np.ones((0,))
                 self.fehlmenge = absatz - self.bestand
+                self.optimal_flag = False
                 self.bestand = 0
 
         self.bestand += action
@@ -195,12 +199,17 @@ class StockSimulation(object):
         # r_umsatz = absatz * self.artikel_rohertrag
         # Kapitalbindung
         r_bestand = -(self.bestand * self.artikel_einkaufspreis) * 0.05/365
+        # Belohnung für optimale Bestell-Strategien
+        r_optimal = 0
+        if done:
+            if self.optimal_flag:
+                r_optimal = 30
         # Abbruch der Episode
         if self.bestand > self.break_bestand:
             reward = -300
             done = True
         else:
-            reward = r_abschrift + r_ausfall + r_bestand  # + r_umsatz
+            reward = r_abschrift + r_ausfall + r_bestand + r_optimal  # + r_umsatz
 
         self.statistics.add(
             np.array([self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften])

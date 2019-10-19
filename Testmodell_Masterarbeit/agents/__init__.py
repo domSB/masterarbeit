@@ -256,32 +256,26 @@ class Agent(object):
             flat_sales_input = tf.keras.layers.Flatten()(sales_input)
             sales_hidden = tf.keras.layers.Dense(
                 32,
-                activation='relu',
-                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                activation='elu',
+                kernel_regularizer=None,
                 name="Dense_Sales"
             )(flat_sales_input)
             x = tf.keras.layers.concatenate([sales_hidden, stock_input])
             x = tf.keras.layers.Dense(
                 16,
-                activation='relu',
-                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                activation='elu',
+                kernel_regularizer=None,
                 name="Dense_Concat"
             )(x)
             x = tf.keras.layers.Dense(
-                16,
-                activation='relu',
-                kernel_regularizer=tf.keras.regularizers.l2(0.001),
-                name="Dense_middle"
-            )(x)
-            x = tf.keras.layers.Dense(
                 32,
-                activation='relu',
+                activation='elu',
                 kernel_regularizer=tf.keras.regularizers.l2(0.001),
                 name="Dense_top"
             )(x)
             predictions = tf.keras.layers.Dense(self.action_space, activation=None, name="Predictions")(x)
             model = tf.keras.Model(inputs=[sales_input, stock_input], outputs=predictions)
-            adam = tf.keras.optimizers.Adam()
+            adam = tf.keras.optimizers.Adam(self.learning_rate, epsilon=1e-8)
             model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
 
         return model
@@ -292,9 +286,6 @@ class Agent(object):
     def replay(self):
         if len(self.memory) < self.batch_size:
             return
-
-        self.epsilon *= self.epsilon_decay
-        self.epsilon = np.max([self.epsilon, self.epsilon_min])
 
         samples = random.sample(self.memory, self.batch_size)
 
@@ -341,6 +332,9 @@ class Agent(object):
         self.target_model.set_weights(target_weights)
 
     def act(self, state):
+
+        self.epsilon *= self.epsilon_decay
+        self.epsilon = np.max([self.epsilon, self.epsilon_min])
 
         if random.random() < self.epsilon:
             return random.sample(self.possible_actions, 1)[0]
