@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from agents import Predictor
 
 
 class Statistics(object):
@@ -79,7 +80,7 @@ class Statistics(object):
 
 
 class StockSimulation(object):
-    def __init__(self, simulation_data):
+    def __init__(self, simulation_data, _predictor_path):
         self.lab, self.dyn, self.stat, self.ids = simulation_data
         self.possibles = np.unique(self.ids)
         self.aktueller_markt = None
@@ -88,6 +89,7 @@ class StockSimulation(object):
         self.vergangene_tage = None
         self.static_state = None
         self.dynamic_state = None
+        self.predicted_state = None
         self.kristall_glas = None
         self.tage = None
         self.bestand = None
@@ -102,16 +104,22 @@ class StockSimulation(object):
         self.placeholder_mhd = 14
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
+        # To Speed up Online-Learning
+        self.predictor = Predictor()
+        self.predictor.build_model(
+            dynamic_state_shape=simulation_data[1].shape[2],
+            static_state_shape=simulation_data[2].shape[1]
+        )
+        self.predictor.load_from_weights(_predictor_path)
 
     @property
     def state(self):
-        state = {
-            'RegressionState': {
-                'dynamic_input': np.expand_dims(self.dynamic_state[self.vergangene_tage], axis=0),
-                'static_input': np.expand_dims(self.static_state[self.vergangene_tage], axis=0)
-            },
-            'AgentState': np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
-        }
+        state = np.concatenate(
+            (
+                self.predicted_state[self.vergangene_tage].reshape(-1),
+                np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
+            ), axis=0
+        )
         return state
 
     @property
@@ -135,6 +143,12 @@ class StockSimulation(object):
         ids_wahl = np.argwhere(np.isin(self.ids, self.possibles[id_wahl])).reshape(-1)
         self.static_state = self.stat[ids_wahl]
         self.dynamic_state = self.dyn[ids_wahl]
+        self.predicted_state = self.predictor.predict(
+            {
+                'dynamic_input': self.dynamic_state,
+                'static_input': self.static_state
+            }
+        )
         self.kristall_glas = self.lab[ids_wahl]
 #        self.artikel_absatz = self.dyn[ids_wahl, 0, 0] * 8
         self.artikel_absatz = self.dyn[ids_wahl, 0, 0]

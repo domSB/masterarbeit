@@ -1,12 +1,13 @@
+import os
 import tensorflow as tf
 from collections import deque
 import random
 import numpy as np
-import os
 from simulation import StockSimulation
-from agents import Predictor
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
+
+tf.get_logger().setLevel('ERROR')
 
 
 class DDDQNetwork:
@@ -199,7 +200,7 @@ state_size = np.array([6*16+3])
 action_size = 6
 learning_rate = 0.0001
 
-episodes = 10
+episodes = 20
 pretrain_episodes = 4
 batch_size = 32
 
@@ -214,7 +215,7 @@ gamma = 0.99
 
 memory_size = 5000
 
-training = False
+training = True
 
 model_path = os.path.join('files', 'models', 'DDDQN', 'Run1')
 
@@ -234,46 +235,34 @@ if not os.path.exists(model_path):
 pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
-simulation = StockSimulation(train_data)
+simulation = StockSimulation(train_data, predictor_path)
 
 if training:
     session = tf.Session()
     # simulation = ProbeSimulation(state_size)
     agent = DDDQAgent(epsilon_start, epsilon_stop, epsilon_decay, batch_size, action_size, gamma, session)
     saver = tf.train.Saver()
-    predictor = Predictor()
-    predictor.build_model(dynamic_state_shape=simulation_data[1].shape[2], static_state_shape=simulation_data[2].shape[1])
-    predictor.load_from_weights(predictor_path)
     for episode in range(pretrain_episodes):
         print('Started Episode: ', episode)
-        full_state, info = simulation.reset()
-        predicted_sales = predictor.predict(full_state['RegressionState'])
-        state = np.concatenate((predicted_sales.reshape(-1), full_state['AgentState']), axis=0)
+        state, info = simulation.reset()
         done = False
         while not done:
             action = agent.act(state)
-            reward, done, next__full_state = simulation.make_action(np.argmax(action))
-            predicted_sales = predictor.predict(next__full_state['RegressionState'])
-            next_state = np.concatenate((predicted_sales.reshape(-1), next__full_state['AgentState']), axis=0)
+            reward, done, next_state = simulation.make_action(np.argmax(action))
             experience = Experience(state, reward, done, next_state, action)
             agent.remember(experience)
             state = next_state
-
     tau = 0
     for episode in range(episodes):
         step = 0
         print('Started Episode: ', episode)
-        full_state, info = simulation.reset()
-        predicted_sales = predictor.predict(full_state['RegressionState'])
-        state = np.concatenate((predicted_sales.reshape(-1), full_state['AgentState']), axis=0)
+        state, info = simulation.reset()
         done = False
         while not done:
             step += 1
             tau += 1
             action = agent.act(state)
-            reward, done, next__full_state = simulation.make_action(np.argmax(action))
-            predicted_sales = predictor.predict(next__full_state['RegressionState'])
-            next_state = np.concatenate((predicted_sales.reshape(-1), next__full_state['AgentState']), axis=0)
+            reward, done, next_state = simulation.make_action(np.argmax(action))
             experience = Experience(state, reward, done, next_state, action)
             agent.remember(experience)
             state = next_state
@@ -284,8 +273,6 @@ if training:
             if tau > max_tau:
                 agent.update_target()
                 tau = 0
-
-            print('Länge', step)
         if episode % 5 == 0:
             save_path = saver.save(agent.sess, os.path.join(model_path, 'model_{episode}.ckpt').format(episode=episode))
             print('Model saved')
