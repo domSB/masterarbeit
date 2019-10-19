@@ -20,7 +20,7 @@ simulation_params = {
 # endregion
 
 # region  Hyperparameter
-epochs = 2000
+epochs = 20
 do_train = True
 order_none = 0
 order_one = 1
@@ -37,22 +37,22 @@ possible_actions = [
     order_four,
     order_five
     ]
-n_step = 8
-update_target_network = n_step * 1000
+n_step = 4
+update_target_network = 1000
 use_model_path = os.path.join('files', 'models', 'AgentV2', '2019-08-27-23.54.59', 'model.h5')
 use_saved_model = False
 
 agent_params = {
-    'MemorySize': 300*100,
+    'MemorySize': 300*20,
     'AktionSpace': 6,
     'Gamma': 1,
-    'LearningRate': 0.0001,
+    'LearningRate': 0.00001,
     'BatchSize': 32,
     'Epsilon': 1,
     'EpsilonDecay': 0.99995,
     'EpsilonMin': 0.01,
     'PossibleActions': possible_actions,
-    'RunDescription': '26NichtReguliertElu'
+    'RunDescription': 'Blub'
 }
 if not do_train:
     agent_params.update(
@@ -87,6 +87,7 @@ agent_states = []
 #
 global_steps = 0
 for epoch in range(epochs):
+    epoch_step = 0
     full_state, info = simulation.reset()
     predict_state = predictor.predict(full_state['RegressionState'])
     agent_state = {
@@ -105,6 +106,7 @@ for epoch in range(epochs):
         action = agent.act(agent_state)
         global_steps += 1
         reward, fertig, new_full_state = simulation.make_action(action)
+        epoch_step += 1
         new_predict_state = predictor.predict(new_full_state['RegressionState'])
         new_agent_state = {
             'predicted_sales': new_predict_state,
@@ -139,6 +141,7 @@ for epoch in range(epochs):
             agent.target_train()
 
         if fertig:
+            print('Länge', epoch_step)
             if do_train:
                 history = agent.replay()
                 if history:
@@ -150,6 +153,7 @@ for epoch in range(epochs):
             else:
                 curr_loss = 0
                 curr_acc = 0
+
             tf_summary = agent.sess.run(
                 agent.merged,
                 feed_dict={
@@ -165,8 +169,9 @@ for epoch in range(epochs):
                     }
                 )
             agent.writer.add_summary(tf_summary, epoch)
+            agent.writer.flush()
             if epoch % 10 == 0:
-                print("Epoche {}".format(epoch))
+                print('\nEpoche {}'.format(epoch))
                 agent.save()
             else:
                 print('.', end='')

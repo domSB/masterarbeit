@@ -111,7 +111,7 @@ class Predictor(object):
 
     def predict(self, x):
         y = self.model.predict(x)
-        y = np.array(y).reshape(6, 16)
+        y = np.array(y).reshape(-1, 6, 16)
         return y
 
 
@@ -223,6 +223,7 @@ class Agent(object):
             self.summary_loss = tf.summary.scalar("Loss", self.loss)
             self.summary_mse = tf.summary.scalar("Accuracy", self.accuracy)
             self.summary_epsilon = tf.summary.scalar("Epsilon", self.tf_epsilon)
+
         self.merged = tf.summary.merge(
             [
                 self.summary_reward,
@@ -257,25 +258,25 @@ class Agent(object):
             sales_hidden = tf.keras.layers.Dense(
                 32,
                 activation='elu',
-                kernel_regularizer=None,
+                kernel_regularizer=tf.keras.regularizers.l1(0.1),
                 name="Dense_Sales"
             )(flat_sales_input)
             x = tf.keras.layers.concatenate([sales_hidden, stock_input])
             x = tf.keras.layers.Dense(
-                16,
+                64,
                 activation='elu',
-                kernel_regularizer=None,
+                kernel_regularizer=tf.keras.regularizers.l1(0.1),
                 name="Dense_Concat"
             )(x)
             x = tf.keras.layers.Dense(
-                32,
+                128,
                 activation='elu',
-                kernel_regularizer=tf.keras.regularizers.l2(0.001),
+                kernel_regularizer=tf.keras.regularizers.l1(0.1),
                 name="Dense_top"
             )(x)
             predictions = tf.keras.layers.Dense(self.action_space, activation=None, name="Predictions")(x)
             model = tf.keras.Model(inputs=[sales_input, stock_input], outputs=predictions)
-            adam = tf.keras.optimizers.Adam(self.learning_rate, epsilon=1e-8)
+            adam = tf.keras.optimizers.Adam(self.learning_rate, epsilon=1e-8, clipvalue=0.5)
             model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
 
         return model
@@ -325,6 +326,7 @@ class Agent(object):
         return history.history
 
     def target_train(self):
+        print('TU', end='')
         weights = self.model.get_weights()
         target_weights = self.target_model.get_weights()
         for i in range(len(target_weights)):
