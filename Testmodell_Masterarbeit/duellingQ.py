@@ -26,14 +26,14 @@ class DDDQNetwork:
 
             self.dense = tf.layers.dense(
                 inputs=self.inputs_,
-                units=128,
+                units=32,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='EingangsDense'
             )
             self.value_fc = tf.layers.dense(
                 inputs=self.dense,
-                units=64,
+                units=16,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='ValueFC'
@@ -47,7 +47,7 @@ class DDDQNetwork:
             )
             self.advantage_fc = tf.layers.dense(
                 inputs=self.dense,
-                units=64,
+                units=16,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='AdvantageFC'
@@ -227,11 +227,11 @@ class ProbeSimulation:
 # region Hyperparams
 state_size = np.array([6*16+3])
 action_size = 6
-learning_rate = 0.00001
+learning_rate = 0.001
 
 episodes = 2000
 pretrain_episodes = 4
-batch_size = 32
+batch_size = 256
 
 learn_step = 32
 max_tau = learn_step * 100
@@ -246,8 +246,8 @@ memory_size = 7000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run8')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run8')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run9')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run9')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
