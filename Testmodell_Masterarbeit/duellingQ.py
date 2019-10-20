@@ -231,9 +231,9 @@ learning_rate = 0.0001
 
 episodes = 6000
 pretrain_episodes = 4
-batch_size = 256
+batch_size = 32
 
-learn_step = 32
+learn_step = 8
 max_tau = learn_step * 100
 
 epsilon_start = 1
@@ -246,8 +246,8 @@ memory_size = 70000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run12')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run12')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run13')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run13')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -316,10 +316,9 @@ if training:
         )
         agent.writer.add_summary(summary, episode)
         agent.writer.flush()
-        if episode % 5 == 0:
-            print('Finished Episode: ', episode)
+        if episode % 25 == 0:
+            print('Finished Episode: {epi} @ Epsilon {epsi}'.format(epi=episode, epsi=agent.epsilon))
             save_path = saver.save(agent.sess, os.path.join(model_path, 'model_{episode}.ckpt').format(episode=episode))
-            print('Model saved')
     session.close()
 
 
