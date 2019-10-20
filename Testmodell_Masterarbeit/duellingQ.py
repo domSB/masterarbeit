@@ -111,7 +111,9 @@ class DDDQAgent:
         with tf.name_scope('Belohnungen'):
             self.rewards = tf.placeholder(tf.float32, shape=None, name='Belohnungen')
             self.rewards_sum = tf.math.reduce_sum(self.rewards)
-            self.summary_reward_sum = tf.summary.scalar('Max', self.rewards_sum)
+            self.summary_reward_sum = tf.summary.scalar('Summe', self.rewards_sum)
+            self.rewards_min = tf.math.reduce_min(self.rewards)
+            self.summary_reward_min = tf.summary.scalar('Minimum', self.rewards_min)
         with tf.name_scope('Modell'):
             self.model_summary = tf.Summary()
             self.model_summary.value.add(tag='Gamma', simple_value=float(self.gamma))
