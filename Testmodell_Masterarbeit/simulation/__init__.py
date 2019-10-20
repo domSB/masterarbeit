@@ -116,7 +116,7 @@ class StockSimulation(object):
     def state(self):
         state = np.concatenate(
             (
-                self.predicted_state[self.vergangene_tage].reshape(-1),
+                np.argmax(self.predicted_state[self.vergangene_tage], axis=1),
                 np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
             ), axis=0
         )

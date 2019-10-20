@@ -225,7 +225,7 @@ class ProbeSimulation:
 
 
 # region Hyperparams
-state_size = np.array([6*16+3])
+state_size = np.array([6+3])
 action_size = 6
 learning_rate = 0.0001
 
