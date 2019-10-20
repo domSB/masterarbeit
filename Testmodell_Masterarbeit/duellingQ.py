@@ -227,9 +227,9 @@ class ProbeSimulation:
 # region Hyperparams
 state_size = np.array([6+3])
 action_size = 6
-learning_rate = 0.0001
+learning_rate = 0.001
 
-episodes = 6000
+episodes = 2000
 pretrain_episodes = 4
 batch_size = 32
 
@@ -237,8 +237,8 @@ learn_step = 8
 max_tau = learn_step * 100
 
 epsilon_start = 1
-epsilon_stop = 0.01
-epsilon_decay = 0.9995
+epsilon_stop = 0.1
+epsilon_decay = 0.99995
 
 gamma = 0.6
 
@@ -246,8 +246,8 @@ memory_size = 70000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run13')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run13')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run14')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run14')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
