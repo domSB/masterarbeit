@@ -93,19 +93,47 @@ class Experience:
 
 
 class DDDQAgent:
-    def __init__(self, _eps_start, _eps_stop, _eps_decay, _batch_size, _action_size, _gamma, _session):
+    def __init__(self, _eps_start, _eps_stop, _eps_decay, _batch_size, _action_size, _gamma, _session, _log_dir):
         self.sess = _session
         self.epsilon = _eps_start
         self.eps_stop = _eps_stop
         self.eps_decay = _eps_decay
         self.batch_size = _batch_size
         self.gamma = _gamma
+        self.curr_loss = -1
         self.possible_actions = np.identity(_action_size, dtype=int).tolist()
         self.dq_network = DDDQNetwork(state_size, _action_size, learning_rate, name='DQNetwork')
         self.target_network = DDDQNetwork(state_size, _action_size, learning_rate, name='TargetNetwork')
         self.game_buffer = Memory(memory_size)
         self.sess.run(tf.global_variables_initializer())
         self.update_target()
+        self.writer = tf.summary.FileWriter(_log_dir, self.sess.graph)
+        with tf.name_scope('Belohnungen'):
+            self.rewards = tf.placeholder(tf.float32, shape=None, name='Belohnungen')
+            self.rewards_sum = tf.math.reduce_sum(self.rewards)
+            self.summary_reward_sum = tf.summary.scalar('Max', self.rewards_sum)
+        with tf.name_scope('Modell'):
+            self.model_summary = tf.Summary()
+            self.model_summary.value.add(tag='Gamma', simple_value=float(self.gamma))
+            self.model_summary.value.add(tag='Loss', simple_value=float(self.curr_loss))
+        with tf.name_scope('Aktionen'):
+            self.actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
+            self.action_histo = tf.summary.histogram('Aktionen', self.actions)
+        with tf.name_scope('Bestand'):
+            self.bestand = tf.placeholder(tf.float32, shape=None, name='Bestand')
+            self.bestand_max = tf.math.reduce_max(self.bestand)
+            self.summary_bestand_max = tf.summary.scalar('Maximum', self.bestand_max)
+            self.bestand_mean = tf.math.reduce_mean(self.bestand)
+            self.summary_bestand_mean = tf.summary.scalar('Durchschnitt', self.bestand_mean)
+        with tf.name_scope('Bewegungen'):
+            self.abschriften = tf.placeholder(tf.float32, shape=None, name='Abschriften')
+            self.abschriften_sum = tf.math.reduce_sum(self.abschriften)
+            self.summary_abschriften_sum = tf.summary.scalar('Abschriften', self.abschriften_sum)
+            self.fehlmenge = tf.placeholder(tf.float32, shape=None, name='Fehlmenge')
+            self.fehlmenge_sum = tf.math.reduce_sum(self.fehlmenge)
+            self.summary_fehlmenge_sum = tf.summary.scalar('Fehlmenge', self.fehlmenge_sum)
+
+        self.merged = tf.summary.merge_all()
 
     def act(self, _state):
         self.epsilon = max(self.epsilon * self.eps_decay, self.eps_stop)
@@ -128,7 +156,6 @@ class DDDQAgent:
         for from_var, to_var in zip(from_vars, to_vars):
             update_ops.append(to_var.assign(from_var))
         self.sess.run(update_ops)
-        print('Updated')
 
     def remember(self, _experience):
         self.game_buffer.store(_experience)
@@ -174,7 +201,7 @@ class DDDQAgent:
                 self.dq_network.actions_: action_batch
             }
         )
-        print('Trained')
+        self.curr_loss = loss
 
 
 class ProbeSimulation:
@@ -200,24 +227,25 @@ state_size = np.array([6*16+3])
 action_size = 6
 learning_rate = 0.0001
 
-episodes = 20
+episodes = 2000
 pretrain_episodes = 4
 batch_size = 32
 
 learn_step = 32
-max_tau = 1000
+max_tau = learn_step * 100
 
-epsilon_start = 0.05
+epsilon_start = 1
 epsilon_stop = 0.01
 epsilon_decay = 0.9995
 
-gamma = 0.99
+gamma = 0.6
 
-memory_size = 5000
+memory_size = 7000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run1')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run6')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run6')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -232,6 +260,9 @@ predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'we
 if not os.path.exists(model_path):
     os.makedirs(model_path)
 
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
 pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
@@ -240,10 +271,9 @@ simulation = StockSimulation(train_data, predictor_path)
 if training:
     session = tf.Session()
     # simulation = ProbeSimulation(state_size)
-    agent = DDDQAgent(epsilon_start, epsilon_stop, epsilon_decay, batch_size, action_size, gamma, session)
+    agent = DDDQAgent(epsilon_start, epsilon_stop, epsilon_decay, batch_size, action_size, gamma, session, log_dir)
     saver = tf.train.Saver()
     for episode in range(pretrain_episodes):
-        print('Started Episode: ', episode)
         state, info = simulation.reset()
         done = False
         while not done:
@@ -255,7 +285,6 @@ if training:
     tau = 0
     for episode in range(episodes):
         step = 0
-        print('Started Episode: ', episode)
         state, info = simulation.reset()
         done = False
         while not done:
@@ -273,7 +302,20 @@ if training:
             if tau > max_tau:
                 agent.update_target()
                 tau = 0
+        summary = agent.sess.run(
+            agent.merged,
+            feed_dict={
+                agent.rewards: simulation.statistics.rewards(),
+                agent.actions: simulation.statistics.actions(),
+                agent.bestand: simulation.statistics.bestand(),
+                agent.abschriften: simulation.statistics.abschrift(),
+                agent.fehlmenge: simulation.statistics.fehlmenge()
+            }
+        )
+        agent.writer.add_summary(summary, episode)
+        agent.writer.flush()
         if episode % 5 == 0:
+            print('Finished Episode: ', episode)
             save_path = saver.save(agent.sess, os.path.join(model_path, 'model_{episode}.ckpt').format(episode=episode))
             print('Model saved')
     session.close()

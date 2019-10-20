@@ -252,16 +252,13 @@ class Agent(object):
 
     def create_model(self, name):
         with tf.name_scope(name):
-            sales_input = tf.keras.Input(shape=(6, 16), name='predicted_sales')
-            stock_input = tf.keras.Input(shape=(3,), name='current_stock')
-            flat_sales_input = tf.keras.layers.Flatten()(sales_input)
-            sales_hidden = tf.keras.layers.Dense(
+            inputs = tf.keras.Input(shape=(99, ), name='input')
+            x = tf.keras.layers.Dense(
                 32,
                 activation='elu',
                 kernel_regularizer=tf.keras.regularizers.l1(0.1),
                 name="Dense_Sales"
-            )(flat_sales_input)
-            x = tf.keras.layers.concatenate([sales_hidden, stock_input])
+            )(inputs)
             x = tf.keras.layers.Dense(
                 64,
                 activation='elu',
@@ -275,7 +272,7 @@ class Agent(object):
                 name="Dense_top"
             )(x)
             predictions = tf.keras.layers.Dense(self.action_space, activation=None, name="Predictions")(x)
-            model = tf.keras.Model(inputs=[sales_input, stock_input], outputs=predictions)
+            model = tf.keras.Model(inputs=inputs, outputs=predictions)
             adam = tf.keras.optimizers.Adam(self.learning_rate, epsilon=1e-8, clipvalue=0.5)
             model.compile(optimizer=adam, loss='mse', metrics=["accuracy"])
 
@@ -290,23 +287,13 @@ class Agent(object):
 
         samples = random.sample(self.memory, self.batch_size)
 
-        predicted_sales = [sample[0]['predicted_sales'] for sample in samples]
-        current_stock = [sample[0]['current_stock'] for sample in samples]
-        states = {
-            'predicted_sales': np.array(predicted_sales),
-            'current_stock': np.array(current_stock)
-        }
-        actions = [sample[1] for sample in samples]
-        rewards = [sample[2] for sample in samples]
-        predicted_sales = [sample[3]['predicted_sales'] for sample in samples]
-        current_stock = [sample[3]['current_stock'] for sample in samples]
-        new_states = {
-            'predicted_sales': np.array(predicted_sales),
-            'current_stock': np.array(current_stock)
-        }
-        dones = [sample[4] for sample in samples]
-        targets = self.target_model.predict(states)
-        qs_new_states = self.target_model.predict(new_states)
+        states = np.array([sample[0] for sample in samples])
+        actions = np.array([sample[1] for sample in samples])
+        rewards = np.array([sample[2] for sample in samples])
+        new_states = np.array([sample[3] for sample in samples])
+        dones = np.array([sample[4] for sample in samples])
+        targets = self.target_model.predict(np.array(states))
+        qs_new_states = self.target_model.predict(np.array(new_states))
 
         target_qs_batch = []
         for i in range(self.batch_size):
@@ -340,12 +327,7 @@ class Agent(object):
 
         if random.random() < self.epsilon:
             return random.sample(self.possible_actions, 1)[0]
-        predictions = self.model.predict(
-            {
-                'predicted_sales': np.expand_dims(state['predicted_sales'], axis=0),
-                'current_stock': np.expand_dims(state['current_stock'], axis=0)
-            }
-        )[0]
+        predictions = self.model.predict(np.expand_dims(state, axis=0))[0]
         return np.argmax(predictions)
 
     def save(self):

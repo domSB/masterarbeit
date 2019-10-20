@@ -70,13 +70,11 @@ predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'we
 pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
-simulation = StockSimulation(train_data)
-validator = StockSimulation(test_data)
+simulation = StockSimulation(train_data, predictor_path)
+validator = StockSimulation(test_data, predictor_path)
 
 agent = Agent(**agent_params, ArticleStateShape=train_data[2].shape[1])
-predictor = Predictor()
-predictor.build_model(dynamic_state_shape=train_data[1].shape[2], static_state_shape=train_data[2].shape[1])
-predictor.load_from_weights(predictor_path)
+
 if use_saved_model:
     agent.load(use_model_path)
 # endregion
@@ -88,44 +86,24 @@ agent_states = []
 global_steps = 0
 for epoch in range(epochs):
     epoch_step = 0
-    full_state, info = simulation.reset()
-    predict_state = predictor.predict(full_state['RegressionState'])
-    agent_state = {
-        'predicted_sales': predict_state,
-        'current_stock': full_state['AgentState']
-    }
-    val_full_state, _ = validator.reset()
-    val_predict_state = predictor.predict(val_full_state['RegressionState'])
-    val_agent_state = {
-        'predicted_sales': val_predict_state,
-        'current_stock': val_full_state['AgentState']
-    }
+    state, info = simulation.reset()
+    val_state, _ = validator.reset()
     val_fertig = False
     while True:
         # Train
-        action = agent.act(agent_state)
+        action = agent.act(state)
         global_steps += 1
-        reward, fertig, new_full_state = simulation.make_action(action)
+        reward, fertig, new_state = simulation.make_action(action)
         epoch_step += 1
-        new_predict_state = predictor.predict(new_full_state['RegressionState'])
-        new_agent_state = {
-            'predicted_sales': new_predict_state,
-            'current_stock': new_full_state['AgentState']
-        }
-        agent.remember(agent_state, action, reward, new_agent_state, fertig)
-        agent_states.append(agent_state)
-        agent_state = new_agent_state
+        agent.remember(state, action, reward, new_state, fertig)
+        agent_states.append(state)
+        state = new_state
 
         # Validate
         if not val_fertig:  # Validation Zeitraum ggf. kürzer oder gleichlang
-            val_action = agent.act(val_agent_state)
-            val_reward, val_fertig, new_val_full_state = validator.make_action(val_action)
-            new_val_predict_state = predictor.predict(new_val_full_state['RegressionState'])
-            new_val_agent_state = {
-                'predicted_sales': new_val_predict_state,
-                'current_stock': new_val_full_state['AgentState']
-            }
-            val_agent_state = new_val_agent_state
+            val_action = agent.act(val_state)
+            val_reward, val_fertig, new_val_state = validator.make_action(val_action)
+            val_agent_state = new_val_state
 
         if global_steps % n_step == 0:
             if do_train:
@@ -141,7 +119,6 @@ for epoch in range(epochs):
             agent.target_train()
 
         if fertig:
-            print('Länge', epoch_step)
             if do_train:
                 history = agent.replay()
                 if history:
