@@ -25,10 +25,10 @@ class DDDQNetwork:
             self.target_q = tf.placeholder(tf.float32, [None], name='Target')
 
             self.lstm = tf.keras.layers.LSTM(
-                units=32
+                units=64
             )(self.inputs_)
             self.dense = tf.keras.layers.Dense(
-                units=32,
+                units=128,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='EingangsDense'
@@ -120,6 +120,8 @@ class DDDQAgent:
         with tf.name_scope('Aktionen'):
             self.actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
             self.action_histo = tf.summary.histogram('Aktionen', self.actions)
+            self.actions_sum = tf.math.reduce_sum('Bestellmenge', self.actions)
+            self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.actions_sum)
         with tf.name_scope('Bestand'):
             self.bestand = tf.placeholder(tf.float32, shape=None, name='Bestand')
             self.bestand_max = tf.math.reduce_max(self.bestand)
@@ -134,6 +136,12 @@ class DDDQAgent:
             self.fehlmenge_sum = tf.math.reduce_sum(self.fehlmenge)
             self.summary_fehlmenge_sum = tf.summary.scalar('Fehlmenge', self.fehlmenge_sum)
             self.absatz = tf.placeholder(tf.float32, shape=None, name='Absatz')
+            self.absatz_sum = tf.math.reduce_sum(self.absatz)
+            self.summary_absatz_sum = tf.summary.scalar('Absatz', self.abschriften_sum)
+            self.fehlmenge_proz = tf.math.divide(self.fehlmenge_sum, self.absatz_sum)
+            self.summary_fehlmenge_proz = tf.summary.scalar('FehlmengeProzent', self.fehlmenge_proz)
+            self.abschrift_proz = tf.math.divide(self.abschriften_sum, self.actions_sum)
+            self.summary_abschrift_proz = tf.summary.scalar('AbschriftProzent', self.abschrift_proz)
 
         self.merged = tf.summary.merge_all()
 
@@ -228,27 +236,27 @@ class ProbeSimulation:
 state_size = np.array([6+3])
 time_steps = 3
 action_size = 6
-learning_rate = 0.001
+learning_rate = 0.0001
 
 episodes = 1000
 pretrain_episodes = 4
 batch_size = 32
 
 learn_step = 8
-max_tau = learn_step * 100
+max_tau = learn_step * 1000
 
 epsilon_start = 1
 epsilon_stop = 0.03
-epsilon_decay = 0.99995
+epsilon_decay = 0.99999
 
-gamma = 0.6
+gamma = 0.9
 
 memory_size = 70000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run16')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run16')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run17')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run17')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
