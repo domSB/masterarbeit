@@ -26,14 +26,14 @@ class DDDQNetwork:
 
             self.dense = tf.layers.dense(
                 inputs=self.inputs_,
-                units=32,
+                units=128,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='EingangsDense'
             )
             self.value_fc = tf.layers.dense(
                 inputs=self.dense,
-                units=32,
+                units=64,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='ValueFC'
@@ -47,7 +47,7 @@ class DDDQNetwork:
             )
             self.advantage_fc = tf.layers.dense(
                 inputs=self.dense,
-                units=32,
+                units=64,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='AdvantageFC'
@@ -246,8 +246,8 @@ memory_size = 7000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run6')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run6')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run7')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run7')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
