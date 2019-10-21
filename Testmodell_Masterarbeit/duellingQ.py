@@ -113,17 +113,17 @@ class DDDQAgent:
             self.summary_reward_sum = tf.summary.scalar('Summe', self.rewards_sum)
             self.rewards_min = tf.math.reduce_min(self.rewards)
             self.summary_reward_min = tf.summary.scalar('Minimum', self.rewards_min)
-        with tf.name_scope('Modell'):
-            self.model_summary = tf.Summary()
-            self.summary_epsilon = tf.summary.scalar('Epsilon', self.epsilon)
-            self.summary_loss = tf.summary.scalar('Loss', self.curr_loss)
+        # with tf.name_scope('Modell'):
+        #     self.model_summary = tf.Summary()
+        #     self.summary_epsilon = tf.summary.scalar('Epsilon', self.epsilon)
+        #     self.summary_loss = tf.summary.scalar('Loss', self.curr_loss)
         with tf.name_scope('Aktionen'):
             self.actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
             self.action_histo = tf.summary.histogram('Aktionen', self.actions)
             self.actions_sum = tf.math.reduce_sum(self.actions)
             self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.actions_sum)
-            self.action_entropy = tf.placeholder(tf.float32, shape=(1,), name='PLActionEntropy')
-            self.summary_action_entropy = tf.summary.scalar(tf.float32, self.action_entropy, name='ActionEntropy')
+            self.action_entropy = tf.placeholder(tf.float32, shape=None, name='PLActionEntropy')
+            self.summary_action_entropy = tf.summary.scalar('ActionEntropy', self.action_entropy)
         with tf.name_scope('Bestand'):
             self.bestand = tf.placeholder(tf.float32, shape=None, name='Bestand')
             self.bestand_max = tf.math.reduce_max(self.bestand)
@@ -131,8 +131,8 @@ class DDDQAgent:
             self.bestand_mean = tf.math.reduce_mean(self.bestand)
             self.summary_bestand_mean = tf.summary.scalar('Durchschnitt', self.bestand_mean)
         with tf.name_scope('Bewegungen'):
-            self.abschriften = tf.placeholder(tf.float32, shape=None, name='PLAbschriften')
-            self.abschriften_sum = tf.math.reduce_sum(self.abschriften)
+            self.abschriften = tf.placeholder(tf.float32, shape=None)
+            self.abschriften_sum = tf.math.reduce_sum(self.abschriften, name='PLAbschriften')
             self.summary_abschriften_sum = tf.summary.scalar('Abschriften', self.abschriften_sum)
             self.fehlmenge = tf.placeholder(tf.float32, shape=None, name='PLFehlmenge')
             self.fehlmenge_sum = tf.math.reduce_sum(self.fehlmenge)
@@ -240,7 +240,7 @@ time_steps = 3
 action_size = 6
 learning_rate = 0.0001
 
-episodes = 50
+episodes = 2000
 pretrain_episodes = 4
 batch_size = 32
 
@@ -248,7 +248,7 @@ learn_step = 8
 max_tau = learn_step * 1000
 
 epsilon_start = 1
-epsilon_stop = 0.03
+epsilon_stop = 0.01
 epsilon_decay = 0.9999
 
 gamma = 0.9
@@ -257,8 +257,8 @@ memory_size = 70000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run20')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run20')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run21')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run21')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),

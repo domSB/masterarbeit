@@ -217,7 +217,7 @@ class StockSimulation(object):
                 self.bestand = 0
 
         self.bestand += action
-        self.bestands_frische = np.concatenate((self.bestands_frische, np.ones((action,)) * self.placeholder_mhd))
+        self.bestands_frische = np.concatenate((self.bestands_frische, np.ones((action,) * self.placeholder_mhd)))
 
         # Rewardberechnung
         # Abschrift
