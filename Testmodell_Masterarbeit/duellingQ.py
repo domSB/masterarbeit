@@ -120,7 +120,7 @@ class DDDQAgent:
         with tf.name_scope('Aktionen'):
             self.actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
             self.action_histo = tf.summary.histogram('Aktionen', self.actions)
-            self.actions_sum = tf.math.reduce_sum('Bestellmenge', self.actions)
+            self.actions_sum = tf.math.reduce_sum(self.actions)
             self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.actions_sum)
         with tf.name_scope('Bestand'):
             self.bestand = tf.placeholder(tf.float32, shape=None, name='Bestand')
@@ -330,7 +330,8 @@ if training:
                 agent.actions: simulation.statistics.actions(),
                 agent.bestand: simulation.statistics.bestand(),
                 agent.abschriften: simulation.statistics.abschrift(),
-                agent.fehlmenge: simulation.statistics.fehlmenge()
+                agent.fehlmenge: simulation.statistics.fehlmenge(),
+                agent.absatz: simulation.statistics.absaetze()
             }
         )
         agent.writer.add_summary(summary, episode)
