@@ -7,6 +7,7 @@ from simulation import StockSimulation
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
 
+from collections import defaultdict
 tf.get_logger().setLevel('ERROR')
 
 
@@ -28,13 +29,13 @@ class DDDQNetwork:
                 units=64
             )(self.inputs_)
             self.dense = tf.keras.layers.Dense(
-                units=128,
+                units=64,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='EingangsDense'
             )(self.lstm)
             self.value_fc = tf.keras.layers.Dense(
-                units=32,
+                units=64,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='ValueFC'
@@ -46,7 +47,7 @@ class DDDQNetwork:
                 name='Value'
             )(self.value_fc)
             self.advantage_fc = tf.keras.layers.Dense(
-                units=32,
+                units=64,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='AdvantageFC'
@@ -108,42 +109,41 @@ class DDDQAgent:
         self.update_target()
         self.writer = tf.summary.FileWriter(_log_dir, self.sess.graph)
         with tf.name_scope('Belohnungen'):
-            self.rewards = tf.placeholder(tf.float32, shape=None, name='Belohnungen')
-            self.rewards_sum = tf.math.reduce_sum(self.rewards)
-            self.summary_reward_sum = tf.summary.scalar('Summe', self.rewards_sum)
-            self.rewards_min = tf.math.reduce_min(self.rewards)
-            self.summary_reward_min = tf.summary.scalar('Minimum', self.rewards_min)
-        # with tf.name_scope('Modell'):
-        #     self.model_summary = tf.Summary()
-        #     self.summary_epsilon = tf.summary.scalar('Epsilon', self.epsilon)
-        #     self.summary_loss = tf.summary.scalar('Loss', self.curr_loss)
+            self.v_rewards = tf.placeholder(tf.float32, shape=None, name='Belohnungen')
+            self.v_rewards_sum = tf.math.reduce_sum(self.v_rewards)
+            self.summary_reward_sum = tf.summary.scalar('Summe', self.v_rewards_sum)
+            self.v_rewards_min = tf.math.reduce_min(self.v_rewards)
+            self.summary_reward_min = tf.summary.scalar('Minimum', self.v_rewards_min)
+        with tf.name_scope('Modell'):
+            self.v_epsilon = tf.placeholder(tf.float32, shape=None, name='Epsilon')
+            self.summary_epsilon = tf.summary.scalar('Epsilon', self.v_epsilon)
+            self.v_loss = tf.placeholder(tf.float32, shape=None, name='Loss')
+            self.summary_loss = tf.summary.scalar('Loss', self.v_loss)
         with tf.name_scope('Aktionen'):
-            self.actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
-            self.action_histo = tf.summary.histogram('Aktionen', self.actions)
-            self.actions_sum = tf.math.reduce_sum(self.actions)
-            self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.actions_sum)
-            self.action_entropy = tf.placeholder(tf.float32, shape=None, name='PLActionEntropy')
-            self.summary_action_entropy = tf.summary.scalar('ActionEntropy', self.action_entropy)
+            self.v_actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
+            self.action_histo = tf.summary.histogram('Aktionen', self.v_actions)
+            self.v_actions_sum = tf.math.reduce_sum(self.v_actions)
+            self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.v_actions_sum)
         with tf.name_scope('Bestand'):
-            self.bestand = tf.placeholder(tf.float32, shape=None, name='Bestand')
-            self.bestand_max = tf.math.reduce_max(self.bestand)
-            self.summary_bestand_max = tf.summary.scalar('Maximum', self.bestand_max)
-            self.bestand_mean = tf.math.reduce_mean(self.bestand)
-            self.summary_bestand_mean = tf.summary.scalar('Durchschnitt', self.bestand_mean)
+            self.v_bestand = tf.placeholder(tf.float32, shape=None, name='Bestand')
+            self.v_bestand_max = tf.math.reduce_max(self.v_bestand)
+            self.summary_bestand_max = tf.summary.scalar('Maximum', self.v_bestand_max)
+            self.v_bestand_mean = tf.math.reduce_mean(self.v_bestand)
+            self.summary_bestand_mean = tf.summary.scalar('Durchschnitt', self.v_bestand_mean)
         with tf.name_scope('Bewegungen'):
-            self.abschriften = tf.placeholder(tf.float32, shape=None)
-            self.abschriften_sum = tf.math.reduce_sum(self.abschriften, name='PLAbschriften')
-            self.summary_abschriften_sum = tf.summary.scalar('Abschriften', self.abschriften_sum)
-            self.fehlmenge = tf.placeholder(tf.float32, shape=None, name='PLFehlmenge')
-            self.fehlmenge_sum = tf.math.reduce_sum(self.fehlmenge)
-            self.summary_fehlmenge_sum = tf.summary.scalar('Fehlmenge', self.fehlmenge_sum)
-            self.absatz = tf.placeholder(tf.float32, shape=None, name='PLAbsatz')
-            self.absatz_sum = tf.math.reduce_sum(self.absatz)
-            self.summary_absatz_sum = tf.summary.scalar('Absatz', self.abschriften_sum)
-            self.fehlmenge_proz = tf.math.divide(self.fehlmenge_sum, self.absatz_sum)
-            self.summary_fehlmenge_proz = tf.summary.scalar('FehlmengeProzent', self.fehlmenge_proz)
-            self.abschrift_proz = tf.math.divide(self.abschriften_sum, self.actions_sum)
-            self.summary_abschrift_proz = tf.summary.scalar('AbschriftProzent', self.abschrift_proz)
+            self.v_abschriften = tf.placeholder(tf.float32, shape=None)
+            self.v_abschriften_sum = tf.math.reduce_sum(self.v_abschriften, name='PLAbschriften')
+            self.summary_abschriften_sum = tf.summary.scalar('Abschriften', self.v_abschriften_sum)
+            self.v_fehlmenge = tf.placeholder(tf.float32, shape=None, name='PLFehlmenge')
+            self.v_fehlmenge_sum = tf.math.reduce_sum(self.v_fehlmenge)
+            self.summary_fehlmenge_sum = tf.summary.scalar('Fehlmenge', self.v_fehlmenge_sum)
+            self.v_absatz = tf.placeholder(tf.float32, shape=None, name='PLAbsatz')
+            self.v_absatz_sum = tf.math.reduce_sum(self.v_absatz)
+            self.summary_absatz_sum = tf.summary.scalar('Absatz', self.v_absatz_sum)
+            self.v_fehlmenge_proz = tf.math.divide(self.v_fehlmenge_sum, self.v_absatz_sum)
+            self.summary_fehlmenge_proz = tf.summary.scalar('FehlmengeProzent', self.v_fehlmenge_proz)
+            self.v_abschrift_proz = tf.math.divide(self.v_abschriften_sum, self.v_actions_sum)
+            self.summary_abschrift_proz = tf.summary.scalar('AbschriftProzent', self.v_abschrift_proz)
 
         self.merged = tf.summary.merge_all()
 
@@ -236,11 +236,11 @@ class ProbeSimulation:
 
 # region Hyperparams
 state_size = np.array([6+3])
-time_steps = 3
+time_steps = 6
 action_size = 6
 learning_rate = 0.0001
 
-episodes = 2000
+episodes = 4000
 pretrain_episodes = 4
 batch_size = 32
 
@@ -251,14 +251,14 @@ epsilon_start = 1
 epsilon_stop = 0.01
 epsilon_decay = 0.9999
 
-gamma = 0.9
+gamma = 0.999
 
 memory_size = 70000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run21')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run21')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run30')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run30')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -328,13 +328,14 @@ if training:
         summary = agent.sess.run(
             agent.merged,
             feed_dict={
-                agent.rewards: simulation.statistics.rewards(),
-                agent.actions: simulation.statistics.actions(),
-                agent.bestand: simulation.statistics.bestand(),
-                agent.abschriften: simulation.statistics.abschrift(),
-                agent.fehlmenge: simulation.statistics.fehlmenge(),
-                agent.absatz: simulation.statistics.absaetze(),
-                agent.action_entropy: simulation.statistics.action_entropy()
+                agent.v_rewards: simulation.statistics.rewards(),
+                agent.v_actions: simulation.statistics.actions(),
+                agent.v_bestand: simulation.statistics.bestand(),
+                agent.v_abschriften: simulation.statistics.abschrift(),
+                agent.v_fehlmenge: simulation.statistics.fehlmenge(),
+                agent.v_absatz: simulation.statistics.absaetze(),
+                agent.v_epsilon: agent.epsilon,
+                agent.v_loss: agent.curr_loss
             }
         )
         agent.writer.add_summary(summary, episode)

@@ -26,6 +26,7 @@ class Statistics(object):
     def add(self, other):
         """
         Fügt einen neuen Statistikdatensatz für einen Tag hinzu.
+        self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften
         :param other: np.array([day, action, reward, bestand, fehlmenge, abschrift])
         :return:
         """
@@ -217,7 +218,7 @@ class StockSimulation(object):
                 self.bestand = 0
 
         self.bestand += action
-        self.bestands_frische = np.concatenate((self.bestands_frische, np.ones((action,) * self.placeholder_mhd)))
+        self.bestands_frische = np.concatenate((self.bestands_frische, np.ones((action,)) * self.placeholder_mhd))
 
         # Rewardberechnung
         # Abschrift
