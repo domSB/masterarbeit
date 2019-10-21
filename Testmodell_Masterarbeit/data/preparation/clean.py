@@ -234,7 +234,7 @@ def create_frame_from_raw_data(params):
     # region Reindexieren des Absatzes
     cal_cls = get_german_holiday_calendar('SL')
     cal = cal_cls()
-    sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Tue Fri Sat')
+    sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Thu Fri Sat')
     zeitraum = pd.date_range(
         pd.to_datetime('2018-01-01'),
         pd.to_datetime('2019-07-01') + pd.DateOffset(7),
