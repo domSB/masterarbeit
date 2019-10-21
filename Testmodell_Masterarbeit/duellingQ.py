@@ -115,8 +115,8 @@ class DDDQAgent:
             self.summary_reward_min = tf.summary.scalar('Minimum', self.rewards_min)
         with tf.name_scope('Modell'):
             self.model_summary = tf.Summary()
-            self.model_summary.value.add(tag='Gamma', simple_value=float(self.gamma))
-            self.model_summary.value.add(tag='Loss', simple_value=float(self.curr_loss))
+            self.summary_epsilon = tf.summary.scalar('Epsilon', self.epsilon)
+            self.summary_loss = tf.summary.scalar('Loss', self.curr_loss)
         with tf.name_scope('Aktionen'):
             self.actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
             self.action_histo = tf.summary.histogram('Aktionen', self.actions)
@@ -240,7 +240,7 @@ time_steps = 3
 action_size = 6
 learning_rate = 0.0001
 
-episodes = 1000
+episodes = 50
 pretrain_episodes = 4
 batch_size = 32
 
@@ -257,8 +257,8 @@ memory_size = 70000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run19')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run19')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run20')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run20')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
