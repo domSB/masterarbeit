@@ -247,7 +247,7 @@ max_tau = learn_step * 1000
 
 epsilon_start = 1
 epsilon_stop = 0.03
-epsilon_decay = 0.99999
+epsilon_decay = 0.9999
 
 gamma = 0.9
 
@@ -255,8 +255,8 @@ memory_size = 70000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run17')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run17')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run19')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run19')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
