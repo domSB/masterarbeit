@@ -21,6 +21,8 @@ class DDDQNetwork:
         with tf.variable_scope(self.name):
             self.inputs_ = tf.placeholder(tf.float32, [None, _time_steps, *_state_size], name='Inputs')
 
+            self.is_weights = tf.placeholder(tf.float32, [None, 1], name='IS_Weights')
+
             self.actions_ = tf.placeholder(tf.float32, [None, _action_size], name='Actions')
 
             self.target_q = tf.placeholder(tf.float32, [None], name='Target')
@@ -66,20 +68,107 @@ class DDDQNetwork:
 
             self.q = tf.reduce_sum(tf.multiply(self.output, self.actions_), axis=1)
 
-            self.loss = tf.reduce_mean(tf.squared_difference(self.target_q, self.q))
+            self.absolute_errors = tf.abs(self.target_q - self.q)
+
+            self.loss = tf.reduce_mean(self.is_weights * tf.squared_difference(self.target_q, self.q))
 
             self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 
 class Memory:
-    def __init__(self, _memory_size):
-        self.memory = deque(maxlen=_memory_size)
+    per_epsilon = 0.01
+    per_alpha = 0.6
+    per_beta = 0.4
+    per_beta_increment = 0.001
+    abs_error_clip = 1.
+
+    def __init__(self, capacity):
+        self.tree = SumTree(capacity)
 
     def store(self, _experience):
-        self.memory.append(_experience)
+        max_priority = np.max(self.tree.tree[-self.tree.capacity:])
+        if max_priority == 0:
+            max_priority = self.abs_error_clip
 
-    def sample(self, _batch_size):
-        return random.sample(self.memory, _batch_size)
+        self.tree.add(max_priority, experience)
+
+    def sample(self, n):
+        memory_b = []
+        b_idx, b_is_weights = np.empty((n,), dtype=np.int32), np.empty((n, 1), dtype=np.float32)
+
+        priority_segment = self.tree.total_priority / n
+        self.per_beta = np.min([1., self.per_beta + self.per_beta_increment])
+
+        p_min = np.min(self.tree.tree[-self.tree.capacity:]) / self.tree.total_priority
+        max_weight = (p_min * n) ** (-self.per_beta)
+        for k in range(n):
+            a, b = priority_segment * k, priority_segment * (k + 1)
+            value = np.random.uniform(a, b)
+            index, priority, data = self.tree.get_leaf(value)
+
+            sampling_probabilities = priority / self.tree.total_priority
+            b_is_weights[k, 0] = np.power(n * sampling_probabilities, -self.per_beta) / max_weight
+            b_idx[k] = index
+            _experience = data
+            memory_b.append(_experience)
+        return b_idx, memory_b, b_is_weights
+
+    def batch_update(self, tree_idx, abs_errors):
+        abs_errors += self.per_epsilon
+        clipped_errors = np.minimum(abs_errors, self.abs_error_clip)
+        ps = np.power(clipped_errors, self.per_alpha)
+
+        for ti, p in zip(tree_idx, ps):
+            self.tree.update(ti, p)
+
+
+class SumTree:
+    """
+    SumTree als Laufzeit optimierte Alternative zu einem sortierten Replaybuffer.
+    Implementierung nach Thomas Simonini & Morvan Zhou.
+    """
+    data_pointer = 0
+
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.tree = np.zeros(2 * capacity - 1)
+        self.data = np.zeros(capacity, dtype=object)
+
+    def add(self, priority, data):
+        tree_index = self.data_pointer + self.capacity - 1
+        self.data[self.data_pointer] = data
+        self.update(tree_index, priority)
+        self.data_pointer += 1
+        if self.data_pointer >= self.capacity:  # mit neuen Einträgen überschreiben
+            self.data_pointer = 0
+
+    def update(self, tree_index, priority):
+        change = priority - self.tree[tree_index]
+        self.tree[tree_index] = priority
+        while tree_index != 0:
+            tree_index = (tree_index - 1) // 2
+            self.tree[tree_index] += change
+
+    def get_leaf(self, v):
+        parent_index = 0
+        while True:
+            left_child_index = 2 * parent_index + 1
+            right_child_index = left_child_index + 1
+            if left_child_index >= len(self.tree):
+                leaf_index = parent_index
+                break
+            else:
+                if v <= self.tree[left_child_index]:
+                    parent_index = left_child_index
+                else:
+                    v -= self.tree[left_child_index]
+                    parent_index = right_child_index
+        data_index = leaf_index - self.capacity + 1
+        return leaf_index, self.tree[leaf_index], self.data[data_index]
+
+    @property
+    def total_priority(self):
+        return self.tree[0]
 
 
 class Experience:
@@ -104,7 +193,7 @@ class DDDQAgent:
         self.possible_actions = np.identity(_action_size, dtype=int).tolist()
         self.dq_network = DDDQNetwork(state_size, _time_steps, _action_size, learning_rate, name='DQNetwork')
         self.target_network = DDDQNetwork(state_size, _time_steps, _action_size, learning_rate, name='TargetNetwork')
-        self.game_buffer = Memory(memory_size)
+        self.memory = Memory(memory_size)
         self.sess.run(tf.global_variables_initializer())
         self.update_target()
         self.writer = tf.summary.FileWriter(_log_dir, self.sess.graph)
@@ -170,10 +259,10 @@ class DDDQAgent:
         self.sess.run(update_ops)
 
     def remember(self, _experience):
-        self.game_buffer.store(_experience)
+        self.memory.store(_experience)
 
     def train(self):
-        batch = self.game_buffer.sample(self.batch_size)
+        tree_idx, batch, is_weights_batch = self.memory.sample(self.batch_size)
         state_batch = np.array([exp.state for exp in batch])
         reward_batch = np.array([exp.reward for exp in batch])
         done_batch = np.array([exp.done for exp in batch])
@@ -205,14 +294,16 @@ class DDDQAgent:
                 target_qs_batch.append(target)
 
         target_qs_batch = np.array(target_qs_batch)
-        _, loss, = self.sess.run(
-            [self.dq_network.optimizer, self.dq_network.loss],
+        _, loss, absolute_errors = self.sess.run(
+            [self.dq_network.optimizer, self.dq_network.loss, self.dq_network.absolute_errors],
             feed_dict={
                 self.dq_network.inputs_: state_batch,
                 self.dq_network.target_q: target_qs_batch,
-                self.dq_network.actions_: action_batch
+                self.dq_network.actions_: action_batch,
+                self.dq_network.is_weights: is_weights_batch
             }
         )
+        self.memory.batch_update(tree_idx, absolute_errors)
         self.curr_loss = loss
 
 
@@ -257,8 +348,8 @@ memory_size = 70000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run30')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run30')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run31')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run31')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
