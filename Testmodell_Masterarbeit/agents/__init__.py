@@ -111,7 +111,7 @@ class Predictor(object):
 
     def predict(self, x):
         y = self.model.predict(x)
-        y = np.array(y).reshape(-1, 6, 16)
+        y = np.swapaxes(np.array(y), 0, 1)
         return y
 
 

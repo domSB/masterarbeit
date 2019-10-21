@@ -40,21 +40,49 @@ warenausgang = pd.read_csv(
 )
 warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
 warenausgang = warenausgang[warenausgang.Belegtyp.isin(['UMSATZ_AKTION', 'UMSATZ_SCANNING'])]
+warenausgang = warenausgang.groupby(['Markt', 'Artikel', 'Datum']).sum()
+warenausgang.reset_index(inplace=True)
 # endregion
 
+# region Preise
+preise = pd.read_csv(
+    os.path.join(simulation_params['InputDirectory'], '0 Preise.Markt.csv'),
+    header=1,
+    names=['Preis', 'Artikel', 'Datum']
+)
+# endregion
 # region Testschleife
-for i in range(5):
+absatz = np.array([0])
+for i in range(200):
     states = []
     state, info = simulation.reset()
-    print('Artikel:', info['Artikel'], '\nMarkt:', info['Markt'])
-    artikel, markt = info['Artikel'], inv_markt_index[info['Markt']]
-    relevanter_absatz = warenausgang[(warenausgang.Artikel == artikel) & (warenausgang.Markt == markt)]
-    states.append(state)
+    # print('Artikel:', info['Artikel'], '\tMarkt:', info['Markt'])
+    # artikel, markt = info['Artikel'], inv_markt_index[info['Markt']]
+    # relevanter_absatz = warenausgang[(warenausgang.Artikel == artikel) & (warenausgang.Markt == markt)]
+    # korrigierter_absatz = relevanter_absatz[relevanter_absatz.Datum.dt.weekday != 3]
+    # states.append(state)
     done = False
     while not done:
-        reward, done, new_state = simulation.make_action(0)
+        reward, done, new_state = simulation.make_action(2)
         states.append(new_state)
-    # endregion
-    print('Laut Simulation:', simulation.statistics.absaetze().sum())
-    print('Laut Warenausgang:', relevanter_absatz['Menge'].sum())
-    print('Datum', relevanter_absatz['Datum'].min(), relevanter_absatz['Datum'].max())
+    absatz = np.concatenate((absatz, simulation.statistics.abschrift()), axis=0)
+    # print(simulation.statistics.absaetze().sum(), 'Laut Simulation')
+    # print(relevanter_absatz['Menge'].sum(), 'Laut relevantem Warenausgang')
+    # print(korrigierter_absatz['Menge'].sum(), 'Laut korrigiertem Warenausgang')
+    # arr = simulation.statistics.absaetze()
+    # sim = arr[~np.equal(arr, 0)]
+    # tru = korrigierter_absatz[korrigierter_absatz.Datum < '2019-06-01'].Menge.to_numpy()
+    # print(sim.shape)
+    # print(korrigierter_absatz.shape)
+    # plt.bar(np.array(list(range(1, len(sim) + 1)))-0.25, sim, width=0.5, label='Simulation')
+    # plt.bar(np.array(list(range(1, len(tru) + 1)))+0.25, tru, width=0.5, label='True')
+    # plt.show()
+    # print(arr[~np.equal(arr, 0)][-10:])
+    # print(korrigierter_absatz.tail(10)['Menge'].to_numpy())
+    # print(korrigierter_absatz.tail(10)['Datum'])
+absatz = np.array(absatz)
+zuwachs = absatz.cumsum()
+plt.plot(list(range(0, len(zuwachs))), zuwachs)
+plt.title(np.mean(absatz))
+plt.show()
+# endregion
