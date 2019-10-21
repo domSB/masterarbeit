@@ -122,6 +122,8 @@ class DDDQAgent:
             self.action_histo = tf.summary.histogram('Aktionen', self.actions)
             self.actions_sum = tf.math.reduce_sum(self.actions)
             self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.actions_sum)
+            self.action_entropy = tf.placeholder(tf.float32, shape=(1,), name='PLActionEntropy')
+            self.summary_action_entropy = tf.summary.scalar(tf.float32, self.action_entropy, name='ActionEntropy')
         with tf.name_scope('Bestand'):
             self.bestand = tf.placeholder(tf.float32, shape=None, name='Bestand')
             self.bestand_max = tf.math.reduce_max(self.bestand)
@@ -129,13 +131,13 @@ class DDDQAgent:
             self.bestand_mean = tf.math.reduce_mean(self.bestand)
             self.summary_bestand_mean = tf.summary.scalar('Durchschnitt', self.bestand_mean)
         with tf.name_scope('Bewegungen'):
-            self.abschriften = tf.placeholder(tf.float32, shape=None, name='Abschriften')
+            self.abschriften = tf.placeholder(tf.float32, shape=None, name='PLAbschriften')
             self.abschriften_sum = tf.math.reduce_sum(self.abschriften)
             self.summary_abschriften_sum = tf.summary.scalar('Abschriften', self.abschriften_sum)
-            self.fehlmenge = tf.placeholder(tf.float32, shape=None, name='Fehlmenge')
+            self.fehlmenge = tf.placeholder(tf.float32, shape=None, name='PLFehlmenge')
             self.fehlmenge_sum = tf.math.reduce_sum(self.fehlmenge)
             self.summary_fehlmenge_sum = tf.summary.scalar('Fehlmenge', self.fehlmenge_sum)
-            self.absatz = tf.placeholder(tf.float32, shape=None, name='Absatz')
+            self.absatz = tf.placeholder(tf.float32, shape=None, name='PLAbsatz')
             self.absatz_sum = tf.math.reduce_sum(self.absatz)
             self.summary_absatz_sum = tf.summary.scalar('Absatz', self.abschriften_sum)
             self.fehlmenge_proz = tf.math.divide(self.fehlmenge_sum, self.absatz_sum)
@@ -331,7 +333,8 @@ if training:
                 agent.bestand: simulation.statistics.bestand(),
                 agent.abschriften: simulation.statistics.abschrift(),
                 agent.fehlmenge: simulation.statistics.fehlmenge(),
-                agent.absatz: simulation.statistics.absaetze()
+                agent.absatz: simulation.statistics.absaetze(),
+                agent.action_entropy: simulation.statistics.action_entropy()
             }
         )
         agent.writer.add_summary(summary, episode)

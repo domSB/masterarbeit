@@ -1,5 +1,9 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+
+from scipy.stats import entropy
+
 from agents import Predictor
 
 
@@ -62,6 +66,17 @@ class Statistics(object):
         if artikel is None:
             artikel = self.artikel
         return self.data[artikel][:, 6]
+
+    def action_entropy(self, artikel=None):
+        if artikel is None:
+            artikel = self.artikel
+            a_values, a_count = np.unique(self.actions(artikel), return_counts=True)
+            abs_values, abs_count = np.unique(self.absaetze(artikel), return_counts=True)
+            actions_df = pd.DataFrame(data={'Actions': a_count}, index=a_values)
+            absatz_df = pd.DataFrame(data={'Absatz': abs_count}, index=abs_values)
+            probas = pd.merge(actions_df, absatz_df, how='outer', left_index=True, right_index=True)
+            probas.fillna(0, inplace=True)
+            return entropy(probas.Actions, qk=probas.Absatz)
 
     def plot(self, artikel):
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, sharex=True)

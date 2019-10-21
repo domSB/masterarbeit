@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from scipy.stats import entropy
+
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
 from simulation import StockSimulation
@@ -52,37 +54,30 @@ preise = pd.read_csv(
 )
 # endregion
 # region Testschleife
-absatz = np.array([0])
-for i in range(200):
+
+for i in range(50):
     states = []
-    state, info = simulation.reset()
+    new_state, info = simulation.reset()
     # print('Artikel:', info['Artikel'], '\tMarkt:', info['Markt'])
     # artikel, markt = info['Artikel'], inv_markt_index[info['Markt']]
     # relevanter_absatz = warenausgang[(warenausgang.Artikel == artikel) & (warenausgang.Markt == markt)]
     # korrigierter_absatz = relevanter_absatz[relevanter_absatz.Datum.dt.weekday != 3]
     # states.append(state)
+    states.append(new_state)
+    rewards = []
     done = False
     while not done:
-        reward, done, new_state = simulation.make_action(2)
+        reward, done, new_state = simulation.make_action(int(new_state[1]))
         states.append(new_state)
-    absatz = np.concatenate((absatz, simulation.statistics.abschrift()), axis=0)
-    # print(simulation.statistics.absaetze().sum(), 'Laut Simulation')
-    # print(relevanter_absatz['Menge'].sum(), 'Laut relevantem Warenausgang')
-    # print(korrigierter_absatz['Menge'].sum(), 'Laut korrigiertem Warenausgang')
-    # arr = simulation.statistics.absaetze()
-    # sim = arr[~np.equal(arr, 0)]
-    # tru = korrigierter_absatz[korrigierter_absatz.Datum < '2019-06-01'].Menge.to_numpy()
-    # print(sim.shape)
-    # print(korrigierter_absatz.shape)
-    # plt.bar(np.array(list(range(1, len(sim) + 1)))-0.25, sim, width=0.5, label='Simulation')
-    # plt.bar(np.array(list(range(1, len(tru) + 1)))+0.25, tru, width=0.5, label='True')
-    # plt.show()
-    # print(arr[~np.equal(arr, 0)][-10:])
-    # print(korrigierter_absatz.tail(10)['Menge'].to_numpy())
-    # print(korrigierter_absatz.tail(10)['Datum'])
-absatz = np.array(absatz)
-zuwachs = absatz.cumsum()
-plt.plot(list(range(0, len(zuwachs))), zuwachs)
-plt.title(np.mean(absatz))
-plt.show()
+        rewards.append(reward)
+    a_values, a_count = np.unique(simulation.statistics.actions(), return_counts=True)
+    abs_values, abs_count = np.unique(simulation.statistics.absaetze(), return_counts=True)
+    actions_df = pd.DataFrame(data={'Actions': a_count}, index=a_values)
+    absatz_df = pd.DataFrame(data={'Absatz': abs_count}, index=abs_values)
+    probas = pd.merge(actions_df, absatz_df, how='outer', left_index=True, right_index=True)
+    probas.fillna(0, inplace=True)
+    print('Action Entropy:', entropy(probas.Actions, qk=probas.Absatz))
+    print(np.sum(rewards))
+
+
 # endregion
