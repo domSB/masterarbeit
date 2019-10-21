@@ -55,27 +55,27 @@ simulation = StockSimulation(train_data, predictor_path)
 # )
 # endregion
 # region Testschleife
-x = []
-y = []
-for i in range(3000):
-    states = []
-    new_state, info = simulation.reset()
-    artikel, markt = info['Artikel'], inv_markt_index[info['Markt']]
-    # relevanter_absatz = warenausgang[(warenausgang.Artikel == artikel) & (warenausgang.Markt == markt)]
-    # korrigierter_absatz = relevanter_absatz[relevanter_absatz.Datum.dt.weekday != 3]
-    epsilon = i/3000
-    rewards = []
-    done = False
-    while not done:
-        if np.random.random() > epsilon:
-            action = np.random.choice(6)
-        else:
-            action = int(new_state[1])
-        reward, done, new_state = simulation.make_action(action)
-        states.append(new_state)
-        rewards.append(reward)
-    x.append(epsilon)
-    y.append(np.sum(rewards))
+# x = []
+# y = []
+# for i in range(3000):
+#     states = []
+#     new_state, info = simulation.reset()
+#     artikel, markt = info['Artikel'], inv_markt_index[info['Markt']]
+#     # relevanter_absatz = warenausgang[(warenausgang.Artikel == artikel) & (warenausgang.Markt == markt)]
+#     # korrigierter_absatz = relevanter_absatz[relevanter_absatz.Datum.dt.weekday != 3]
+#     epsilon = i/3000
+#     rewards = []
+#     done = False
+#     while not done:
+#         if np.random.random() > epsilon:
+#             action = np.random.choice(6)
+#         else:
+#             action = int(new_state[1])
+#         reward, done, new_state = simulation.make_action(action)
+#         states.append(new_state)
+#         rewards.append(reward)
+#     x.append(epsilon)
+#     y.append(np.sum(rewards))
     # a_values, a_count = np.unique(simulation.statistics.actions(), return_counts=True)
     # abs_values, abs_count = np.unique(simulation.statistics.absaetze(), return_counts=True)
     # actions_df = pd.DataFrame(data={'Actions': a_count}, index=a_values)
@@ -84,13 +84,13 @@ for i in range(3000):
     # probas.fillna(0, inplace=True)
     # print('Action Entropy:', entropy(probas.Actions, qk=probas.Absatz))
     # print(np.sum(rewards))
-
-plt.style.use('ggplot')
-plt.plot(x, y, '.')
-plt.ylabel('Gesamtbelohnung')
-plt.xlabel('1-Epsilon')
-plt.title('Belohnungsentwicklung')
-plt.show()
+#
+# plt.style.use('ggplot')
+# plt.plot(x, y, '.')
+# plt.ylabel('Gesamtbelohnung')
+# plt.xlabel('1-Epsilon')
+# plt.title('Belohnungsentwicklung')
+# plt.show()
 # endregion
 
 # absatz_sammlung = defaultdict(list)

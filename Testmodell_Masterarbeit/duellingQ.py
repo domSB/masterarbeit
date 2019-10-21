@@ -31,7 +31,7 @@ class DDDQNetwork:
                 units=64
             )(self.inputs_)
             self.dense = tf.keras.layers.Dense(
-                units=64,
+                units=128,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='EingangsDense'
@@ -208,6 +208,8 @@ class DDDQAgent:
             self.summary_epsilon = tf.summary.scalar('Epsilon', self.v_epsilon)
             self.v_loss = tf.placeholder(tf.float32, shape=None, name='Loss')
             self.summary_loss = tf.summary.scalar('Loss', self.v_loss)
+            self.v_beta = tf.placeholder(tf.float32, shape=None, name='Beta')
+            self.summary_beta = tf.summary.scalar('Beta', self.v_beta)
         with tf.name_scope('Aktionen'):
             self.v_actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
             self.action_histo = tf.summary.histogram('Aktionen', self.v_actions)
@@ -326,7 +328,7 @@ class ProbeSimulation:
 
 
 # region Hyperparams
-state_size = np.array([6+3])
+state_size = np.array([6+6+3])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 time_steps = 6
 action_size = 6
 learning_rate = 0.0001
@@ -344,12 +346,12 @@ epsilon_decay = 0.9999
 
 gamma = 0.999
 
-memory_size = 70000
+memory_size = 100000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run31')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run31')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run33')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run33')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -426,7 +428,8 @@ if training:
                 agent.v_fehlmenge: simulation.statistics.fehlmenge(),
                 agent.v_absatz: simulation.statistics.absaetze(),
                 agent.v_epsilon: agent.epsilon,
-                agent.v_loss: agent.curr_loss
+                agent.v_loss: agent.curr_loss,
+                agent.v_beta: agent.memory.per_beta
             }
         )
         agent.writer.add_summary(summary, episode)
