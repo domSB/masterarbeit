@@ -151,14 +151,15 @@ class StockSimulation(object):
             idx = self.split_helper[:, 0] + self.split_helper[:, 1] * 1000000
         """
         if artikel_markt_tupel:
-            id_wahl = artikel_markt_tupel[0] + artikel_markt_tupel[1] * 1000000
+            name_wahl = artikel_markt_tupel[0] + artikel_markt_tupel[1] * 1000000
             self.aktueller_artikel = artikel_markt_tupel[0]
             self.aktueller_markt = artikel_markt_tupel[1]
+            ids_wahl = np.argwhere(np.isin(self.ids, [name_wahl])).reshape(-1)
         else:
-            id_wahl = np.random.choice(len(self.possibles))
-            self.aktueller_markt = int('0' + str(self.possibles[id_wahl])[:-6])
-            self.aktueller_artikel = int(str(self.possibles[id_wahl])[-6:])
-        ids_wahl = np.argwhere(np.isin(self.ids, self.possibles[id_wahl])).reshape(-1)
+            position_wahl = np.random.choice(len(self.possibles))
+            self.aktueller_markt = int('0' + str(self.possibles[position_wahl])[:-6])
+            self.aktueller_artikel = int(str(self.possibles[position_wahl])[-6:])
+            ids_wahl = np.argwhere(np.isin(self.ids, self.possibles[position_wahl])).reshape(-1)
         self.static_state = self.stat[ids_wahl]
         self.dynamic_state = self.dyn[ids_wahl]
         self.predicted_state = self.predictor.predict(

@@ -27,10 +27,10 @@ class DDDQNetwork:
             self.target_q = tf.placeholder(tf.float32, [None], name='Target')
 
             self.lstm = tf.keras.layers.LSTM(
-                units=64
+                units=32
             )(self.inputs_)
             self.dense = tf.keras.layers.Dense(
-                units=128,
+                units=64,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='EingangsDense'
@@ -194,7 +194,7 @@ class DDDQAgent:
         self.target_network = DDDQNetwork(state_size, _time_steps, _action_size, learning_rate, name='TargetNetwork')
         self.memory = Memory(memory_size)
         self.sess.run(tf.global_variables_initializer())
-        self.update_target()
+        # self.update_target()
         self.writer = tf.summary.FileWriter(_log_dir, self.sess.graph)
         with tf.name_scope('Belohnungen'):
             self.v_rewards = tf.placeholder(tf.float32, shape=None, name='Belohnungen')
@@ -322,11 +322,11 @@ episodes = 500
 pretrain_episodes = int(episodes / 300)  # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
 batch_size = 32
 
-learn_step = 8
-max_tau = learn_step * 1000
+learn_step = 2
+max_tau = learn_step * 200
 
 epsilon_start = 1
-epsilon_stop = 0.01
+epsilon_stop = 0.05
 epsilon_decay = 0.9999
 
 gamma = 0.999
