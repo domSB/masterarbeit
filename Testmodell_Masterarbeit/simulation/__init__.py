@@ -132,7 +132,7 @@ class StockSimulation(object):
     def state(self):
         state = np.concatenate(
             (
-                self.static_state[0, :],
+                # self.static_state[0, :],
                 self.dynamic_state[self.vergangene_tage - 1, 0, -9:],
                 np.argmax(self.predicted_state[self.vergangene_tage], axis=1),
                 np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
@@ -263,3 +263,21 @@ def test(simulation, lenght):
                 print("Feiertag")
                 print(simulation.aktueller_tag)
         print(' %s Tage durchlaufen' % k)
+
+
+class ProbeSimulation:
+    def __init__(self):
+        self.step = 0
+
+    @property
+    def state(self):
+        return {'PredictedState': np.random.random((6, 16)), 'Agentstate': np.random.random((3,))}
+
+    def reset(self):
+        self.step = 0
+        return self.state, 'Wir sind im Probelauf'
+
+    def make_action(self, _action):
+        rew = np.argmax(_action) * 0.3
+        self.step += 1
+        return rew, self.step >= 10, self.state

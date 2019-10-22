@@ -308,32 +308,18 @@ class DDDQAgent:
         self.curr_loss = loss
 
 
-class ProbeSimulation:
-    def __init__(self):
-        self.step = 0
-
-    @property
-    def state(self):
-        return {'PredictedState': np.random.random((6, 16)), 'Agentstate': np.random.random((3,))}
-
-    def reset(self):
-        self.step = 0
-        return self.state, 'Wir sind im Probelauf'
-
-    def make_action(self, _action):
-        rew = np.argmax(_action) * 0.3
-        self.step += 1
-        return rew, self.step >= 10, self.state
+def name_run(number):
+    return 'Run' + str(number)
 
 
 # region Hyperparams
-state_size = np.array([47+9+6+3])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+state_size = np.array([9+6+3])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 time_steps = 6
 action_size = 6
 learning_rate = 0.0001
 
-episodes = 4000
-pretrain_episodes = 4
+episodes = 500
+pretrain_episodes = int(episodes / 300)  # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
 batch_size = 32
 
 learn_step = 8
@@ -347,10 +333,17 @@ gamma = 0.999
 
 memory_size = 10000
 
+test_artikel = 18506
+test_markt = 5
+
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run35')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run35')
+run_id = 30
+
+while os.path.exists(os.path.join('files', 'models', 'DDDQN', name_run(run_id))):
+    run_id += 1
+model_path = os.path.join('files', 'models', 'DDDQN', name_run(run_id))
+log_dir = os.path.join('files', 'logging', 'DDDQN', name_run(run_id))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -362,24 +355,30 @@ simulation_params = {
 predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'weights.30-0.21.hdf5')
 # endregion
 
-if not os.path.exists(model_path):
-    os.makedirs(model_path)
-
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-
 pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
 simulation = StockSimulation(train_data, predictor_path)
 
 if training:
+    # region Initialisieren
     session = tf.Session()
-    # simulation = ProbeSimulation(state_size)
-    agent = DDDQAgent(epsilon_start, epsilon_stop, epsilon_decay, batch_size, action_size, time_steps, gamma, session, log_dir)
+    agent = DDDQAgent(
+        epsilon_start,
+        epsilon_stop,
+        epsilon_decay,
+        batch_size,
+        action_size,
+        time_steps,
+        gamma,
+        session,
+        log_dir
+    )
+    # endregion
+    # region ReplayBuffer befüllen
     saver = tf.train.Saver()
     for episode in range(pretrain_episodes):
-        state, info = simulation.reset()
+        state, info = simulation.reset((test_artikel, test_markt))
         recurrent_state = deque(maxlen=time_steps)
         for i in range(time_steps):
             recurrent_state.append(state)
@@ -392,10 +391,12 @@ if training:
             experience = Experience(recurrent_state, reward, done, next_recurrent_state, action)
             agent.remember(experience)
             recurrent_state = next_recurrent_state
+    # endregion
     tau = 0
     for episode in range(episodes):
+        # region Training
         step = 0
-        state, info = simulation.reset()
+        state, info = simulation.reset((test_artikel, test_markt))
         recurrent_state = deque(maxlen=time_steps)
         for i in range(time_steps):
             recurrent_state.append(state)
@@ -417,6 +418,8 @@ if training:
             if tau > max_tau:
                 agent.update_target()
                 tau = 0
+        # endregion
+        # region Lerninformationen
         summary = agent.sess.run(
             agent.merged,
             feed_dict={
@@ -436,6 +439,7 @@ if training:
         if episode % 25 == 0:
             print('Finished Episode: {epi} @ Epsilon {epsi}'.format(epi=episode, epsi=agent.epsilon))
             save_path = saver.save(agent.sess, os.path.join(model_path, 'model_{episode}.ckpt').format(episode=episode))
+        # endregion
     session.close()
 
 
