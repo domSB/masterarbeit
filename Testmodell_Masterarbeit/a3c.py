@@ -2,12 +2,11 @@ import tensorflow as tf
 import numpy as np
 import scipy.signal
 import os
-import multiprocessing
 import threading
 from time import sleep
 from simulation import StockSimulation
-from agents import Predictor
 from data.access import DataPipeLine
+from data.preparation import split_np_arrays
 
 
 def normalized_columns_initializer(std=1.0):
@@ -50,30 +49,27 @@ class Environment:
 class A3CNetwork:
     def __init__(self, scope, _trainer):
         with tf.variable_scope(scope):
-            self.inputs = tf.placeholder(shape=[None, 3, 3], dtype=tf.float32)
-            self.hidden = tf.contrib.slim.fully_connected(
-                tf.contrib.slim.flatten(self.inputs),
-                16,
-                activation_fn=tf.nn.relu
-            )
-            self.policy = tf.contrib.slim.fully_connected(
-                self.hidden,
-                4,
-                activation_fn=tf.nn.softmax,
-                weights_initializer=normalized_columns_initializer(0.01),
-                biases_initializer=None
-            )
-            self.value = tf.contrib.slim.fully_connected(
-                self.hidden,
+            self.inputs = tf.placeholder(shape=[None, 65], dtype=tf.float32)
+            self.hidden = tf.keras.layers.Dense(
+                256,
+                activation=tf.keras.activations.elu
+            )(self.inputs)
+            self.policy = tf.keras.layers.Dense(
+                6,
+                activation=tf.keras.activations.softmax,
+                kernel_initializer=normalized_columns_initializer(0.01),
+                bias_initializer=None
+            )(self.hidden)
+            self.value = tf.keras.layers.Dense(
                 1,
-                activation_fn=None,
-                weights_initializer=normalized_columns_initializer(1.0),
-                biases_initializer=None
-            )
+                activation=None,
+                kernel_initializer=normalized_columns_initializer(1.0),
+                bias_initializer=None
+            )(self.hidden)
 
         if scope != 'global':
             self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
-            self.actions_onehot = tf.one_hot(self.actions, 4, dtype=tf.float32)
+            self.actions_onehot = tf.one_hot(self.actions, 6, dtype=tf.float32)
             self.target_v = tf.placeholder(shape=[None], dtype=tf.float32)
             self.advantages = tf.placeholder(shape=[None], dtype=tf.float32)
 
@@ -97,7 +93,7 @@ class A3CNetwork:
 
 
 class Worker:
-    def __init__(self, env, name, _trainer, _model_path, _global_episodes):
+    def __init__(self, env, name, _trainer, _model_path, _logging_path, _global_episodes):
         self.name = "worker_" + str(name)
         self.number = name
         self.model_path = _model_path
@@ -107,7 +103,7 @@ class Worker:
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_mean_values = []
-        self.summary_writer = tf.summary.FileWriter("train_" + str(self.number))
+        self.summary_writer = tf.summary.FileWriter(os.path.join(_logging_path, "train_" + str(self.number)))
 
         # Create the local copy of the network and the tensorflow op to copy global paramters to local network
         self.local_AC = A3CNetwork(self.name, _trainer)
@@ -167,7 +163,7 @@ class Worker:
                 episode_reward = 0
                 episode_step_count = 0
                 done = False
-                state = self.env.reset()
+                state, info = self.env.reset()
                 episode_states.append(state)
                 while not done:
                     # Take an action using probabilities from policy network output.
@@ -177,7 +173,7 @@ class Worker:
                     a = np.random.choice(a_dist[0], p=a_dist[0])
                     a = np.argmax(a_dist == a)
 
-                    next_state, reward, done = self.env.make_action(a)
+                    reward, done, next_state = self.env.make_action(a)
                     episode_states.append(next_state)
 
                     episode_buffer.append([state, a, reward, next_state, done, v[0, 0]])
@@ -236,10 +232,12 @@ class Worker:
                     _sess.run(self.increment)
                 episode_count += 1
 
+
 # region Hyperparameter
 gamma = .99  # discount rate for advantage estimation and reward discounting
 load_model = False
-model_path = './files/models/A3C/1'
+model_path = os.path.join('files', 'models', 'A3C', '5')
+logging_path = os.path.join('files', 'logging', 'A3C', '5')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -247,25 +245,30 @@ simulation_params = {
     'ZielWarengruppen': [71],
     'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
+
+predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'weights.30-0.21.hdf5')
+# endregion
+
+pipeline = DataPipeLine(**simulation_params)
+simulation_data = pipeline.get_regression_data()
+train_data, test_data = split_np_arrays(*simulation_data, percentage=0.01)
 # endregion
 tf.reset_default_graph()
 
 if not os.path.exists(model_path):
     os.makedirs(model_path)
-
-pipeline = DataPipeLine(**simulation_params)
-simulation_data = pipeline.get_regression_data()
+    os.makedirs(logging_path)
 
 with tf.device("/cpu:0"):
     global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
     trainer = tf.train.AdamOptimizer(learning_rate=1e-4)
     master_network = A3CNetwork('global', None)
     # num_workers = multiprocessing.cpu_count()
-    num_workers = 2  # Arbeitsspeicher Restriktion
+    num_workers = 8  # Arbeitsspeicher Restriktion
     workers = []
     # Create worker classes
     for i in range(num_workers):
-        workers.append(Worker(StockSimulation(simulation_data), i, trainer, model_path, global_episodes))
+        workers.append(Worker(StockSimulation(train_data, predictor_path), i, trainer, model_path, logging_path, global_episodes))
     saver = tf.train.Saver(max_to_keep=5)
 
 with tf.Session() as sess:
@@ -284,7 +287,10 @@ with tf.Session() as sess:
         worker_work = lambda: worker.work(gamma, sess, coord, saver)
         t = threading.Thread(target=worker_work)
         t.start()
-        sleep(0.5)
+        sleep(2)
         worker_threads.append(t)
     coord.join(worker_threads)
+    eingabe = input('Fertig? (j/n)')
+    if eingabe == 'j':
+        coord.request_stop()
 

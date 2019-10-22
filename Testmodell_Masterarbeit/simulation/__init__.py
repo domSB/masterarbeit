@@ -19,8 +19,8 @@ class Statistics(object):
         :return:
         """
         self.artikel = artikel
-        if artikel in self.data.keys():
-            print('|', end='')
+        # if artikel in self.data.keys():
+        #     print('|', end='')
         self.data[self.artikel] = np.zeros((0, 7))
 
     def add(self, other):
@@ -128,12 +128,13 @@ class StockSimulation(object):
             static_state_shape=simulation_data[2].shape[1]
         )
         self.predictor.load_from_weights(_predictor_path)
+        self.predictor.model._make_predict_function()
 
     @property
     def state(self):
         state = np.concatenate(
             (
-                # self.static_state[0, :],
+                self.static_state[0, :],
                 self.dynamic_state[self.vergangene_tage - 1, 0, -9:],
                 np.argmax(self.predicted_state[self.vergangene_tage], axis=1),
                 np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
@@ -155,7 +156,7 @@ class StockSimulation(object):
             name_wahl = artikel_markt_tupel[0] + artikel_markt_tupel[1] * 1000000
             self.aktueller_artikel = artikel_markt_tupel[0]
             self.aktueller_markt = artikel_markt_tupel[1]
-            ids_wahl = np.argwhere(np.isin(self.ids, np.array([name_wahl]))).reshape(-1)
+            ids_wahl = np.argwhere(np.isin(self.ids, [name_wahl])).reshape(-1)
             if len(ids_wahl) == 0:
                 raise AssertionError('Keine Ids mit diesen Eigenschaften {name}'.format(name=name_wahl))
         else:
