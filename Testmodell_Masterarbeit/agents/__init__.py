@@ -600,8 +600,7 @@ class DDDQAgent:
                 feed_dict={
                     self.dq_network.inputs_: _state.reshape((1, *_state.shape))
                 })
-            choice = np.argmax(qs_of_state)
-            _action = self.possible_actions[int(choice)]
+            _action = np.argmax(qs_of_state)
         return _action
 
     def update_target(self):

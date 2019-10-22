@@ -110,7 +110,7 @@ if training:
             step += 1
             tau += 1
             action = agent.act(np.array(recurrent_state))
-            reward, done, next_state = simulation.make_action(np.argmax(action))
+            reward, done, next_state = simulation.make_action(action)
             next_recurrent_state = recurrent_state
             next_recurrent_state.append(next_state)
             experience = Experience(recurrent_state, reward, done, next_recurrent_state, action)
