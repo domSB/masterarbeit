@@ -114,6 +114,7 @@ class StockSimulation(object):
         self.abschriften = 0
         self.fehlmenge = 0
         self.optimal_flag = None
+        self.gesamt_belohnung = None
         self.artikel_einkaufspreis = None
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
@@ -188,6 +189,7 @@ class StockSimulation(object):
         self.abschriften = 0
         self.fehlmenge = 0
         self.optimal_flag = True
+        self.gesamt_belohnung = 0
 
         self.artikel_einkaufspreis = 0.7
         self.artikel_verkaufspreis = 1
@@ -235,16 +237,18 @@ class StockSimulation(object):
         # Kapitalbindung
         r_bestand = -(self.bestand * self.artikel_einkaufspreis) * 0.05/365
         # Belohnung für optimale Bestell-Strategien
-        r_optimal = 0
         if done:
+            reward = self.gesamt_belohnung
             if self.optimal_flag:
-                r_optimal = 30
+                reward += 30
+        else:
+            reward = 0
         # Abbruch der Episode
         if self.bestand > self.break_bestand:
             reward = -300
             done = True
         else:
-            reward = r_abschrift + r_ausfall + r_bestand + r_optimal + r_umsatz
+            self.gesamt_belohnung += (r_abschrift + r_ausfall + r_bestand + r_umsatz)
 
         self.statistics.add(
             np.array([self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften])
