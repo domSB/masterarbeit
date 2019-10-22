@@ -2,8 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 
-from ...data.preparation.clean import create_frame_from_raw_data
-from ...data.preparation.to_numpy import create_numpy_from_frame
+from ..preparation.clean import create_frame_from_raw_data
+from ..preparation.to_numpy import create_numpy_from_frame
 
 
 class Parameter(object):

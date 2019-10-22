@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 
 from scipy.stats import entropy
 
-from agents import Predictor
-
 
 class Statistics(object):
     def __init__(self):
@@ -96,8 +94,9 @@ class Statistics(object):
 
 
 class StockSimulation(object):
-    def __init__(self, simulation_data, _predictor_path):
+    def __init__(self, simulation_data, pred):
         self.lab, self.dyn, self.stat, self.ids = simulation_data
+        self.pred = pred
         self.possibles = np.unique(self.ids)
         self.aktueller_markt = None
         self.aktueller_artikel = None
@@ -121,14 +120,6 @@ class StockSimulation(object):
         self.placeholder_mhd = 6
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
-        # To Speed up Online-Learning
-        self.predictor = Predictor()
-        self.predictor.build_model(
-            dynamic_state_shape=simulation_data[1].shape[2],
-            static_state_shape=simulation_data[2].shape[1]
-        )
-        self.predictor.load_from_weights(_predictor_path)
-        self.predictor.model._make_predict_function()
 
     @property
     def state(self):
@@ -166,12 +157,7 @@ class StockSimulation(object):
             ids_wahl = np.argwhere(np.isin(self.ids, self.possibles[position_wahl])).reshape(-1)
         self.static_state = self.stat[ids_wahl]
         self.dynamic_state = self.dyn[ids_wahl]
-        self.predicted_state = self.predictor.predict(
-            {
-                'dynamic_input': self.dynamic_state,
-                'static_input': self.static_state
-            }
-        )
+        self.predicted_state = self.pred[ids_wahl]
         self.kristall_glas = self.lab[ids_wahl]
 #        self.artikel_absatz = self.dyn[ids_wahl, 0, 0] * 8
         self.artikel_absatz = self.dyn[ids_wahl, 0, 0]

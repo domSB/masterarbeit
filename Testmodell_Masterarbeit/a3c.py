@@ -4,6 +4,7 @@ import scipy.signal
 import os
 import threading
 from time import sleep
+from agents import Predictor
 from simulation import StockSimulation
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
@@ -236,8 +237,8 @@ class Worker:
 # region Hyperparameter
 gamma = .99  # discount rate for advantage estimation and reward discounting
 load_model = False
-model_path = os.path.join('files', 'models', 'A3C', '6')
-logging_path = os.path.join('files', 'logging', 'A3C', '6')
+model_path = os.path.join('files', 'models', 'A3C', '7')
+logging_path = os.path.join('files', 'logging', 'A3C', '7')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -252,6 +253,20 @@ predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'we
 pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data, percentage=0.01)
+predictor = Predictor()
+predictor.build_model(
+    dynamic_state_shape=simulation_data[1].shape[2],
+    static_state_shape=simulation_data[2].shape[1]
+)
+predictor.load_from_weights(predictor_path)
+print('Predicting')
+pred = predictor.predict(
+    {
+        'dynamic_input': train_data[1],
+        'static_input': train_data[2]
+    }
+)
+print('Predicted')
 # endregion
 tf.reset_default_graph()
 
@@ -268,7 +283,7 @@ with tf.device("/cpu:0"):
     workers = []
     # Create worker classes
     for i in range(num_workers):
-        workers.append(Worker(StockSimulation(train_data, predictor_path), i, trainer, model_path, logging_path, global_episodes))
+        workers.append(Worker(StockSimulation(train_data, pred), i, trainer, model_path, logging_path, global_episodes))
     saver = tf.train.Saver(max_to_keep=5)
 
 with tf.Session() as sess:
@@ -287,7 +302,7 @@ with tf.Session() as sess:
         worker_work = lambda: worker.work(gamma, sess, coord, saver)
         t = threading.Thread(target=worker_work)
         t.start()
-        sleep(2)
+        sleep(1)
         worker_threads.append(t)
     coord.join(worker_threads)
     eingabe = input('Fertig? (j/n)')
