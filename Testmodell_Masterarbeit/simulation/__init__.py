@@ -231,7 +231,7 @@ class StockSimulation(object):
         # Umsatzausfall
         r_ausfall = self.fehlmenge * -self.artikel_rohertrag
         # Umsatz
-        # r_umsatz = absatz * self.artikel_rohertrag
+        r_umsatz = absatz * self.artikel_rohertrag
         # Kapitalbindung
         r_bestand = -(self.bestand * self.artikel_einkaufspreis) * 0.05/365
         # Belohnung für optimale Bestell-Strategien
@@ -244,7 +244,7 @@ class StockSimulation(object):
             reward = -300
             done = True
         else:
-            reward = r_abschrift + r_ausfall + r_bestand + r_optimal  # + r_umsatz
+            reward = r_abschrift + r_ausfall + r_bestand + r_optimal + r_umsatz
 
         self.statistics.add(
             np.array([self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften])
