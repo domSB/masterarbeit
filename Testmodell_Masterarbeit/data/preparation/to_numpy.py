@@ -1,5 +1,3 @@
-import os
-
 import numpy as np
 import pandas as pd
 from keras.utils import to_categorical

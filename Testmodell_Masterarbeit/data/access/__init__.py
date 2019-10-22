@@ -2,8 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 
-from Testmodell_Masterarbeit.data.preparation.clean import create_frame_from_raw_data
-from Testmodell_Masterarbeit.data.preparation.to_numpy import create_numpy_from_frame
+from ...data.preparation.clean import create_frame_from_raw_data
+from ...data.preparation.to_numpy import create_numpy_from_frame
 
 
 class Parameter(object):
