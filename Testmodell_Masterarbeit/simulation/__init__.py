@@ -154,7 +154,9 @@ class StockSimulation(object):
             name_wahl = artikel_markt_tupel[0] + artikel_markt_tupel[1] * 1000000
             self.aktueller_artikel = artikel_markt_tupel[0]
             self.aktueller_markt = artikel_markt_tupel[1]
-            ids_wahl = np.argwhere(np.isin(self.ids, [name_wahl])).reshape(-1)
+            ids_wahl = np.argwhere(np.isin(self.ids, np.array([name_wahl]))).reshape(-1)
+            if len(ids_wahl) == 0:
+                raise AssertionError('Keine Ids mit diesen Eigenschaften {name}'.format(name=name_wahl))
         else:
             position_wahl = np.random.choice(len(self.possibles))
             self.aktueller_markt = int('0' + str(self.possibles[position_wahl])[:-6])
