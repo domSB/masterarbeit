@@ -1,4 +1,5 @@
 import os
+import random
 import tensorflow as tf
 from collections import deque
 import numpy as np
@@ -89,7 +90,7 @@ if training:
             recurrent_state.append(state)
         done = False
         while not done:
-            action = agent.act(np.array(recurrent_state))
+            action = random.choice(agent.possible_actions)
             reward, done, next_state = simulation.make_action(np.argmax(action))
             next_recurrent_state = recurrent_state
             next_recurrent_state.append(next_state)
