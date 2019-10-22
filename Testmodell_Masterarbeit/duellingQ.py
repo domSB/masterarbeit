@@ -23,12 +23,12 @@ learning_rate = 0.0001
 
 memory_size = 10000
 
-episodes = 1000
+episodes = 5000
 pretrain_episodes = int(memory_size / 300)  # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
-batch_size = 32
+batch_size = 64
 
 learn_step = 2
-max_tau = learn_step * 200
+max_tau = learn_step * 1000
 
 epsilon_start = 1
 epsilon_stop = 0.05

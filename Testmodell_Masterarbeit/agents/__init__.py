@@ -372,12 +372,14 @@ class DDDQNetwork:
                 units=64,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='EingangsDense'
             )(self.lstm)
             self.value_fc = tf.keras.layers.Dense(
                 units=64,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='ValueFC'
             )(self.dense)
             self.value = tf.keras.layers.Dense(
@@ -390,6 +392,7 @@ class DDDQNetwork:
                 units=64,
                 activation=tf.nn.elu,
                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='AdvantageFC'
             )(self.dense)
             self.advantage = tf.keras.layers.Dense(
@@ -417,7 +420,7 @@ class Memory:
     per_epsilon = 0.01
     per_alpha = 0.6
     per_beta = 0.4
-    per_beta_increment = 0.001
+    per_beta_increment = 0.0001
     abs_error_clip = 1.
 
     def __init__(self, capacity):
