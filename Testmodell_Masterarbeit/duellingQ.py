@@ -7,7 +7,6 @@ from simulation import StockSimulation
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
 
-from collections import defaultdict
 tf.get_logger().setLevel('ERROR')
 
 
@@ -328,7 +327,7 @@ class ProbeSimulation:
 
 
 # region Hyperparams
-state_size = np.array([6+6+3])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+state_size = np.array([47+9+6+3])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 time_steps = 6
 action_size = 6
 learning_rate = 0.0001
@@ -346,12 +345,12 @@ epsilon_decay = 0.9999
 
 gamma = 0.999
 
-memory_size = 100000
+memory_size = 10000
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', 'Run33')
-log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run33')
+model_path = os.path.join('files', 'models', 'DDDQN', 'Run35')
+log_dir = os.path.join('files', 'logging', 'DDDQN', 'Run35')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),

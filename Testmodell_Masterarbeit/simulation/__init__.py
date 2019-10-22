@@ -117,7 +117,7 @@ class StockSimulation(object):
         self.artikel_einkaufspreis = None
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
-        self.placeholder_mhd = 14
+        self.placeholder_mhd = 6
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
         # To Speed up Online-Learning
@@ -132,6 +132,7 @@ class StockSimulation(object):
     def state(self):
         state = np.concatenate(
             (
+                self.static_state[0, :],
                 self.dynamic_state[self.vergangene_tage - 1, 0, -9:],
                 np.argmax(self.predicted_state[self.vergangene_tage], axis=1),
                 np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
