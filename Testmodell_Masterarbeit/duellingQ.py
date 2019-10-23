@@ -6,7 +6,7 @@ import numpy as np
 from simulation import StockSimulation
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
-from agents import DDDQAgent, Experience
+from agents import DDDQAgent, Experience, Predictor
 
 tf.get_logger().setLevel('ERROR')
 
@@ -16,7 +16,7 @@ def name_run(number):
 
 
 # region Hyperparams
-state_size = np.array([9+6+3])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+state_size = np.array([65])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 time_steps = 6
 action_size = 6
 learning_rate = 0.0001
@@ -61,7 +61,26 @@ predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'we
 pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
-simulation = StockSimulation(train_data, predictor_path)
+
+predictor = Predictor()
+predictor.build_model(
+    dynamic_state_shape=simulation_data[1].shape[2],
+    static_state_shape=simulation_data[2].shape[1]
+)
+predictor.load_from_weights(predictor_path)
+print('Predicting', end='')
+pred = predictor.predict(
+    {
+        'dynamic_input': train_data[1],
+        'static_input': train_data[2]
+    }
+)
+print('and done ;)')
+
+simulation = StockSimulation(train_data, pred, 2, 'Bestandsreichweite')
+
+predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'weights.30-0.21.hdf5')
+# endregion
 
 if training:
     # region Initialisieren
@@ -84,7 +103,7 @@ if training:
     # region ReplayBuffer befüllen
     saver = tf.train.Saver()
     for episode in range(pretrain_episodes):
-        state, info = simulation.reset((test_artikel, test_markt))
+        state, info = simulation.reset()
         recurrent_state = deque(maxlen=time_steps)
         for i in range(time_steps):
             recurrent_state.append(state)
@@ -102,7 +121,7 @@ if training:
     for episode in range(episodes):
         # region Training
         step = 0
-        state, info = simulation.reset((test_artikel, test_markt))
+        state, info = simulation.reset()
         recurrent_state = deque(maxlen=time_steps)
         for i in range(time_steps):
             recurrent_state.append(state)
