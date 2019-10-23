@@ -17,27 +17,24 @@ def name_run(number):
 
 # region Hyperparams
 state_size = np.array([65])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
-time_steps = 6
+time_steps = 3
 action_size = 6
-learning_rate = 0.0001
+learning_rate = 0.00025
 
-memory_size = 10000
+memory_size = 100000
 
 episodes = 5000
 pretrain_episodes = int(memory_size / 300)  # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
 batch_size = 64
 
-learn_step = 2
-max_tau = learn_step * 1000
+learn_step = 16
+max_tau = learn_step * 10000
 
 epsilon_start = 1
 epsilon_stop = 0.05
 epsilon_decay = 0.9999
 
 gamma = 0.999
-
-test_artikel = 18506
-test_markt = 5
 
 training = True
 

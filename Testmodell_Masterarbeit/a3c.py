@@ -237,8 +237,8 @@ class Worker:
 # region Hyperparameter
 gamma = .99  # discount rate for advantage estimation and reward discounting
 load_model = False
-model_path = os.path.join('files', 'models', 'A3C', '7')
-logging_path = os.path.join('files', 'logging', 'A3C', '7')
+model_path = os.path.join('files', 'models', 'A3C', '8')
+logging_path = os.path.join('files', 'logging', 'A3C', '8')
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
