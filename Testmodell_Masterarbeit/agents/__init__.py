@@ -368,18 +368,25 @@ class DDDQNetwork:
             self.lstm = tf.keras.layers.LSTM(
                 units=32
             )(self.inputs_)
-            self.dense = tf.keras.layers.Dense(
+            self.dense_one = tf.keras.layers.Dense(
                 units=128,
                 activation=tf.nn.tanh,
                 kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='EingangsDense'
-            )(self.lstm)
+            )(self.inputs_)
+            self.concat = tf.keras.layers.concatenate([self.lstm, self.dense_one])
+            self.dense_two = tf.keras.layers.Dense(
+                units=256,
+                activation=tf.nn.elu,
+                kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
+                name='MittelDense'
+            )(self.concat)
             self.value_fc = tf.keras.layers.Dense(
                 units=64,
                 activation=tf.nn.elu,
                 kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='ValueFC'
-            )(self.dense)
+            )(self.dense_two)
             self.value = tf.keras.layers.Dense(
                 units=1,
                 activation=None,
@@ -391,7 +398,7 @@ class DDDQNetwork:
                 activation=tf.nn.elu,
                 kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='AdvantageFC'
-            )(self.dense)
+            )(self.dense_two)
             self.advantage = tf.keras.layers.Dense(
                 units=self.action_size,
                 activation=None,
@@ -409,7 +416,7 @@ class DDDQNetwork:
 
             self.loss = tf.reduce_mean(self.is_weights * tf.squared_difference(self.target_q, self.q))
 
-            self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
+            self.optimizer = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.loss)
 
 
 class Memory:

@@ -272,20 +272,24 @@ class StockSimulation(object):
                 self.artikel_absatz[self.vergangene_tage+1:self.vergangene_tage+1+self.bestellrythmus]
             )
             reichweite = self.bestand - kommende_absaetze
-            if reichweite >= 0:
+            if reichweite == 0:
+                reward = 1
+            elif reichweite > 0:
                 # Korrigierbarer Überbestand?
                 # TODO: Schauen ob Überbestand durch weniger Bestellmenge an den Folgetagen ausgeglichen werden kann
                 reward = reichweite * - 0.1
             else:
-                reward = reichweite * 0.5  # fürs Erste fixe Bestrafung
+                reward = reichweite * 0.3  # fürs Erste fixe Bestrafung
+
+            reward = np.clip(reward, -3, 3)
 
         else:
             raise NotImplementedError('Unbekannte Belohnungsart')
 
         # Abbruch der Episode bei hoffnungslosem Überbestand
-        if self.bestand > self.break_bestand:
-            reward = -300
-            done = True
+        # if self.bestand > self.break_bestand:
+        #     reward = -300
+        #     done = True
 
         self.statistics.add(
             np.array([self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften])

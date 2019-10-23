@@ -21,20 +21,20 @@ time_steps = 3
 action_size = 6
 learning_rate = 0.00025
 
-memory_size = 100000
+memory_size = 1000000
 
-episodes = 5000
+episodes = 10000
 pretrain_episodes = int(memory_size / 300)  # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
-batch_size = 64
+batch_size = 32
 
-learn_step = 16
+learn_step = 4
 max_tau = learn_step * 10000
 
 epsilon_start = 1
 epsilon_stop = 0.05
 epsilon_decay = 0.9999
 
-gamma = 0.999
+gamma = 0.99
 
 training = True
 
