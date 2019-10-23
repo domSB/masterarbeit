@@ -94,10 +94,21 @@ class Statistics(object):
 
 
 class StockSimulation(object):
-    def __init__(self, simulation_data, pred):
+    def __init__(self, simulation_data, pred, state_flag, reward_flag):
+        """
+
+        :param simulation_data: 4er Tupel aus Labels, dynamischem Zustand, statischem Zustand und der Ids, zum zuordnen
+        :param pred: Vorberechnete Predictions für schnelleres Training
+        :param state_flag: Gibt an, welcher Zustand zurückgegeben werden soll
+        0 Nur prediction und Bestandsdaten, 1 mit Zeitstempel, 2 mit statischen Artikelinformationen
+        :param reward_flag: Gibt an, welche Belohnungsfunktion verwendet werden soll
+        Wählen aus Bestandsreichweite, Bestand, MCGewinn & TDGewinn
+        """
         self.lab, self.dyn, self.stat, self.ids = simulation_data
         self.pred = pred
         self.possibles = np.unique(self.ids)
+        self.state_flag = state_flag
+        self.reward_flag = reward_flag
         self.aktueller_markt = None
         self.aktueller_artikel = None
         self.artikel_absatz = None
@@ -118,6 +129,7 @@ class StockSimulation(object):
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
         self.placeholder_mhd = 6
+        self.bestellrythmus = 1
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
 
@@ -125,12 +137,24 @@ class StockSimulation(object):
     def state(self):
         state = np.concatenate(
             (
-                self.static_state[0, :],
-                self.dynamic_state[self.vergangene_tage - 1, 0, -9:],
                 np.argmax(self.predicted_state[self.vergangene_tage], axis=1),
                 np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
             ), axis=0
         )
+        if self.state_flag >= 1:
+            state = np.concatenate(
+                (
+                    self.dynamic_state[self.vergangene_tage - 1, 0, -9:],
+                    state
+                ), axis=0
+            )
+        if self.state_flag >= 2:
+            state = np.concatenate(
+                (
+                    self.static_state[0, :],
+                    state
+                )
+            )
         return state
 
     @property
@@ -215,48 +239,59 @@ class StockSimulation(object):
         self.bestands_frische = np.concatenate((self.bestands_frische, np.ones((action,)) * self.placeholder_mhd))
 
         # Rewardberechnung
-        # Abschrift
-        r_abschrift = self.abschriften * -self.artikel_einkaufspreis
-        # Umsatzausfall
-        r_ausfall = self.fehlmenge * -self.artikel_rohertrag
-        # Umsatz
-        r_umsatz = absatz * self.artikel_rohertrag
-        # Kapitalbindung
-        r_bestand = -(self.bestand * self.artikel_einkaufspreis) * 0.05/365
-        # Belohnung für optimale Bestell-Strategien
-        if done:
-            reward = self.gesamt_belohnung
-            if self.optimal_flag:
-                reward += 30
+        if self.reward_flag == 'MCGewinn' or self.reward_flag == 'TDGewinn':
+            # Abschrift
+            r_abschrift = self.abschriften * -self.artikel_einkaufspreis
+            # Umsatzausfall
+            r_ausfall = self.fehlmenge * -self.artikel_rohertrag
+            # Umsatz
+            r_umsatz = absatz * self.artikel_rohertrag
+            # Kapitalbindung
+            r_bestand = -(self.bestand * self.artikel_einkaufspreis) * 0.05/365
+            # Belohnung für optimale Bestell-Strategien
+            if self.reward_flag == 'TDGewinn':
+                # Temporal Difference Gewinn gibt jeden Tag eine Belohnung
+                reward = r_abschrift + r_ausfall + r_bestand + r_umsatz
+                if done and self.optimal_flag:
+                    reward += 30
+            else:
+                # Monte Carlo Gewinn summiert alle Gewinne auf und gibt die Summe am Ende der Episode zurück
+                self.gesamt_belohnung += (r_abschrift + r_ausfall + r_bestand + r_umsatz)
+
+                if done:
+                    reward = self.gesamt_belohnung
+                    if self.optimal_flag:
+                        reward += 30
+                else:
+                    reward = 0
+        elif self.reward_flag == 'Bestand':
+            raise NotImplementedError('Muss noch gecoded werden')
+
+        elif self.reward_flag == 'Bestandsreichweite':
+            kommende_absaetze = np.sum(
+                self.artikel_absatz[self.vergangene_tage+1:self.vergangene_tage+1+self.bestellrythmus]
+            )
+            reichweite = self.bestand - kommende_absaetze
+            if reichweite >= 0:
+                # Korrigierbarer Überbestand?
+                # TODO: Schauen ob Überbestand durch weniger Bestellmenge an den Folgetagen ausgeglichen werden kann
+                reward = reichweite * - 0.1
+            else:
+                reward = reichweite * 0.5  # fürs Erste fixe Bestrafung
+
         else:
-            reward = 0
-        # Abbruch der Episode
+            raise NotImplementedError('Unbekannte Belohnungsart')
+
+        # Abbruch der Episode bei hoffnungslosem Überbestand
         if self.bestand > self.break_bestand:
             reward = -300
             done = True
-        else:
-            self.gesamt_belohnung += (r_abschrift + r_ausfall + r_bestand + r_umsatz)
 
         self.statistics.add(
             np.array([self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften])
         )
 
         return reward,  done, self.state
-
-
-def test(simulation, lenght):
-    for i in range(lenght):
-        print("Run {}".format(i))
-        _ = simulation.reset()
-        done = False
-        k = 0
-        while not done:
-            k += 1
-            reward, done, state = simulation.make_action(3)
-            if simulation.aktueller_tag.date() in simulation.feiertage:
-                print("Feiertag")
-                print(simulation.aktueller_tag)
-        print(' %s Tage durchlaufen' % k)
 
 
 class ProbeSimulation:
