@@ -20,6 +20,7 @@ class Statistics(object):
         # if artikel in self.data.keys():
         #     print('|', end='')
         self.data[self.artikel] = np.zeros((0, 7))
+        print(len(self.data.keys()))
 
     def add(self, other):
         """
@@ -161,19 +162,23 @@ class StockSimulation(object):
     def info(self):
         return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt, 'Kristallglas': self.kristall_glas}
 
-    def reset(self, artikel_markt_tupel=None):
+    def reset(self, artikel_markt=None):
         """
         wahl = np.random.choice(len(possibles), int(len(possibles) * percentage))
             args_test = np.argwhere(np.isin(idx, possibles[wahl])).reshape(-1)
             idx = self.split_helper[:, 0] + self.split_helper[:, 1] * 1000000
         """
-        if artikel_markt_tupel:
-            name_wahl = artikel_markt_tupel[0] + artikel_markt_tupel[1] * 1000000
-            self.aktueller_artikel = artikel_markt_tupel[0]
-            self.aktueller_markt = artikel_markt_tupel[1]
+        if type(artikel_markt) == tuple:
+            name_wahl = artikel_markt[0] + artikel_markt[1] * 1000000
+            self.aktueller_artikel = artikel_markt[0]
+            self.aktueller_markt = artikel_markt[1]
             ids_wahl = np.argwhere(np.isin(self.ids, [name_wahl])).reshape(-1)
             if len(ids_wahl) == 0:
                 raise AssertionError('Keine Ids mit diesen Eigenschaften {name}'.format(name=name_wahl))
+        elif artikel_markt is not None:
+            self.aktueller_markt = int('0' + str(artikel_markt)[:-6])
+            self.aktueller_artikel = int(str(artikel_markt)[-6:])
+            ids_wahl = np.argwhere(np.isin(self.ids, [artikel_markt])).reshape(-1)
         else:
             position_wahl = np.random.choice(len(self.possibles))
             self.aktueller_markt = int('0' + str(self.possibles[position_wahl])[:-6])
@@ -207,6 +212,7 @@ class StockSimulation(object):
         self.artikel_rohertrag = self.artikel_verkaufspreis - self.artikel_einkaufspreis
 
         self.statistics.set_artikel(self.aktueller_artikel)
+        print(artikel_markt, self.aktueller_artikel, self.statistics.artikel)
         return self.state, self.info
 
     def make_action(self, action):

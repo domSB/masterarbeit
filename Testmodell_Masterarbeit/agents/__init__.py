@@ -524,7 +524,6 @@ class DDDQAgent:
             _batch_size,
             _action_size,
             _state_size,
-            _time_steps,
             _gamma,
             _memory_size,
             _session,
@@ -535,12 +534,11 @@ class DDDQAgent:
         self.eps_stop = _eps_stop
         self.eps_decay = _eps_decay
         self.batch_size = _batch_size
-        self.step_size = _time_steps
         self.gamma = _gamma
         self.curr_loss = -1
         self.possible_actions = np.identity(_action_size, dtype=int).tolist()
-        self.dq_network = DDDQNetwork(_state_size, _time_steps, _action_size, _learning_rate, name='DQNetwork')
-        self.target_network = DDDQNetwork(_state_size, _time_steps, _action_size, _learning_rate, name='TargetNetwork')
+        self.dq_network = DDDQNetwork(_state_size, _action_size, _learning_rate, name='DQNetwork')
+        self.target_network = DDDQNetwork(_state_size, _action_size, _learning_rate, name='TargetNetwork')
         self.memory = Memory(_memory_size)
         self.sess.run(tf.global_variables_initializer())
         # self.update_target()
