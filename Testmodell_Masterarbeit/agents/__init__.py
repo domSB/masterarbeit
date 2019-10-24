@@ -374,7 +374,7 @@ class DDDQNetwork:
                 kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='EingangsDense'
             )(self.inputs_)
-            self.concat = tf.keras.layers.concatenate([self.lstm, self.dense_one])
+            self.concat = tf.keras.layers.concatenate([tf.keras.layers.Flatten(self.lstm), self.dense_one])
             self.dense_two = tf.keras.layers.Dense(
                 units=256,
                 activation=tf.nn.elu,

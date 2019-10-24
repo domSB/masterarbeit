@@ -52,7 +52,7 @@ class A3CNetwork:
         with tf.variable_scope(scope):
             self.inputs = tf.placeholder(shape=[None, 65], dtype=tf.float32)
             self.hidden = tf.keras.layers.Dense(
-                256,
+                512,
                 activation=tf.keras.activations.elu
             )(self.inputs)
             self.policy = tf.keras.layers.Dense(
@@ -283,7 +283,16 @@ with tf.device("/cpu:0"):
     workers = []
     # Create worker classes
     for i in range(num_workers):
-        workers.append(Worker(StockSimulation(train_data, pred), i, trainer, model_path, logging_path, global_episodes))
+        workers.append(
+            Worker(
+                StockSimulation(train_data, pred, 2, 'Bestandsreichweite'),
+                i,
+                trainer,
+                model_path,
+                logging_path,
+                global_episodes
+            )
+        )
     saver = tf.train.Saver(max_to_keep=5)
 
 with tf.Session() as sess:
