@@ -350,7 +350,7 @@ class Agent(object):
 
 # region Duelling Double Deep Agent
 class DDDQNetwork:
-    def __init__(self, _state_size, _time_steps, _action_size, _learning_rate, name):
+    def __init__(self, _state_size, _action_size, _learning_rate, name):
         self.state_size = _state_size
         self.action_size = _action_size
         self.learning_rate = _learning_rate
@@ -365,22 +365,12 @@ class DDDQNetwork:
 
             self.target_q = tf.placeholder(tf.float32, [None], name='Target')
 
-            # self.lstm = tf.keras.layers.LSTM(
-            #     units=32
-            # )(self.inputs_)
             self.dense_one = tf.keras.layers.Dense(
                 units=512,
                 activation=tf.nn.elu,
                 kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='EingangsDense'
             )(self.inputs_)
-            # self.concat = tf.keras.layers.concatenate([tf.keras.layers.Flatten(self.lstm), self.dense_one])
-            # self.dense_two = tf.keras.layers.Dense(
-            #     units=256,
-            #     activation=tf.nn.elu,
-            #     kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
-            #     name='MittelDense'
-            # )(self.concat)
             self.value_fc = tf.keras.layers.Dense(
                 units=64,
                 activation=tf.nn.elu,
