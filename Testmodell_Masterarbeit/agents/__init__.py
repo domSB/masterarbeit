@@ -357,7 +357,7 @@ class DDDQNetwork:
         self.name = name
 
         with tf.variable_scope(self.name):
-            self.inputs_ = tf.placeholder(tf.float32, [None, _time_steps, *_state_size], name='Inputs')
+            self.inputs_ = tf.placeholder(tf.float32, [None, *_state_size], name='Inputs')
 
             self.is_weights = tf.placeholder(tf.float32, [None, 1], name='IS_Weights')
 
@@ -365,28 +365,28 @@ class DDDQNetwork:
 
             self.target_q = tf.placeholder(tf.float32, [None], name='Target')
 
-            self.lstm = tf.keras.layers.LSTM(
-                units=32
-            )(self.inputs_)
+            # self.lstm = tf.keras.layers.LSTM(
+            #     units=32
+            # )(self.inputs_)
             self.dense_one = tf.keras.layers.Dense(
-                units=128,
-                activation=tf.nn.tanh,
+                units=512,
+                activation=tf.nn.elu,
                 kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='EingangsDense'
             )(self.inputs_)
-            self.concat = tf.keras.layers.concatenate([tf.keras.layers.Flatten(self.lstm), self.dense_one])
-            self.dense_two = tf.keras.layers.Dense(
-                units=256,
-                activation=tf.nn.elu,
-                kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
-                name='MittelDense'
-            )(self.concat)
+            # self.concat = tf.keras.layers.concatenate([tf.keras.layers.Flatten(self.lstm), self.dense_one])
+            # self.dense_two = tf.keras.layers.Dense(
+            #     units=256,
+            #     activation=tf.nn.elu,
+            #     kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
+            #     name='MittelDense'
+            # )(self.concat)
             self.value_fc = tf.keras.layers.Dense(
                 units=64,
                 activation=tf.nn.elu,
                 kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='ValueFC'
-            )(self.dense_two)
+            )(self.dense_one)
             self.value = tf.keras.layers.Dense(
                 units=1,
                 activation=None,
@@ -398,7 +398,7 @@ class DDDQNetwork:
                 activation=tf.nn.elu,
                 kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
                 name='AdvantageFC'
-            )(self.dense_two)
+            )(self.dense_one)
             self.advantage = tf.keras.layers.Dense(
                 units=self.action_size,
                 activation=None,

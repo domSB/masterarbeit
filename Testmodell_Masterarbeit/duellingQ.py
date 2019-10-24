@@ -21,7 +21,7 @@ time_steps = 3
 action_size = 6
 learning_rate = 0.00025
 
-memory_size = 1000000
+memory_size = 100000
 
 episodes = 10000
 pretrain_episodes = int(memory_size / 300)  # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
@@ -31,7 +31,7 @@ learn_step = 4
 max_tau = learn_step * 10000
 
 epsilon_start = 1
-epsilon_stop = 0.05
+epsilon_stop = 0.01
 epsilon_decay = 0.9999
 
 gamma = 0.99
@@ -101,38 +101,38 @@ if training:
     saver = tf.train.Saver()
     for episode in range(pretrain_episodes):
         state, info = simulation.reset()
-        recurrent_state = deque(maxlen=time_steps)
-        for i in range(time_steps):
-            recurrent_state.append(state)
+        # recurrent_state = deque(maxlen=time_steps)
+        # for i in range(time_steps):
+        #     recurrent_state.append(state)
         done = False
         while not done:
             action = random.choice(agent.possible_actions)
             reward, done, next_state = simulation.make_action(np.argmax(action))
-            next_recurrent_state = recurrent_state
-            next_recurrent_state.append(next_state)
-            experience = Experience(recurrent_state, reward, done, next_recurrent_state, action)
+            # next_recurrent_state = recurrent_state
+            # next_recurrent_state.append(next_state)
+            experience = Experience(state, reward, done, next_state, action)
             agent.remember(experience)
-            recurrent_state = next_recurrent_state
+            state = next_state
     # endregion
     tau = 0
     for episode in range(episodes):
         # region Training
         step = 0
         state, info = simulation.reset()
-        recurrent_state = deque(maxlen=time_steps)
-        for i in range(time_steps):
-            recurrent_state.append(state)
+        # recurrent_state = deque(maxlen=time_steps)
+        # for i in range(time_steps):
+        #     recurrent_state.append(state)
         done = False
         while not done:
             step += 1
             tau += 1
-            action = agent.act(np.array(recurrent_state))
+            action = agent.act(np.array(state))
             reward, done, next_state = simulation.make_action(np.argmax(action))
-            next_recurrent_state = recurrent_state
-            next_recurrent_state.append(next_state)
-            experience = Experience(recurrent_state, reward, done, next_recurrent_state, action)
+            # next_recurrent_state = recurrent_state
+            # next_recurrent_state.append(next_state)
+            experience = Experience(state, reward, done, next_state, action)
             agent.remember(experience)
-            recurrent_state = next_recurrent_state
+            state = next_state
 
             if step % learn_step == 0:
                 agent.train()
