@@ -63,7 +63,16 @@ class DataPipeLine(object):
         :param kwargs:
         """
         self.params = Parameter(**kwargs)
-        pass
+
+    def check_for_raw_data(self):
+        files = os.listdir(self.params.output_dir)
+        assert '0 ArtikelstammV4.csv' in files, 'Artikelstamm fehlt'
+        assert '0 Warenausgang.Markt.csv' in files, 'Warenausgang fehlt'
+        assert '0 Wareneingang.Markt.csv' in files, 'Wareneingang fehlt'
+        assert '0 Warenbestand.Markt.csv' in files, 'Warenbestand fehlt'
+        assert '0 Aktionspreise.Markt.csv' in files, 'Aktionspreise fehlen'
+        assert '1 Wetter.csv' in files, 'Wetter fehlt'
+        assert '0 Preise.Markt.csv' in files, 'Preise fehlen'
 
     def get_regression_data(self):
         filename = str(self.params.warengruppenmaske) + ' store'
