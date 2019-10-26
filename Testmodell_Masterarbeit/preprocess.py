@@ -1,4 +1,4 @@
-from Testmodell_Masterarbeit.data.access import DataPipeLine
+from data.access import DataPipeLine
 import os
 
 data_dir = os.path.join('files', 'raw')
