@@ -21,6 +21,8 @@ from data.access import DataPipeLine
 from data.preparation import split_np_arrays
 # [1, 12, 55, 80, 17, 77, 71, 6, 28]
 
+warengruppe = 1
+
 
 def create_dataset(_lab, _dyn, _stat, _params):
     def gen():
@@ -75,13 +77,13 @@ params = {
     'time_steps': None,
     'dynamic_state_shape': None,
     'static_state_shape': None,
-    'epochs': 30,
+    'epochs': 50,
     'batch_size': 512
 }
 regression_params = {
     'InputDirectory': os.path.join('files', 'raw'),
     'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [71],
+    'ZielWarengruppen': [warengruppe],
     'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
 pipeline = DataPipeLine(**regression_params)
@@ -92,9 +94,8 @@ params.update({
     'val_steps_per_epoch': int(test_data[1].shape[0] / params['batch_size']),
     'dynamic_state_shape': dyn.shape[2],
     'static_state_shape': stat.shape[1],
-    'Name': '01RegWG71'
+    'Name': '02RegWG' + str(warengruppe)
 })
-print(params)
 dataset = create_dataset(*train_data[:3], params)
 val_dataset = create_dataset(*test_data[:3], params)
 predictor = Predictor()
