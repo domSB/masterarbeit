@@ -16,7 +16,9 @@ tf.get_logger().setLevel('ERROR')
 
 
 # region Hyperparams
-state_size = np.array([65])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+warengruppe = 6
+
+state_size = np.array([18])   # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 action_size = 6
 learning_rate = 0
 
@@ -40,17 +42,22 @@ training = True
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
     'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [71],
+    'ZielWarengruppen': [warengruppe],
     'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
 
-predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'weights.30-0.21.hdf5')
+predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
+available_weights = os.listdir(predictor_dir)
+available_weights.sort()
+predictor_path = os.path.join(predictor_dir, available_weights[-1])
 agent_path = os.path.join('files', 'models', 'DDDQN', 'Run44', 'model_9975.ckpt')
 # endregion
 
 pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data, percentage=0)
+
+state_size[0] += simulation_data[2].shape[1]
 
 predictor = Predictor()
 predictor.build_model(

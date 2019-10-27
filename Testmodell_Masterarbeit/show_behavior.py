@@ -65,7 +65,6 @@ agent = DDDQAgent(
     32,
     action_size,
     state_size,
-    time_steps,
     0.99,
     1000,
     session,

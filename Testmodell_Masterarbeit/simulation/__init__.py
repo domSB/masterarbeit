@@ -185,7 +185,7 @@ class StockSimulation(object):
         self.dynamic_state = self.dyn[ids_wahl]
         self.predicted_state = self.pred[ids_wahl]
         self.kristall_glas = self.lab[ids_wahl]
-#        self.artikel_absatz = self.dyn[ids_wahl, 0, 0] * 8
+        self.artikel_absatz = self.dyn[ids_wahl, 0, 0] * 8
         self.artikel_absatz = self.dyn[ids_wahl, 0, 0]
         # Zufälliger Bestand mit maximaler Reichweite von 6 Tagen.
         start_absatz = np.sum(self.artikel_absatz[0:6]).astype(int)
@@ -212,11 +212,11 @@ class StockSimulation(object):
         return self.state, self.info
 
     def make_action(self, action):
-        self.vergangene_tage += 1
+        self.vergangene_tage += self.bestellrythmus
         self.abschriften = 0
         self.fehlmenge = 0
         absatz = self.artikel_absatz[self.vergangene_tage]
-        done = self.tage <= self.vergangene_tage + 1
+        done = self.tage <= self.vergangene_tage + self.bestellrythmus
         # Produkte sind ein Tag älter
         # BUG: Wenn ein Feier- oder Sonntag zwischen den Absatztagen lag, altern die Produkte trotzdem nur um einen Tag
         self.bestands_frische -= 1

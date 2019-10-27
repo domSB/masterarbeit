@@ -19,7 +19,6 @@ def name_run(number):
 warengruppe = 6
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
-# TODO: State aus Simulation-Data lesen
 time_steps = 3
 action_size = 6
 learning_rate = 0.00025
