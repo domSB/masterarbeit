@@ -16,14 +16,17 @@ def name_run(number):
 
 
 # region Hyperparams
-state_size = np.array([65])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+warengruppe = 6
+
+state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+# TODO: State aus Simulation-Data lesen
 time_steps = 3
 action_size = 6
 learning_rate = 0.00025
 
 memory_size = 100000
 
-episodes = 10000
+episodes = 3000
 pretrain_episodes = int(memory_size / 300)  # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
 batch_size = 32
 
@@ -42,22 +45,28 @@ run_id = 30
 
 while os.path.exists(os.path.join('files', 'models', 'DDDQN', name_run(run_id))):
     run_id += 1
-model_path = os.path.join('files', 'models', 'DDDQN', name_run(run_id))
-log_dir = os.path.join('files', 'logging', 'DDDQN', name_run(run_id))
+
+model_path = os.path.join('files', 'models', 'DDDQN', '01eval' + str(warengruppe))
+log_dir = os.path.join('files', 'logging', 'DDDQN', '01eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
     'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [71],
+    'ZielWarengruppen': [warengruppe],
     'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
 
-predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'weights.30-0.21.hdf5')
+predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
+available_weights = os.listdir(predictor_dir)
+available_weights.sort()
+predictor_path = os.path.join(predictor_dir, available_weights[-1])
 # endregion
 
 pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
+
+state_size[0] += simulation_data[2].shape[1]
 
 predictor = Predictor()
 predictor.build_model(
@@ -72,11 +81,10 @@ pred = predictor.predict(
         'static_input': train_data[2]
     }
 )
-print('and done ;)')
+print(' and done ;)')
 
 simulation = StockSimulation(train_data, pred, 2, 'Bestandsreichweite')
 
-predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'weights.30-0.21.hdf5')
 # endregion
 
 if training:
@@ -90,12 +98,12 @@ if training:
         batch_size,
         action_size,
         state_size,
-        time_steps,
         gamma,
         memory_size,
         session,
         log_dir
     )
+
     # endregion
     # region ReplayBuffer befüllen
     saver = tf.train.Saver()

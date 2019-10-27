@@ -17,10 +17,7 @@ class Statistics(object):
         :return:
         """
         self.artikel = artikel
-        # if artikel in self.data.keys():
-        #     print('|', end='')
         self.data[self.artikel] = np.zeros((0, 7))
-        print(len(self.data.keys()))
 
     def add(self, other):
         """
@@ -212,7 +209,6 @@ class StockSimulation(object):
         self.artikel_rohertrag = self.artikel_verkaufspreis - self.artikel_einkaufspreis
 
         self.statistics.set_artikel(self.aktueller_artikel)
-        print(artikel_markt, self.aktueller_artikel, self.statistics.artikel)
         return self.state, self.info
 
     def make_action(self, action):
