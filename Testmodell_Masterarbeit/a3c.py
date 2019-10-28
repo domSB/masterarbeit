@@ -48,9 +48,9 @@ class Environment:
 
 
 class A3CNetwork:
-    def __init__(self, scope, _trainer):
+    def __init__(self, scope, _trainer, _state_size):
         with tf.variable_scope(scope):
-            self.inputs = tf.placeholder(shape=[None, 65], dtype=tf.float32)
+            self.inputs = tf.placeholder(shape=[None, *_state_size], dtype=tf.float32)
             self.hidden = tf.keras.layers.Dense(
                 512,
                 activation=tf.keras.activations.elu
@@ -94,7 +94,7 @@ class A3CNetwork:
 
 
 class Worker:
-    def __init__(self, env, name, _trainer, _model_path, _logging_path, _global_episodes):
+    def __init__(self, env, name, _trainer, _model_path, _logging_path, _global_episodes, _state_size):
         self.name = "worker_" + str(name)
         self.number = name
         self.model_path = _model_path
@@ -107,7 +107,7 @@ class Worker:
         self.summary_writer = tf.summary.FileWriter(os.path.join(_logging_path, "train_" + str(self.number)))
 
         # Create the local copy of the network and the tensorflow op to copy global paramters to local network
-        self.local_AC = A3CNetwork(self.name, _trainer)
+        self.local_AC = A3CNetwork(self.name, _trainer, _state_size)
         self.update_local_ops = update_target_graph('global', self.name)
 
         self.actions = np.identity(4, dtype=bool).tolist()
@@ -235,23 +235,30 @@ class Worker:
 
 
 # region Hyperparameter
+
+warengruppe = 1
+state_size = np.array([18])
 gamma = .99  # discount rate for advantage estimation and reward discounting
 load_model = False
-model_path = os.path.join('files', 'models', 'A3C', '8')
-logging_path = os.path.join('files', 'logging', 'A3C', '8')
+model_path = os.path.join('files', 'models', 'A3C', '01eval' + str(warengruppe))
+logging_path = os.path.join('files', 'logging', 'A3C', '01eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
     'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [71],
+    'ZielWarengruppen': [warengruppe],
     'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
 
-predictor_path = os.path.join('files', 'models', 'PredictorV2', '01RegWG71', 'weights.30-0.21.hdf5')
+predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
+available_weights = os.listdir(predictor_dir)
+available_weights.sort()
+predictor_path = os.path.join(predictor_dir, available_weights[-1])
 # endregion
 
 pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
+state_size[0] += simulation_data[2].shape[1]
 train_data, test_data = split_np_arrays(*simulation_data, percentage=0.01)
 predictor = Predictor()
 predictor.build_model(
@@ -266,7 +273,7 @@ pred = predictor.predict(
         'static_input': train_data[2]
     }
 )
-print('Predicted')
+print(' and done ;)')
 # endregion
 tf.reset_default_graph()
 
@@ -277,7 +284,7 @@ if not os.path.exists(model_path):
 with tf.device("/cpu:0"):
     global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
     trainer = tf.train.AdamOptimizer(learning_rate=1e-4)
-    master_network = A3CNetwork('global', None)
+    master_network = A3CNetwork('global', None, state_size)
     # num_workers = multiprocessing.cpu_count()
     num_workers = 8  # Arbeitsspeicher Restriktion
     workers = []
@@ -290,7 +297,8 @@ with tf.device("/cpu:0"):
                 trainer,
                 model_path,
                 logging_path,
-                global_episodes
+                global_episodes,
+                state_size
             )
         )
     saver = tf.train.Saver(max_to_keep=5)

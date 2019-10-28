@@ -16,7 +16,7 @@ def name_run(number):
 
 
 # region Hyperparams
-warengruppe = 6
+warengruppe = 80
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 time_steps = 3
@@ -65,6 +65,7 @@ pipeline = DataPipeLine(**simulation_params)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
 
+print([tr.shape for tr in train_data])
 state_size[0] += simulation_data[2].shape[1]
 
 predictor = Predictor()
@@ -105,7 +106,7 @@ if training:
 
     # endregion
     # region ReplayBuffer befüllen
-    saver = tf.train.Saver()
+    saver = tf.train.Saver(max_to_keep=1)
     for episode in range(pretrain_episodes):
         state, info = simulation.reset()
         # recurrent_state = deque(maxlen=time_steps)
