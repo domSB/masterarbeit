@@ -254,8 +254,8 @@ warengruppe = 6
 state_size = np.array([18])
 gamma = .99  # discount rate for advantage estimation and reward discounting
 load_model = False
-model_path = os.path.join('files', 'models', 'A3C', '02eval' + str(warengruppe))
-logging_path = os.path.join('files', 'logging', 'A3C', '02eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'A3C', '03eval' + str(warengruppe))
+logging_path = os.path.join('files', 'logging', 'A3C', '03eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -297,7 +297,7 @@ if not os.path.exists(model_path):
 
 with tf.device("/cpu:0"):
     global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
-    trainer = tf.train.AdamOptimizer(learning_rate=1e-4)
+    trainer = tf.train.AdamOptimizer(learning_rate=1e-5)
     master_network = A3CNetwork('global', None, state_size)
     # num_workers = multiprocessing.cpu_count()
     num_workers = 8  # Arbeitsspeicher Restriktion
