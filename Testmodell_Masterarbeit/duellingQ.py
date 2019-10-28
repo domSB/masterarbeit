@@ -45,8 +45,8 @@ run_id = 30
 while os.path.exists(os.path.join('files', 'models', 'DDDQN', name_run(run_id))):
     run_id += 1
 
-model_path = os.path.join('files', 'models', 'DDDQN', '01eval' + str(warengruppe))
-log_dir = os.path.join('files', 'logging', 'DDDQN', '01eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'DDDQN', '02eval' + str(warengruppe))
+log_dir = os.path.join('files', 'logging', 'DDDQN', '02eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),

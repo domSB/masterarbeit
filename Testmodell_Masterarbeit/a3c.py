@@ -217,6 +217,13 @@ class Worker:
                     mean_reward = np.mean(self.episode_rewards[-5:])
                     mean_length = np.mean(self.episode_lengths[-5:])
                     mean_value = np.mean(self.episode_mean_values[-5:])
+                    bestell_menge = self.env.statistics.actions().sum()
+                    absatz_menge = self.env.statistics.absaetze().sum()
+                    abschrift_menge = self.env.statistics.abschrift().sum()
+                    fehlmenge = self.env.statistics.fehlmenge().sum()
+                    max_bestand = self.env.statistics.bestand().max()
+                    abschrift_quote = abschrift_menge / bestell_menge
+                    fehl_quote = fehlmenge / absatz_menge
                     summary = tf.Summary()
                     summary.value.add(tag='Perf/Reward', simple_value=float(mean_reward))
                     summary.value.add(tag='Perf/Length', simple_value=float(mean_length))
@@ -226,6 +233,13 @@ class Worker:
                     summary.value.add(tag='Losses/Entropy', simple_value=float(e_l))
                     summary.value.add(tag='Losses/Grad Norm', simple_value=float(g_n))
                     summary.value.add(tag='Losses/Var Norm', simple_value=float(v_n))
+                    summary.value.add(tag='Model/Bestellmenge', simple_value=float(bestell_menge))
+                    summary.value.add(tag='Model/Absatz', simple_value=float(absatz_menge))
+                    summary.value.add(tag='Model/Abschriften', simple_value=float(abschrift_menge))
+                    summary.value.add(tag='Model/AbschriftQuote', simple_value=float(abschrift_quote))
+                    summary.value.add(tag='Model/Fehlmenge', simple_value=float(fehlmenge))
+                    summary.value.add(tag='Model/FehlmengeQuote', simple_value=float(fehl_quote))
+                    summary.value.add(tag='Model/Höchstbestand', simple_value=float(max_bestand))
                     self.summary_writer.add_summary(summary, episode_count)
 
                     self.summary_writer.flush()
@@ -236,12 +250,12 @@ class Worker:
 
 # region Hyperparameter
 
-warengruppe = 1
+warengruppe = 6
 state_size = np.array([18])
 gamma = .99  # discount rate for advantage estimation and reward discounting
 load_model = False
-model_path = os.path.join('files', 'models', 'A3C', '01eval' + str(warengruppe))
-logging_path = os.path.join('files', 'logging', 'A3C', '01eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'A3C', '02eval' + str(warengruppe))
+logging_path = os.path.join('files', 'logging', 'A3C', '02eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -266,7 +280,7 @@ predictor.build_model(
     static_state_shape=simulation_data[2].shape[1]
 )
 predictor.load_from_weights(predictor_path)
-print('Predicting')
+print('Predicting',  end='')
 pred = predictor.predict(
     {
         'dynamic_input': train_data[1],
