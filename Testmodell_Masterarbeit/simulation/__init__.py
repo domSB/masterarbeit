@@ -274,7 +274,10 @@ class StockSimulation(object):
             )
             reichweite = self.bestand - kommende_absaetze
             if reichweite == 0:
-                reward = 1
+                if kommende_absaetze > 0:  # Eine Art Importance Sampling für A3C
+                    reward = 1
+                else:
+                    reward = 0
             elif reichweite > 0:
                 # Korrigierbarer Überbestand?
                 # TODO: Schauen ob Überbestand durch weniger Bestellmenge an den Folgetagen ausgeglichen werden kann
