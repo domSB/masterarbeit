@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 # region Hyperparameter
 
-warengruppe = 80
+warengruppe = 1
 state_size = np.array([18])
 possible_actions = list(range(6))
 tage = 388

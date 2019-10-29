@@ -300,21 +300,3 @@ class StockSimulation(object):
         )
 
         return reward,  done, self.state
-
-
-class ProbeSimulation:
-    def __init__(self):
-        self.step = 0
-
-    @property
-    def state(self):
-        return {'PredictedState': np.random.random((6, 16)), 'Agentstate': np.random.random((3,))}
-
-    def reset(self):
-        self.step = 0
-        return self.state, 'Wir sind im Probelauf'
-
-    def make_action(self, _action):
-        rew = np.argmax(_action) * 0.3
-        self.step += 1
-        return rew, self.step >= 10, self.state
