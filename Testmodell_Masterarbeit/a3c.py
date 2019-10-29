@@ -11,12 +11,12 @@ from data.preparation import split_np_arrays
 
 # region Hyperparameter
 
-warengruppe = 80
+warengruppe = 6
 state_size = np.array([18])
 gamma = .99  # discount rate for advantage estimation and reward discounting
 load_model = False
-model_path = os.path.join('files', 'models', 'A3C', '04eval' + str(warengruppe))
-logging_path = os.path.join('files', 'logging', 'A3C', '04eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'A3C', '03eval' + str(warengruppe))
+logging_path = os.path.join('files', 'logging', 'A3C', '03eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -62,7 +62,7 @@ with tf.device("/cpu:0"):
     trainer = tf.train.AdamOptimizer(learning_rate=1e-5)
     master_network = A3CNetwork('global', None, state_size)
     # num_workers = multiprocessing.cpu_count()
-    num_workers = 8 * 4  # Arbeitsspeicher Restriktion
+    num_workers = 8  # Arbeitsspeicher Restriktion
     workers = []
     # Create worker classes
     for i in range(num_workers):
