@@ -8,7 +8,7 @@ from data.access import DataPipeLine
 from data.preparation import split_np_arrays
 from tqdm import tqdm
 
-
+plt.style.use('ggplot')
 # region Hyperparameter
 
 warengruppe = 1

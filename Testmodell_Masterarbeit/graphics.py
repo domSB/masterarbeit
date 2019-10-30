@@ -56,18 +56,46 @@ plt.style.use('ggplot')
 # endregion
 
 # region Analyse Absatz
-simulation_params = {
-    'InputDirectory': os.path.join('files', 'raw'),
-    'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [17],
-    'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
-}
-pipeline = DataPipeLine(**simulation_params)
-simulation_data = pipeline.get_regression_data()
-print([arr.shape for arr in simulation_data])
-dyn = simulation_data[1]
-absatz = dyn[:, 0, 0]
-uni, cnt = np.unique(absatz, return_counts=True)
-i = np.argwhere(uni == 0)[0][0]
-print(cnt[i]/cnt.sum())
+# simulation_params = {
+#     'InputDirectory': os.path.join('files', 'raw'),
+#     'OutputDirectory': os.path.join('files', 'prepared'),
+#     'ZielWarengruppen': [17],
+#     'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
+# }
+# pipeline = DataPipeLine(**simulation_params)
+# simulation_data = pipeline.get_regression_data()
+# print([arr.shape for arr in simulation_data])
+# dyn = simulation_data[1]
+# absatz = dyn[:, 0, 0]
+# uni, cnt = np.unique(absatz, return_counts=True)
+# i = np.argwhere(uni == 0)[0][0]
+# print(cnt[i]/cnt.sum())
+# endregion
+
+# region 03evalWG77/80
+for warengruppe in[77, 80]:
+    data_dir = os.path.join('files', 'prepared', 'Logging', 'A3C', '03evalWG' + str(warengruppe))
+
+    action_entropy = pd.read_json(os.path.join(data_dir, 'run-train_2-tag-Losses_Entropy.json'))
+    action_entropy.set_index(1, inplace=True)
+    fehlmenge = pd.read_json(os.path.join(data_dir, 'run-train_2-tag-Model_FehlmengeQuote.json'))
+    fehlmenge.set_index(1, inplace=True)
+
+    metrics = pd.DataFrame(
+        data={
+            'Epoch': action_entropy.index.values,
+            'ActionEntropy': action_entropy[2],
+            'Fehlmenge': fehlmenge[2],
+        },
+        index=action_entropy.index.values
+    )
+
+    plt.plot(metrics.loc[:2000, 'ActionEntropy'], label='Aktions-Entropie')
+    plt.plot(metrics.loc[:2000, 'Fehlmenge'], label='Fehlmenge')
+    plt.legend()
+    plt.xlabel('Episode')
+    plt.title('Konvergenz A3C-Agent Warengruppe ' + str(warengruppe))
+    plt.savefig(os.path.join('files', 'Konvergenz A3C-Agent Warengruppe {wg}.png'.format(wg=warengruppe)))
+    plt.show()
+
 # endregion
