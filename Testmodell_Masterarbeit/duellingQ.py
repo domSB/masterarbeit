@@ -12,12 +12,12 @@ tf.get_logger().setLevel('ERROR')
 
 
 # region Hyperparams
-warengruppe = 1
+warengruppe = 6
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 time_steps = 3
 action_size = 6
-learning_rate = 0.00025
+learning_rate = 0.0001
 
 memory_size = 100000
 
@@ -25,7 +25,7 @@ episodes = 3000
 pretrain_episodes = int(memory_size / 300)  # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
 batch_size = 32
 
-learn_step = 4
+learn_step = 1
 max_tau = learn_step * 10000
 
 epsilon_start = 1

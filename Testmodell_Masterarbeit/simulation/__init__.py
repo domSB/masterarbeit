@@ -46,9 +46,12 @@ def belohnung_bestandsreichweite(_bestand, _absatz, order_zyklus, rohertrag=0.3,
         absatz_ausfall += tages_absatz  # Absatz fällt komplett aus
 
     rew_abschrift = anz_abschriften * - ek_preis
-    if bestandsreichweite > order_zyklus - 1:
-        rew_bestand = - kap_kosten * real_bestand[order_zyklus] * ek_preis
+    if bestandsreichweite > order_zyklus:
+        rew_bestand = - kap_kosten * real_bestand[order_zyklus - 1] * ek_preis
         rew_fehlmenge = 0
+    elif bestandsreichweite == order_zyklus:
+        rew_fehlmenge = rohertrag  # Belohnung, wenn richtige Menge getroffen
+        rew_bestand = 0
     else:
         rew_bestand = 0
         fehlmenge = absatz_ausfall - _absatz[order_zyklus:].sum()
