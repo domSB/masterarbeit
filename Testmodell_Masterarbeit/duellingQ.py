@@ -11,7 +11,7 @@ tf.get_logger().setLevel('ERROR')
 
 
 # region Hyperparameter
-warengruppe = 17
+warengruppe = 55
 bestell_zyklus = 3
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
@@ -26,7 +26,7 @@ pretrain_episodes = int(memory_size / (388 / bestell_zyklus))
 batch_size = 32
 
 learn_step = 1
-max_tau = learn_step * 2000
+max_tau = learn_step * 10000
 
 epsilon_start = 1
 epsilon_stop = 0.05
@@ -36,8 +36,8 @@ gamma = 0.99
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', '04eval' + str(warengruppe))
-log_dir = os.path.join('files', 'logging', 'DDDQN', '04eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'DDDQN', '05eval' + str(warengruppe))
+log_dir = os.path.join('files', 'logging', 'DDDQN', '05eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
