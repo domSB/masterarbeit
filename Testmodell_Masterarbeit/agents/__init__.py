@@ -406,7 +406,7 @@ class DDDQNetwork:
 
             self.loss = tf.reduce_mean(self.is_weights * tf.squared_difference(self.target_q, self.q))
 
-            self.optimizer = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.loss)
+            self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 
 class Memory:
@@ -543,30 +543,30 @@ class DDDQAgent:
         self.sess.run(tf.global_variables_initializer())
         # self.update_target()
         self.writer = tf.summary.FileWriter(_log_dir, self.sess.graph)
-        with tf.name_scope('Belohnungen'):
+        with tf.name_scope('Modell'):
             self.v_rewards = tf.placeholder(tf.float32, shape=None, name='Belohnungen')
             self.v_rewards_sum = tf.math.reduce_sum(self.v_rewards)
             self.summary_reward_sum = tf.summary.scalar('Summe', self.v_rewards_sum)
             self.v_rewards_min = tf.math.reduce_min(self.v_rewards)
             self.summary_reward_min = tf.summary.scalar('Minimum', self.v_rewards_min)
-        with tf.name_scope('Modell'):
             self.v_epsilon = tf.placeholder(tf.float32, shape=None, name='Epsilon')
             self.summary_epsilon = tf.summary.scalar('Epsilon', self.v_epsilon)
             self.v_loss = tf.placeholder(tf.float32, shape=None, name='Loss')
             self.summary_loss = tf.summary.scalar('Loss', self.v_loss)
             self.v_beta = tf.placeholder(tf.float32, shape=None, name='Beta')
             self.summary_beta = tf.summary.scalar('Beta', self.v_beta)
-        with tf.name_scope('Aktionen'):
-            self.v_actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
-            self.action_histo = tf.summary.histogram('Aktionen', self.v_actions)
-            self.v_actions_sum = tf.math.reduce_sum(self.v_actions)
-            self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.v_actions_sum)
+            self.v_target_updates = tf.placeholder(tf.float32, shape=None, name='TargetUpdates')
+            self.summary_target_update = tf.summary.scalar('TargetUpdates', self.v_target_updates)
         with tf.name_scope('Bestand'):
             self.v_bestand = tf.placeholder(tf.float32, shape=None, name='Bestand')
             self.v_bestand_max = tf.math.reduce_max(self.v_bestand)
             self.summary_bestand_max = tf.summary.scalar('Maximum', self.v_bestand_max)
             self.v_bestand_mean = tf.math.reduce_mean(self.v_bestand)
             self.summary_bestand_mean = tf.summary.scalar('Durchschnitt', self.v_bestand_mean)
+            self.v_actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
+            self.action_histo = tf.summary.histogram('Aktionen', self.v_actions)
+            self.v_actions_sum = tf.math.reduce_sum(self.v_actions)
+            self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.v_actions_sum)
         with tf.name_scope('Bewegungen'):
             self.v_abschriften = tf.placeholder(tf.float32, shape=None)
             self.v_abschriften_sum = tf.math.reduce_sum(self.v_abschriften, name='PLAbschriften')
