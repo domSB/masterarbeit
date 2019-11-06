@@ -240,7 +240,7 @@ class StockSimulation(object):
         self.dynamic_state = self.dyn[ids_wahl]
         self.predicted_state = self.pred[ids_wahl]
         self.kristall_glas = self.lab[ids_wahl]
-        self.artikel_absatz = self.dyn[ids_wahl, 0, 0].astype(np.int64) * 8
+        self.artikel_absatz = (self.dyn[ids_wahl, 0, 0] * 8).astype(np.int64)
         # Zufälliger Bestand mit maximaler Reichweite von 6 Tagen.
         start_absatz = np.sum(self.artikel_absatz[0:6]).astype(int)
         if start_absatz > 0:

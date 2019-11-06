@@ -381,7 +381,6 @@ class DDDQNetwork:
             self.value = tf.keras.layers.Dense(
                 units=1,
                 activation=None,
-                kernel_initializer=tf.contrib.layers.xavier_initializer(),
                 name='Value'
             )(self.value_fc)
             self.advantage_fc = tf.keras.layers.Dense(
