@@ -50,7 +50,7 @@ def belohnung_bestandsreichweite(_bestand, _absatz, order_zyklus, rohertrag=0.3,
         rew_bestand = - kap_kosten * real_bestand[order_zyklus - 1] * ek_preis
         rew_fehlmenge = 0
     elif bestandsreichweite == order_zyklus:
-        rew_fehlmenge = rohertrag  # Belohnung, wenn richtige Menge getroffen
+        rew_fehlmenge = rohertrag * _absatz[:order_zyklus+1].sum()  # Belohnung, wenn richtige Menge getroffen
         rew_bestand = 0
     else:
         rew_bestand = 0
@@ -181,7 +181,7 @@ class StockSimulation(object):
         self.artikel_einkaufspreis = None
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
-        self.placeholder_mhd = 6
+        self.placeholder_mhd = 14
         self.bestellrythmus = bestellrythmus
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
