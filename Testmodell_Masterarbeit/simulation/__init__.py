@@ -181,6 +181,7 @@ class StockSimulation(object):
         self.artikel_einkaufspreis = None
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
+        self.optimaler_reward = None
         self.placeholder_mhd = 14
         self.bestellrythmus = bestellrythmus
         # TODO: Lookup für MHD und OSE, Preise
@@ -212,7 +213,7 @@ class StockSimulation(object):
 
     @property
     def info(self):
-        return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt, 'Kristallglas': self.kristall_glas}
+        return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt, 'Optimal': self.optimaler_reward}
 
     def reset(self, artikel_markt=None):
         """
@@ -262,6 +263,7 @@ class StockSimulation(object):
         self.artikel_verkaufspreis = 1
         self.artikel_rohertrag = self.artikel_verkaufspreis - self.artikel_einkaufspreis
 
+        self.optimaler_reward = self.artikel_absatz.sum() * self.artikel_rohertrag
         self.statistics.set_artikel(self.aktueller_artikel)
         return self.state, self.info
 

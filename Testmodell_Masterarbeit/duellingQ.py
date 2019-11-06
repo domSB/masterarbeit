@@ -11,7 +11,7 @@ tf.get_logger().setLevel('ERROR')
 
 
 # region Hyperparameter
-warengruppe = 12
+warengruppe = 17
 bestell_zyklus = 3
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
@@ -137,6 +137,7 @@ if training:
             agent.merged,
             feed_dict={
                 agent.v_rewards: simulation.statistics.rewards(),
+                agent.v_reward_optimal: info['Optimal'],
                 agent.v_actions: simulation.statistics.actions(),
                 agent.v_bestand: simulation.statistics.bestand(),
                 agent.v_abschriften: simulation.statistics.abschrift(),
