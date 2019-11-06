@@ -47,7 +47,7 @@ def belohnung_bestandsreichweite(_bestand, _absatz, order_zyklus, rohertrag=0.3,
 
     rew_abschrift = anz_abschriften * - ek_preis
     if bestandsreichweite > order_zyklus - 1:
-        rew_bestand = - kap_kosten * real_bestand[order_zyklus]
+        rew_bestand = - kap_kosten * real_bestand[order_zyklus] * ek_preis
         rew_fehlmenge = 0
     else:
         rew_bestand = 0
@@ -144,7 +144,7 @@ class Statistics(object):
 
 
 class StockSimulation(object):
-    def __init__(self, simulation_data, pred, state_flag, reward_flag):
+    def __init__(self, simulation_data, pred, state_flag, reward_flag, bestellrythmus):
         """
 
         :param simulation_data: 4er Tupel aus Labels, dynamischem Zustand, statischem Zustand und der Ids, zum zuordnen
@@ -179,7 +179,7 @@ class StockSimulation(object):
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
         self.placeholder_mhd = 6
-        self.bestellrythmus = 1
+        self.bestellrythmus = bestellrythmus
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
 
@@ -237,14 +237,14 @@ class StockSimulation(object):
         self.dynamic_state = self.dyn[ids_wahl]
         self.predicted_state = self.pred[ids_wahl]
         self.kristall_glas = self.lab[ids_wahl]
-        self.artikel_absatz = self.dyn[ids_wahl, 0, 0] * 8
+        self.artikel_absatz = self.dyn[ids_wahl, 0, 0].astype(np.int64) * 8
         # Zufälliger Bestand mit maximaler Reichweite von 6 Tagen.
         start_absatz = np.sum(self.artikel_absatz[0:6]).astype(int)
         if start_absatz > 0:
             self.bestand = np.random.choice(start_absatz)
         else:
             self.bestand = 0
-        self.bestands_frische = np.ones((self.bestand,)) * self.placeholder_mhd
+        self.bestands_frische = np.ones((self.bestand,), dtype=np.int64) * self.placeholder_mhd
         self.break_bestand = np.sum(self.artikel_absatz) * 2
 
         self.vergangene_tage = 0
@@ -283,13 +283,13 @@ class StockSimulation(object):
                 self.bestands_frische = self.bestands_frische[int(absatz):]
                 self.bestand -= absatz
             else:
-                self.bestands_frische = np.ones((0,))
+                self.bestands_frische = np.ones((0,), dtype=np.int64)
                 self.fehlmenge = absatz - self.bestand
                 self.optimal_flag = False
                 self.bestand = 0
 
         self.bestand += action
-        self.bestands_frische = np.concatenate((self.bestands_frische, np.ones((action,)) * self.placeholder_mhd))
+        self.bestands_frische = np.concatenate((self.bestands_frische, np.ones((action,), dtype=np.int64) * self.placeholder_mhd))
 
         # Rewardberechnung
         if self.reward_flag == 'MCGewinn' or self.reward_flag == 'TDGewinn':
@@ -339,20 +339,21 @@ class StockSimulation(object):
             reward = np.clip(reward, -3, 3)
 
         elif self.reward_flag == 'Bestandsreichweite V2':
-            analyse_start = self.vergangene_tage+1
-            analyse_stop = min(self.tage, analyse_start + 2 * self.bestellrythmus)
-            kommende_absaetze = np.sum(
-                self.artikel_absatz[analyse_start:analyse_stop]
-            )
-            rewards = belohnung_bestandsreichweite(
-                self.bestands_frische,
-                kommende_absaetze,
-                self.bestellrythmus,
-                rohertrag=0.3,
-                ek_preis=0.7,
-                kap_kosten=0.05 / 365
-            )
-            reward = np.clip(rewards.sum(), -3, 3)
+            if done:
+                reward = self.bestand * (0.05/365) * self.artikel_einkaufspreis
+            else:
+                analyse_start = self.vergangene_tage+1
+                analyse_stop = min(self.tage + 1, analyse_start + 2 * self.bestellrythmus)
+                kommende_absaetze = self.artikel_absatz[analyse_start:analyse_stop]
+                rewards = belohnung_bestandsreichweite(
+                    self.bestands_frische,
+                    kommende_absaetze,
+                    self.bestellrythmus,
+                    rohertrag=0.3,
+                    ek_preis=0.7,
+                    kap_kosten=0.05 / 365
+                )
+                reward = np.clip(rewards.sum(), -3, 3)
 
         else:
             raise NotImplementedError('Unbekannte Belohnungsart')

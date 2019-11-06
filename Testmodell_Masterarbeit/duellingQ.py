@@ -11,12 +11,8 @@ from agents import DDDQAgent, Experience, Predictor
 tf.get_logger().setLevel('ERROR')
 
 
-def name_run(number):
-    return 'Run' + str(number)
-
-
 # region Hyperparams
-warengruppe = 80
+warengruppe = 1
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 time_steps = 3
@@ -39,11 +35,6 @@ epsilon_decay = 0.9999
 gamma = 0.99
 
 training = True
-
-run_id = 30
-
-while os.path.exists(os.path.join('files', 'models', 'DDDQN', name_run(run_id))):
-    run_id += 1
 
 model_path = os.path.join('files', 'models', 'DDDQN', '02eval' + str(warengruppe))
 log_dir = os.path.join('files', 'logging', 'DDDQN', '02eval' + str(warengruppe))
@@ -83,7 +74,7 @@ pred = predictor.predict(
 )
 print(' and done ;)')
 
-simulation = StockSimulation(train_data, pred, 2, 'Bestandsreichweite')
+simulation = StockSimulation(train_data, pred, 2, 'Bestandsreichweite V2', 3)
 
 # endregion
 
