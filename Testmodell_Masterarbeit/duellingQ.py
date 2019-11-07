@@ -36,8 +36,8 @@ gamma = 0.99
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', '07eval' + str(warengruppe))
-log_dir = os.path.join('files', 'logging', 'DDDQN', '07eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'DDDQN', '08eval' + str(warengruppe))
+log_dir = os.path.join('files', 'logging', 'DDDQN', '08eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),

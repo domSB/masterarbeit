@@ -545,10 +545,11 @@ class DDDQAgent:
         self.writer = tf.summary.FileWriter(_log_dir, self.sess.graph)
         with tf.name_scope('Modell'):
             self.v_rewards = tf.placeholder(tf.float32, shape=None, name='Belohnungen')
+            self.reward_histo = tf.summary.histogram('Belohnungen', self.v_rewards)
             self.v_rewards_sum = tf.math.reduce_sum(self.v_rewards)
-            self.summary_reward_sum = tf.summary.scalar('Summe', self.v_rewards_sum)
+            self.summary_reward_sum = tf.summary.scalar('Gesamtbelohnung', self.v_rewards_sum)
             self.v_rewards_min = tf.math.reduce_min(self.v_rewards)
-            self.summary_reward_min = tf.summary.scalar('Minimum', self.v_rewards_min)
+            self.summary_reward_min = tf.summary.scalar('MinBelohnung', self.v_rewards_min)
             self.v_reward_optimal = tf.placeholder(tf.float32, shape=None, name='OptimaleBelohnung')
             self.v_proz_reward = tf.math.divide(self.v_rewards_sum, self.v_reward_optimal)
             self.summary_opti_reward = tf.summary.scalar('OptBelohnung', self.v_reward_optimal)

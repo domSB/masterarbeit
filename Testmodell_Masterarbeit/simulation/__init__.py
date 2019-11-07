@@ -41,7 +41,7 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
     # ==> Unterbestand mit Fehlmenge
     elif bestandsreichweite < order_zyklus:
         fehlmenge = real_bestand[order_zyklus - 1]
-        reward = -rohertrag * fehlmenge**2
+        reward = -rohertrag * fehlmenge
 
     # 3. Fall Bestandsreichweite > Orderzyklus & Bestand bei Orderzyklus == 0
     # ==> Bestandsreichweite per Definition höher als Orderzyklus, aber Bestellmenge optimal
