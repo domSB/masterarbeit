@@ -11,7 +11,8 @@ tf.get_logger().setLevel('ERROR')
 
 
 # region Hyperparams
-warengruppe = 1
+warengruppe = 55
+bestell_zyklus = 3
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -45,7 +46,7 @@ pred = predictor.predict(
 )
 print(' and done ;)')
 
-simulation = StockSimulation(train_data, pred, 0, 'Bestandsreichweite')
+simulation = StockSimulation(train_data, pred, 0, 'MCGewinn V2', bestell_zyklus)
 
 spiele = True
 
@@ -55,11 +56,11 @@ while spiele:
     done = False
     while not done:
         step += 1
-        print(state)
-        action = int(input('Bestellmenge: '))
-        if action == 99:
-            break
-        reward, done, state = simulation.make_action(action)
+        # print(state)
+        # action = int(input('Bestellmenge: '))
+        # if action == 99:
+        #    break
+        reward, done, state = simulation.make_action(4)
         print('Belohnung: ', reward)
 
     spiele = input('Weiterspielen?(j/n)') == 'j'

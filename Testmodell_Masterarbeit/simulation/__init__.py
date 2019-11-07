@@ -62,6 +62,11 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
     return reward
 
 
+def gradienten_belohnung(ausfall, abschrift):
+    z = 3 / (ausfall + abschrift + 1) ** 0.5 - 0.01 * abs(ausfall - abschrift) ** 1.1 - 0.01 * (ausfall + abschrift)
+    return z
+
+
 class Statistics(object):
     def __init__(self):
         self.data = {}
@@ -335,7 +340,7 @@ class StockSimulation(object):
             self.anz_abschriften += self.abschriften
             self.anz_fehlmengen += self.fehlmenge
             if done:
-                reward = 3/(self.abschriften + 1) + 3/(self.fehlmenge + 1)
+                reward = gradienten_belohnung(self.anz_fehlmengen, self.anz_abschriften)
             else:
                 reward = 0
 
