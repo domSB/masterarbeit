@@ -16,7 +16,7 @@ bestell_zyklus = 3
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 action_size = 6
-learning_rate = 0.001
+learning_rate = 0.0001
 
 memory_size = 10000
 
@@ -36,8 +36,8 @@ gamma = 0.99
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', '06eval' + str(warengruppe))
-log_dir = os.path.join('files', 'logging', 'DDDQN', '06eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'DDDQN', '07eval' + str(warengruppe))
+log_dir = os.path.join('files', 'logging', 'DDDQN', '07eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),

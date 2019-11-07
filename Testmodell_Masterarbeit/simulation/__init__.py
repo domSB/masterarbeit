@@ -60,6 +60,7 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
 
     return reward
 
+
 class Statistics(object):
     def __init__(self):
         self.data = {}
@@ -345,12 +346,19 @@ class StockSimulation(object):
 
         elif self.reward_flag == 'Bestandsreichweite V2':
             if done:
-                reward = self.bestand * (0.05/365) * self.artikel_einkaufspreis
+                reward = self.bestand * (0.05/365) * -self.artikel_einkaufspreis
             else:
                 analyse_start = self.vergangene_tage+1
-                analyse_stop = min(self.tage + 1, analyse_start + 2 * self.bestellrythmus)
+                analyse_stop = min(self.tage + 1, analyse_start + self.placeholder_mhd)
                 kommende_absaetze = self.artikel_absatz[analyse_start:analyse_stop]
-                rewards = belohnung_bestandsreichweite(
+                if kommende_absaetze.shape[0] < self.placeholder_mhd:
+                    kommende_absaetze = np.concatenate(
+                        (
+                            kommende_absaetze,
+                            np.zeros(self.placeholder_mhd - kommende_absaetze.shape[0])
+                        )
+                    )
+                reward = belohnung_bestandsreichweite(
                     self.bestands_frische,
                     kommende_absaetze,
                     self.bestellrythmus,
@@ -358,7 +366,7 @@ class StockSimulation(object):
                     ek_preis=0.7,
                     kap_kosten=0.05 / 365
                 )
-                reward = np.clip(rewards.sum(), -3, 3)
+                reward = np.clip(reward, -7, 7)
 
         else:
             raise NotImplementedError('Unbekannte Belohnungsart')
