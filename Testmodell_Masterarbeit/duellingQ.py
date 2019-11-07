@@ -25,7 +25,7 @@ pretrain_episodes = int(memory_size / (388 / bestell_zyklus))
 # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
 batch_size = 32
 
-learn_step = 4
+learn_step = 1
 max_tau = learn_step * 10000
 
 epsilon_start = 1
@@ -36,8 +36,8 @@ gamma = 0.99
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', '10eval' + str(warengruppe))
-log_dir = os.path.join('files', 'logging', 'DDDQN', '10eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'DDDQN', '11eval' + str(warengruppe))
+log_dir = os.path.join('files', 'logging', 'DDDQN', '11eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),
@@ -74,7 +74,7 @@ pred = predictor.predict(
 )
 print(' and done ;)')
 
-simulation = StockSimulation(train_data, pred, 2, 'Bestandsreichweite V2', bestell_zyklus)
+simulation = StockSimulation(train_data, pred, 2, 'MCGewinn V2', bestell_zyklus)
 
 # endregion
 

@@ -180,6 +180,8 @@ class StockSimulation(object):
         self.fehlmenge = 0
         self.optimal_flag = None
         self.gesamt_belohnung = None
+        self.anz_abschriften = 0
+        self.anz_fehlmengen = 0
         self.artikel_einkaufspreis = None
         self.artikel_verkaufspreis = None
         self.artikel_rohertrag = None
@@ -260,6 +262,8 @@ class StockSimulation(object):
         self.fehlmenge = 0
         self.optimal_flag = True
         self.gesamt_belohnung = 0
+        self.anz_abschriften = 0
+        self.anz_fehlmengen = 0
 
         self.artikel_einkaufspreis = 0.7
         self.artikel_verkaufspreis = 1
@@ -326,6 +330,14 @@ class StockSimulation(object):
                     reward = 0
         elif self.reward_flag == 'Bestand':
             raise NotImplementedError('Muss noch gecoded werden')
+
+        elif self.reward_flag == 'MCGewinn V2':
+            self.anz_abschriften += self.abschriften
+            self.anz_fehlmengen += self.fehlmenge
+            if done:
+                reward = 3/(self.abschriften + 1) + 3/(self.fehlmenge + 1)
+            else:
+                reward = 0
 
         elif self.reward_flag == 'Bestandsreichweite':
             kommende_absaetze = np.sum(
