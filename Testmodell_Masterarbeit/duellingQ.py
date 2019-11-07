@@ -16,16 +16,16 @@ bestell_zyklus = 3
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 action_size = 6
-learning_rate = 0.0001
+learning_rate = 0.001
 
 memory_size = 10000
 
-episodes = 3000
+episodes = 10000
 pretrain_episodes = int(memory_size / (388 / bestell_zyklus))
 # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
 batch_size = 32
 
-learn_step = 1
+learn_step = 4
 max_tau = learn_step * 10000
 
 epsilon_start = 1
@@ -36,8 +36,8 @@ gamma = 0.99
 
 training = True
 
-model_path = os.path.join('files', 'models', 'DDDQN', '08eval' + str(warengruppe))
-log_dir = os.path.join('files', 'logging', 'DDDQN', '08eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'DDDQN', '09eval' + str(warengruppe))
+log_dir = os.path.join('files', 'logging', 'DDDQN', '09eval' + str(warengruppe))
 
 simulation_params = {
     'InputDirectory': os.path.join('files', 'raw'),

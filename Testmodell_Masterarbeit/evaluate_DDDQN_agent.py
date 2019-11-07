@@ -18,9 +18,10 @@ tf.get_logger().setLevel('ERROR')
 # region Hyperparams
 action_size = 6
 learning_rate = 0
+bestellzyklus = 3
 
 memory_size = 10
-tage = 322
+tage = 388
 
 episodes = 10000
 batch_size = 32
@@ -34,7 +35,8 @@ epsilon_decay = 1
 
 gamma = 0.99
 
-for warengruppe in [1, 6, 12, 17, 28, 55, 71, 77, 80]:
+#for warengruppe in [1, 6, 12, 17, 28, 55, 71, 77, 80]:
+for warengruppe in [55]:
     tf.keras.backend.clear_session()
     state_size = np.array([18])   # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 
@@ -49,7 +51,7 @@ for warengruppe in [1, 6, 12, 17, 28, 55, 71, 77, 80]:
     available_weights = os.listdir(predictor_dir)
     available_weights.sort()
     predictor_path = os.path.join(predictor_dir, available_weights[-1])
-    agent_path = os.path.join('files', 'models', 'DDDQN', '01eval' + str(warengruppe))
+    agent_path = os.path.join('files', 'models', 'DDDQN', '08eval' + str(warengruppe))
     # endregion
 
     pipeline = DataPipeLine(**simulation_params)
@@ -73,7 +75,7 @@ for warengruppe in [1, 6, 12, 17, 28, 55, 71, 77, 80]:
     )
     print('and done ;)')
 
-    simulation = StockSimulation(train_data, pred, 2, 'Bestandsreichweite')
+    simulation = StockSimulation(train_data, pred, 2, 'Bestandsreichweite V2', bestellzyklus)
 
     # endregion
 
