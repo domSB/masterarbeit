@@ -30,6 +30,7 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
     else:
         bestandsreichweite = analyse_tage
 
+    reward = 0
     # Fallunterscheidungen:
     # 1. Fall Bestandsreichweite == Orderzyklus
     # ==> Perfekter Bestand
@@ -39,24 +40,24 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
 
     # 2. Fall Bestandsreichweite < Orderzyklus
     # ==> Unterbestand mit Fehlmenge
-    elif bestandsreichweite < order_zyklus:
-        fehlmenge = real_bestand[order_zyklus - 1]
-        reward = -rohertrag * fehlmenge
-
-    # 3. Fall Bestandsreichweite > Orderzyklus & Bestand bei Orderzyklus == 0
-    # ==> Bestandsreichweite per Definition höher als Orderzyklus, aber Bestellmenge optimal
-    else:
-        end_bestand = real_bestand[order_zyklus - 1]
-        if end_bestand == 0:
-            reward = 0.1 + 0.3 * kum_absatz[order_zyklus - 1]**2
-
-    # 4. Fall Bestandsreichweite > Orderzyklus & Bestand bei Orderzyklus > 0
-    # ==> Noch Bestand bei nächstem Liefereingang.
-        else:
-            unvermeidbare_abschriften = -abschriften[order_zyklus-1:].sum()
-            # Bei MHD > 2x Orderzyklus werden Abschriften ggf. mehrfach bestraft.
-            verkaufbarer_mehrbestand = end_bestand - unvermeidbare_abschriften
-            reward = (unvermeidbare_abschriften * -ek_preis) + (verkaufbarer_mehrbestand * -ek_preis * kap_kosten)
+    # elif bestandsreichweite < order_zyklus:
+    #     fehlmenge = real_bestand[order_zyklus - 1]
+    #     reward = -rohertrag * fehlmenge
+    #
+    # # 3. Fall Bestandsreichweite > Orderzyklus & Bestand bei Orderzyklus == 0
+    # # ==> Bestandsreichweite per Definition höher als Orderzyklus, aber Bestellmenge optimal
+    # else:
+    #     end_bestand = real_bestand[order_zyklus - 1]
+    #     if end_bestand == 0:
+    #         reward = 0.1 + 0.3 * kum_absatz[order_zyklus - 1]**2
+    #
+    # # 4. Fall Bestandsreichweite > Orderzyklus & Bestand bei Orderzyklus > 0
+    # # ==> Noch Bestand bei nächstem Liefereingang.
+    #     else:
+    #         unvermeidbare_abschriften = -abschriften[order_zyklus-1:].sum()
+    #         # Bei MHD > 2x Orderzyklus werden Abschriften ggf. mehrfach bestraft.
+    #         verkaufbarer_mehrbestand = end_bestand - unvermeidbare_abschriften
+    #         reward = (unvermeidbare_abschriften * -ek_preis) + (verkaufbarer_mehrbestand * -ek_preis * kap_kosten)
 
     return reward
 
