@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 import os
 from data.access import DataPipeLine
 
@@ -98,4 +100,35 @@ for warengruppe in[77, 80]:
     plt.savefig(os.path.join('files', 'Konvergenz A3C-Agent Warengruppe {wg}.png'.format(wg=warengruppe)))
     plt.show()
 
+# endregion
+
+
+# region Belohnungsfunktion
+def belohnung(ausfall, abschrift):
+    """
+    Monte Carlo Belohnung mit guten Gradienten und gleicher Bestrafung von Fehlmenge und Abschriften
+    """
+    z = np.log(3/(ausfall**2+abschrift**2+1))/4 + 3
+    # z = 3 / (ausfall + abschrift + 1) ** 0.5 - 0.01 * abs(ausfall - abschrift) ** 1.1 - 0.01 * (ausfall + abschrift)
+    return z
+
+
+x = y = np.arange(0, 100)
+X, Y = np.meshgrid(x, y)
+zs = np.array([belohnung(x, y) for x, y in zip(np.ravel(X), np.ravel(Y))])
+Z = zs.reshape(X.shape)
+Gx, Gy = np.gradient(Z)  # gradients with respect to x and y
+G = (Gx**2+Gy**2)**.5  # gradient magnitude
+N = np.clip(G, 0, 0.04)
+N = N/N.max()
+
+# plt.style.use('ggplot')
+fig = plt.figure()
+ax = fig.gca(projection='3d')
+ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.seismic(N), linewidth=0, antialiased=False, shade=False)
+ax.set_xlabel('Fehlmenge')
+ax.set_ylabel('Abschrift')
+ax.set_zlabel('Belohnung')
+ax.set_title('Monte Carlo Belohnungsfunktion')
+plt.show()
 # endregion

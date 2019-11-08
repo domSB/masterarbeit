@@ -78,26 +78,4 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
 # reward = belohnung_bestandsreichweite(bestand, absatz, 3)
 
 
-def belohnung(ausfall, abschrift):
-    z = 3 / (ausfall + abschrift + 1) ** 0.5 - 0.01 * abs(ausfall - abschrift) ** 1.1 - 0.01 * (ausfall + abschrift)
-    return z
 
-
-
-x = y = np.arange(0, 100)
-X, Y = np.meshgrid(x, y)
-zs = np.array([belohnung(x, y) for x, y in zip(np.ravel(X), np.ravel(Y))])
-Z = zs.reshape(X.shape)
-Gx, Gy = np.gradient(Z)  # gradients with respect to x and y
-G = (Gx**2+Gy**2)**.5  # gradient magnitude
-N = np.clip(G, 0, 0.1)
-N = (N-N.mean())/np.std(N)
-
-fig = plt.figure()
-ax = fig.gca(projection='3d')
-ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.seismic(N), linewidth=0, antialiased=False, shade=False)
-ax.set_xlabel('Fehlmenge')
-ax.set_ylabel('Abschrift')
-ax.set_zlabel('Belohnung')
-
-plt.show()

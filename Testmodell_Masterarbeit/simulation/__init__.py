@@ -63,7 +63,7 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
 
 
 def gradienten_belohnung(ausfall, abschrift):
-    z = 3 / (ausfall + abschrift + 1) ** 0.5 - 0.01 * abs(ausfall - abschrift) ** 1.1 - 0.01 * (ausfall + abschrift)
+    z = np.log(3/(ausfall**2+abschrift**2+1))/4 + 3
     return z
 
 
