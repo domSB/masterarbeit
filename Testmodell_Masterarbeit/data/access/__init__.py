@@ -22,13 +22,12 @@ class Parameter(object):
 
         self.warengruppen_maske = kwargs.get('ZielWarengruppen', [55])
 
-        self.detail_warengruppen_maske = kwargs.get('Detailwarengruppe', None)
+        self.detail_warengruppen_maske = kwargs.get('DetailWarengruppe', None)
 
         self.stat_state_category_cols = kwargs.get(
             'StatStateCategoricals',
             {
                 'MHDgroup': 7,
-                'Warengruppe': 9,
                 'Detailwarengruppe': None,
                 'Einheit': None,
                 'Markt': 6
@@ -44,9 +43,9 @@ class Parameter(object):
         :return: str aus Warengruppe und Detailwarengruppe, falls vorhanden.
         """
         if self.detail_warengruppen_maske:
-            name = '-'.join([str(self.warengruppen_maske), str(self.detail_warengruppen_maske)])
+            name = '-'.join([str(self.warengruppen_maske[0]), str(self.detail_warengruppen_maske[0])])
         else:
-            name = str(self.warengruppen_maske)
+            name = str(self.warengruppen_maske[0])
         return name
 
     @property

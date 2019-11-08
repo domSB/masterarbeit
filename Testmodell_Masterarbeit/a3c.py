@@ -11,21 +11,19 @@ from data.preparation import split_np_arrays
 
 # region Hyperparameter
 
-warengruppe = 6
+warengruppe = [55]
+bestell_zyklus = 3
 state_size = np.array([18])
 gamma = .99  # discount rate for advantage estimation and reward discounting
 load_model = False
-model_path = os.path.join('files', 'models', 'A3C', '03eval' + str(warengruppe))
-logging_path = os.path.join('files', 'logging', 'A3C', '03eval' + str(warengruppe))
+model_path = os.path.join('files', 'models', 'A3C', '04eval' + str(warengruppe[0]))
+logging_path = os.path.join('files', 'logging', 'A3C', '04eval' + str(warengruppe[0]))
 
 simulation_params = {
-    'InputDirectory': os.path.join('files', 'raw'),
-    'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [warengruppe],
-    'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
+    'ZielWarengruppen': warengruppe,
 }
 
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
+predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
@@ -68,7 +66,7 @@ with tf.device("/cpu:0"):
     for i in range(num_workers):
         workers.append(
             Worker(
-                StockSimulation(train_data, pred, 2, 'Bestandsreichweite'),
+                StockSimulation(train_data, pred, 2, 'MCGewinn V2', bestell_zyklus),
                 i,
                 trainer,
                 model_path,

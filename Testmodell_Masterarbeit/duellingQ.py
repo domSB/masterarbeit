@@ -11,7 +11,10 @@ tf.get_logger().setLevel('ERROR')
 
 
 # region Hyperparameter
-warengruppe = 55
+
+evaluation_run = 14
+warengruppe = [55]
+detail_warengruppe = [2363]
 bestell_zyklus = 3
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
@@ -35,18 +38,18 @@ epsilon_decay = 0.9999
 gamma = 0.99
 
 training = True
-
-model_path = os.path.join('files', 'models', 'DDDQN', '12eval' + str(warengruppe))
-log_dir = os.path.join('files', 'logging', 'DDDQN', '12eval' + str(warengruppe))
+dir_name = str(evaluation_run) + 'eval' + str(warengruppe[0])
+if detail_warengruppe:
+    dir_name = dir_name + '-' + str(detail_warengruppe[0])
+model_path = os.path.join('files', 'models', 'DDDQN', dir_name)
+log_dir = os.path.join('files', 'logging', 'DDDQN', dir_name)
 
 simulation_params = {
-    'InputDirectory': os.path.join('files', 'raw'),
-    'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [warengruppe],
-    'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
+    'ZielWarengruppen': warengruppe,
+    'DetailWarengruppe': detail_warengruppe
 }
 
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
+predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])

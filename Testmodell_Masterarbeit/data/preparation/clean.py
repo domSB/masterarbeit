@@ -73,7 +73,9 @@ def create_frame_from_raw_data(params):
                'Kern', 'Bio', 'Glutenfrei',
                'Laktosefrei', 'MarkeFK', 'Region']
     )
-    artikelstamm = artikelstamm[artikelstamm.Warengruppe.isin(params.warengruppenmaske)]
+    artikelstamm = artikelstamm[artikelstamm.Warengruppe.isin(params.warengruppen_maske)]
+    if params.detail_warengruppen_maske is not None:
+        artikelstamm = artikelstamm[artikelstamm.Detailwarengruppe.isin(params.detail_warengruppen_maske)]
     artikelmaske = pd.unique(artikelstamm.Artikel)
     # endregion
 
@@ -167,41 +169,13 @@ def create_frame_from_raw_data(params):
 
     artikelstamm = artikelstamm.set_index('Artikel')
 
-    # region fehlende Detailwarengruppen auffüllen
-    print('Beginne mit Aufbereitungsmaßnahmen')
-    wg_group = artikelstamm.loc[
-               :,
-               ['Warengruppe', 'Detailwarengruppe']
-               ].groupby('Warengruppe').median()
-    detail_warengruppen_nan_index = wg_group.to_dict()['Detailwarengruppe']
-    artikelstamm['DetailwarengruppeBackup'] = artikelstamm['Warengruppe'].map(
-        detail_warengruppen_nan_index
-    )
-    artikelstamm['Detailwarengruppe'].fillna(
-        value=artikelstamm['DetailwarengruppeBackup'],
-        inplace=True
-    )
-    artikelstamm.drop(columns=['DetailwarengruppeBackup'], inplace=True)
-    # endregion
-
     # region numerisches MHD in kategoriale Variable transformieren
     mhd_labels = [0, 1, 2, 3, 4, 5, 6]
     mhd_bins = [0, 1, 7, 14, 28, 100, 1000, 100000]
     artikelstamm['MHDgroup'] = pd.cut(artikelstamm.MHD, mhd_bins, right=False, labels=mhd_labels)
     # endregion
 
-    #  region Lückenhafte Fremdschlüssel durch eine durchgehende ID ersetzen
-    detail_warengruppen_index = {
-        int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Detailwarengruppe)))
-    }
-    params.stat_state_category_cols['Detailwarengruppe'] = len(detail_warengruppen_index)
-    warengruppen_index = {
-        int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Warengruppe)))
-    }
-    einheit_index = {
-        int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Einheit)))
-    }
-    params.stat_state_category_cols['Einheit'] = len(einheit_index)
+    # region fehlende Detailwarengruppen auffüllen
     markt_index = {
         27: 0,
         67: 1,
@@ -210,19 +184,64 @@ def create_frame_from_raw_data(params):
         129: 4,
         147: 5
     }
-    mapping = {
-        'Detailwarengruppe': detail_warengruppen_index,
-        'Warengruppe': warengruppen_index,
-        'Einheit': einheit_index
-    }
-    filename = str(params.warengruppenmaske) + ' ValueMapping.json'
-    with open(os.path.join(params.output_dir, filename), 'w') as file:
-        json.dump(mapping, file)
+    print('Beginne mit Aufbereitungsmaßnahmen')
+    if params.detail_warengruppen_maske is None:
+        wg_group = artikelstamm.loc[
+                   :,
+                   ['Warengruppe', 'Detailwarengruppe']
+                   ].groupby('Warengruppe').median()
+        detail_warengruppen_nan_index = wg_group.to_dict()['Detailwarengruppe']
+        artikelstamm['DetailwarengruppeBackup'] = artikelstamm['Warengruppe'].map(
+            detail_warengruppen_nan_index
+        )
+        artikelstamm['Detailwarengruppe'].fillna(
+            value=artikelstamm['DetailwarengruppeBackup'],
+            inplace=True
+        )
+        artikelstamm.drop(columns=['DetailwarengruppeBackup'], inplace=True)
+        # endregion
+
+        #  region Lückenhafte Fremdschlüssel durch eine durchgehende ID ersetzen
+        detail_warengruppen_index = {
+            int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Detailwarengruppe)))
+        }
+        warengruppen_index = {
+            int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Warengruppe)))
+        }
+        einheit_index = {
+            int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Einheit)))
+        }
+        mapping = {
+            'Detailwarengruppe': detail_warengruppen_index,
+            'Warengruppe': warengruppen_index,
+            'Einheit': einheit_index
+        }
+        filename = params.name + ' ValueMapping.json'
+        with open(os.path.join(params.output_dir, filename), 'w') as file:
+            json.dump(mapping, file)
+    else:
+        filename = params.name.split('-')[0] + ' ValueMapping.json'
+        v = os.path.exists(os.path.join(params.output_dir, filename))
+        with open(os.path.join(params.output_dir, filename), 'r') as file:
+            mapping = json.load(file)
+            detail_warengruppen_index = mapping['Detailwarengruppe']
+            detail_warengruppen_index = {int(k): int(v) for k, v in detail_warengruppen_index.items()}
+            """
+            Kleines Decoding Problem: Json akzeptiert keine ints als Dict-Keys. Darum werden diese beim Speichern
+            automatisch in strings konvertiert. 
+            """
+            warengruppen_index = mapping['Warengruppe']
+            warengruppen_index = {int(k): int(v) for k, v in warengruppen_index.items()}
+            einheit_index = mapping['Einheit']
+            einheit_index = {int(k): int(v) for k, v in einheit_index.items()}
     artikelstamm['Detailwarengruppe'] = artikelstamm['Detailwarengruppe'].map(
         detail_warengruppen_index)
     artikelstamm['Warengruppe'] = artikelstamm['Warengruppe'].map(warengruppen_index)
     artikelstamm['Einheit'] = artikelstamm['Einheit'].map(einheit_index)
     absatz['Markt'] = absatz['Markt'].map(markt_index)
+
+    params.stat_state_category_cols['Einheit'] = len(einheit_index)
+    params.stat_state_category_cols['Detailwarengruppe'] = len(detail_warengruppen_index)
     # endregion
 
     # region überflüssige Spalten löschen und OSE&Saisonal Kennzeichen auffüllen
@@ -253,6 +272,11 @@ def create_frame_from_raw_data(params):
     absatz['t1'], absatz['t2'], absatz['t3'] = zip(*absatz.Datum.dt.dayofweek.apply(day_of_week))
     absatz["UNIXDatum"] = absatz["Datum"].astype(np.int64) / (1000000000 * 24 * 3600)
     # TODO: Feiertage Hinweis in State aufnehmen
+    """
+    Feiertage Variable derzeit nicht notwendig, da nur 1,5 Jahre langer Zeitraum
+    ==> Effekt des Feiertages Weihnachten trifft nur einmal auf. Ob Ausschlag auf 24.12.2018 oder die Feiertagsvariable
+    regressiert wird ist hier egal.   
+    """
     # endregion
 
     # region Wetter anfügen
@@ -329,11 +353,19 @@ def create_frame_from_raw_data(params):
     absatz.relRabatt.fillna(0., inplace=True)
     absatz.absRabatt.fillna(0., inplace=True)
     absatz.drop(columns=['DatumAb', 'DatumBis', 'Aktionspreis'], inplace=True)
-    preis_mean, preis_std = np.mean(absatz.Preis), np.std(absatz.Preis)
+    if params.detail_warengruppen_maske is None:
+        preis_mean, preis_std = np.mean(absatz.Preis), np.std(absatz.Preis)
+
+        filename = str(params.name) + ' PreisStd.json'
+        with open(os.path.join(params.output_dir, filename), 'w') as file:
+            json.dump({'PreisStandardDerivation': preis_std, 'PreisMean': preis_mean}, file)
+    else:
+        filename = params.name.split('-')[0] + ' PreisStd.json'
+        with open(os.path.join(params.output_dir, filename), 'r') as file:
+            standardisierung = json.load(file)
+            preis_std = standardisierung['PreisStandardDerivation']
+            preis_mean = standardisierung['PreisMean']
     absatz['Preis'] = (absatz['Preis'] - preis_mean) / preis_std
-    filename = str(params.warengruppenmaske) + ' PreisStd.json'
-    with open(os.path.join(params.output_dir, filename), 'w') as file:
-        json.dump({'PreisStandardDerivation': preis_std, 'PreisMean': preis_mean}, file)
     # endregion
 
     # region Targets erzeugen
@@ -348,7 +380,6 @@ def create_frame_from_raw_data(params):
     # endregion
     print('Frames sind erstellt')
     # TODO: Bestand und weitere Stammdaten für Statistiken zurückgeben
-    # TODO: Checken, ob das Updaten der Dicts zu kategorialen Variable Einfluss auf den Dateinamen hat.
     return absatz, bewegung, artikelstamm
 
 

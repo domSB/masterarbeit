@@ -4,7 +4,10 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 import os
+import random
 from data.access import DataPipeLine
+from data.preparation import split_np_arrays
+from agents import Predictor
 
 plt.style.use('ggplot')
 # region Tensorboard Predictor Training
@@ -75,60 +78,124 @@ plt.style.use('ggplot')
 # endregion
 
 # region 03evalWG77/80
-for warengruppe in[77, 80]:
-    data_dir = os.path.join('files', 'prepared', 'Logging', 'A3C', '03evalWG' + str(warengruppe))
-
-    action_entropy = pd.read_json(os.path.join(data_dir, 'run-train_2-tag-Losses_Entropy.json'))
-    action_entropy.set_index(1, inplace=True)
-    fehlmenge = pd.read_json(os.path.join(data_dir, 'run-train_2-tag-Model_FehlmengeQuote.json'))
-    fehlmenge.set_index(1, inplace=True)
-
-    metrics = pd.DataFrame(
-        data={
-            'Epoch': action_entropy.index.values,
-            'ActionEntropy': action_entropy[2],
-            'Fehlmenge': fehlmenge[2],
-        },
-        index=action_entropy.index.values
-    )
-
-    plt.plot(metrics.loc[:2000, 'ActionEntropy'], label='Aktions-Entropie')
-    plt.plot(metrics.loc[:2000, 'Fehlmenge'], label='Fehlmenge')
-    plt.legend()
-    plt.xlabel('Episode')
-    plt.title('Konvergenz A3C-Agent Warengruppe ' + str(warengruppe))
-    plt.savefig(os.path.join('files', 'Konvergenz A3C-Agent Warengruppe {wg}.png'.format(wg=warengruppe)))
-    plt.show()
+# for warengruppe in[77, 80]:
+#     data_dir = os.path.join('files', 'prepared', 'Logging', 'A3C', '03evalWG' + str(warengruppe))
+#
+#     action_entropy = pd.read_json(os.path.join(data_dir, 'run-train_2-tag-Losses_Entropy.json'))
+#     action_entropy.set_index(1, inplace=True)
+#     fehlmenge = pd.read_json(os.path.join(data_dir, 'run-train_2-tag-Model_FehlmengeQuote.json'))
+#     fehlmenge.set_index(1, inplace=True)
+#
+#     metrics = pd.DataFrame(
+#         data={
+#             'Epoch': action_entropy.index.values,
+#             'ActionEntropy': action_entropy[2],
+#             'Fehlmenge': fehlmenge[2],
+#         },
+#         index=action_entropy.index.values
+#     )
+#
+#     plt.plot(metrics.loc[:2000, 'ActionEntropy'], label='Aktions-Entropie')
+#     plt.plot(metrics.loc[:2000, 'Fehlmenge'], label='Fehlmenge')
+#     plt.legend()
+#     plt.xlabel('Episode')
+#     plt.title('Konvergenz A3C-Agent Warengruppe ' + str(warengruppe))
+#     plt.savefig(os.path.join('files', 'Konvergenz A3C-Agent Warengruppe {wg}.png'.format(wg=warengruppe)))
+#     plt.show()
 
 # endregion
 
 
 # region Belohnungsfunktion
-def belohnung(ausfall, abschrift):
-    """
-    Monte Carlo Belohnung mit guten Gradienten und gleicher Bestrafung von Fehlmenge und Abschriften
-    """
-    z = np.log(3/(ausfall**2+abschrift**2+1))/4 + 3
-    # z = 3 / (ausfall + abschrift + 1) ** 0.5 - 0.01 * abs(ausfall - abschrift) ** 1.1 - 0.01 * (ausfall + abschrift)
-    return z
+# def belohnung(ausfall, abschrift):
+#     """
+#     Monte Carlo Belohnung mit guten Gradienten und gleicher Bestrafung von Fehlmenge und Abschriften
+#     """
+#     z = np.log(3/(ausfall**2+abschrift**2+1))/4 + 3
+#     # z = 3 / (ausfall + abschrift + 1) ** 0.5 - 0.01 * abs(ausfall - abschrift) ** 1.1 - 0.01 * (ausfall + abschrift)
+#     return z
+#
+#
+# x = y = np.arange(0, 100)
+# X, Y = np.meshgrid(x, y)
+# zs = np.array([belohnung(x, y) for x, y in zip(np.ravel(X), np.ravel(Y))])
+# Z = zs.reshape(X.shape)
+# Gx, Gy = np.gradient(Z)  # gradients with respect to x and y
+# G = (Gx**2+Gy**2)**.5  # gradient magnitude
+# N = np.clip(G, 0, 0.04)
+# N = N/N.max()
+#
+# # plt.style.use('ggplot')
+# fig = plt.figure()
+# ax = fig.gca(projection='3d')
+# ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.seismic(N), linewidth=0, antialiased=False, shade=False)
+# ax.set_xlabel('Fehlmenge')
+# ax.set_ylabel('Abschrift')
+# ax.set_zlabel('Belohnung')
+# ax.set_title('Monte Carlo Belohnungsfunktion')
+# plt.show()
+# endregion
+
+# region Predictor Accuracy
+warengruppe = 55
+state_size = np.array([18])
+
+predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
+available_weights = os.listdir(predictor_dir)
+available_weights.sort()
+predictor_path = os.path.join(predictor_dir, available_weights[-1])
+
+pipeline = DataPipeLine(ZielWarengrupppe=[warengruppe])
+simulation_data = pipeline.get_regression_data()
+train_data, test_data = split_np_arrays(*simulation_data)
+
+print([tr.shape for tr in train_data])
+state_size[0] += simulation_data[2].shape[1]
+
+predictor = Predictor()
+predictor.build_model(
+    dynamic_state_shape=simulation_data[1].shape[2],
+    static_state_shape=simulation_data[2].shape[1]
+)
+predictor.load_from_weights(predictor_path)
+print('Predicting', end='')
+pred = predictor.predict(
+    {
+        'dynamic_input': train_data[1],
+        'static_input': train_data[2]
+    }
+)
+lab, dyn, stat, ids = train_data
+possibles = np.unique(ids)
+
+for i in range(3):
+    position_wahl = np.random.choice(len(possibles))
+    ids_wahl = np.argwhere(np.isin(ids, possibles[position_wahl])).reshape(-1)
+    static_state = stat[ids_wahl]
+    dynamic_state = dyn[ids_wahl]
+    predicted_state = pred[ids_wahl]
+    true_state = lab[ids_wahl]
+    artikel_absatz = (dyn[ids_wahl, 0, 0] * 8).astype(np.int64)
+    vorhersagen = np.argmax(predicted_state, axis=2)
+    df = pd.DataFrame(
+        {
+            '1-Tages Prognose': vorhersagen[:-1, 0],
+            'Absatz': artikel_absatz[1:]
+        }
+    )
+    df.plot.bar(rot=90)
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex='all')
+    ax1.plot(artikel_absatz[2:], '.', label='Absatz')
+    ax1.plot(vorhersagen[1:-1, 0], '2', label='1-Tages-Prognose')
+    ax1.plot(vorhersagen[0:-2, 1], '*', label='2-Tages-Prognose')
+    ax1.set_ylabel('Menge')
+    ax1.legend()
+    ax2.plot(vorhersagen[1:-1, 0] - artikel_absatz[2:], '.', label='Prognose Abweichung')
+    ax2.legend()
+    ax2.set_xlabel('Verkaufstage')
+    ax2.set_ylabel('Menge')
+    plt.show()
 
 
-x = y = np.arange(0, 100)
-X, Y = np.meshgrid(x, y)
-zs = np.array([belohnung(x, y) for x, y in zip(np.ravel(X), np.ravel(Y))])
-Z = zs.reshape(X.shape)
-Gx, Gy = np.gradient(Z)  # gradients with respect to x and y
-G = (Gx**2+Gy**2)**.5  # gradient magnitude
-N = np.clip(G, 0, 0.04)
-N = N/N.max()
 
-# plt.style.use('ggplot')
-fig = plt.figure()
-ax = fig.gca(projection='3d')
-ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.seismic(N), linewidth=0, antialiased=False, shade=False)
-ax.set_xlabel('Fehlmenge')
-ax.set_ylabel('Abschrift')
-ax.set_zlabel('Belohnung')
-ax.set_title('Monte Carlo Belohnungsfunktion')
-plt.show()
 # endregion
