@@ -11,17 +11,16 @@ tf.get_logger().setLevel('ERROR')
 
 
 # region Hyperparams
-warengruppe = 55
+warengruppe = [55]
 bestell_zyklus = 3
+detail_warengruppe = [2363]
 
 simulation_params = {
-    'InputDirectory': os.path.join('files', 'raw'),
-    'OutputDirectory': os.path.join('files', 'prepared'),
-    'ZielWarengruppen': [warengruppe],
-    'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
+    'ZielWarengruppen': warengruppe,
+    'DetailWarengruppe': detail_warengruppe
 }
 
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
+predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
@@ -56,11 +55,13 @@ while spiele:
     done = False
     while not done:
         step += 1
-        # print(state)
+        action = max(state[:3].sum() - state[6], 0)
+        print(state)
+        print(action)
         # action = int(input('Bestellmenge: '))
         # if action == 99:
-        #    break
-        reward, done, state = simulation.make_action(4)
+        #     break
+        reward, done, state = simulation.make_action(action)
         print('Belohnung: ', reward)
 
     spiele = input('Weiterspielen?(j/n)') == 'j'

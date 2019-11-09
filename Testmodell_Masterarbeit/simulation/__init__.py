@@ -282,6 +282,7 @@ class StockSimulation(object):
         self.vergangene_tage += self.bestellrythmus
         self.abschriften = 0
         self.fehlmenge = 0
+        action = int(action)
         absatz = self.artikel_absatz[self.vergangene_tage]
         done = self.tage <= self.vergangene_tage + self.bestellrythmus
         # Produkte sind ein Tag älter

@@ -12,16 +12,16 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 
-evaluation_run = 14
+evaluation_run = 16
 warengruppe = [55]
 detail_warengruppe = [2363]
 bestell_zyklus = 3
 
-state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+state_size = np.array([9])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 action_size = 6
-learning_rate = 0.0001
+learning_rate = 0.001
 
-memory_size = 10000
+memory_size = 3000
 
 episodes = 10000
 pretrain_episodes = int(memory_size / (388 / bestell_zyklus))
@@ -33,7 +33,7 @@ max_tau = learn_step * 10000
 
 epsilon_start = 1
 epsilon_stop = 0.05
-epsilon_decay = 0.9999
+epsilon_decay = 0.999
 
 gamma = 0.99
 
@@ -60,7 +60,7 @@ simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
 
 print([tr.shape for tr in train_data])
-state_size[0] += simulation_data[2].shape[1]
+# state_size[0] += simulation_data[2].shape[1]
 
 predictor = Predictor()
 predictor.build_model(
@@ -77,7 +77,7 @@ pred = predictor.predict(
 )
 print(' and done ;)')
 
-simulation = StockSimulation(train_data, pred, 2, 'MCGewinn V2', bestell_zyklus)
+simulation = StockSimulation(train_data, pred, 0, 'MCGewinn V2', bestell_zyklus)
 
 # endregion
 
@@ -100,9 +100,10 @@ if training:
 
     # endregion
     # region ReplayBuffer befüllen
+    artikel_markt = simulation.possibles[np.random.choice(len(simulation.possibles))]
     saver = tf.train.Saver(max_to_keep=1)
     for episode in range(pretrain_episodes):
-        state, info = simulation.reset()
+        state, info = simulation.reset(artikel_markt)
         done = False
         while not done:
             action = random.choice(agent.possible_actions)
@@ -116,7 +117,7 @@ if training:
     for episode in range(episodes):
         # region Training
         step = 0
-        state, info = simulation.reset()
+        state, info = simulation.reset(artikel_markt)
         done = False
         while not done:
             step += 1
