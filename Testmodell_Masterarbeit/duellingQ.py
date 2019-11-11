@@ -12,27 +12,26 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 
-evaluation_run = 24
+evaluation_run = 26
 warengruppe = [55]
 detail_warengruppe = [2363]
 bestell_zyklus = 3
 
-state_size = np.array([9])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 action_size = 6
-learning_rate = 0.0001
+learning_rate = 0.00025
 
 memory_size = 30000
 
 episodes = 10000
-pretrain_episodes = 100
-# etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
+pretrain_episodes = 5
 batch_size = 32
 
 learn_step = 1
 max_tau = learn_step * 1000
 
 epsilon_start = 1
-epsilon_stop = 0.05
+epsilon_stop = 0.03
 epsilon_decay = 0.9999
 
 gamma = 0.99
@@ -77,7 +76,7 @@ pred = predictor.predict(
 )
 print(' and done ;)')
 
-simulation = StockSimulation(train_data, pred, 0, 'MCGewinn V2', bestell_zyklus)
+simulation = StockSimulation(train_data, pred, 1, 'MCGewinn V2', bestell_zyklus)
 
 # endregion
 
