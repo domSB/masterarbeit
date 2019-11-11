@@ -138,7 +138,7 @@ class Statistics(object):
             return entropy(probas.Actions, qk=probas.Absatz)
 
     def plot(self, artikel):
-        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, sharex=True)
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, sharex='all')
         x = self.tage(artikel)
         ax1.plot(x, self.bestand(artikel))
         ax1.set_title('Bestandsentwicklung')
@@ -157,12 +157,12 @@ class StockSimulation(object):
     def __init__(self, simulation_data, pred, state_flag, reward_flag, bestellrythmus):
         """
 
-        :param simulation_data: 4er Tupel aus Labels, dynamischem Zustand, statischem Zustand und der Ids, zum zuordnen
+        :param simulation_data: 4er Tupel aus Labels, dynamischem Zustand, statischem Zustand und der Ids zum zuordnen
         :param pred: Vorberechnete Predictions für schnelleres Training
         :param state_flag: Gibt an, welcher Zustand zurückgegeben werden soll
         0 Nur prediction und Bestandsdaten, 1 mit Zeitstempel, 2 mit statischen Artikelinformationen
         :param reward_flag: Gibt an, welche Belohnungsfunktion verwendet werden soll
-        Wählen aus Bestandsreichweite, Bestand, MCGewinn & TDGewinn
+        Wählen aus Bestandsreichweite, Bestand, MCGewinn, TDGewinn & Bestandsreichweite V2
         """
         self.lab, self.dyn, self.stat, self.ids = simulation_data
         self.pred = pred
@@ -187,9 +187,10 @@ class StockSimulation(object):
         self.gesamt_belohnung = None
         self.anz_abschriften = 0
         self.anz_fehlmengen = 0
-        self.artikel_einkaufspreis = None
-        self.artikel_verkaufspreis = None
-        self.artikel_rohertrag = None
+        self.artikel_einkaufspreis = 0.7
+        self.artikel_verkaufspreis = 1
+        self.artikel_rohertrag = 0.3
+        self.kap_kosten = 0.05/365
         self.optimaler_reward = None
         self.placeholder_mhd = 14
         self.bestellrythmus = bestellrythmus
@@ -207,7 +208,7 @@ class StockSimulation(object):
         if self.state_flag >= 1:
             state = np.concatenate(
                 (
-                    self.dynamic_state[self.vergangene_tage - 1, 0, -9:],
+                    self.dynamic_state[self.vergangene_tage, 0, -9:],
                     state
                 ), axis=0
             )
@@ -270,24 +271,20 @@ class StockSimulation(object):
         self.anz_abschriften = 0
         self.anz_fehlmengen = 0
 
-        self.artikel_einkaufspreis = 0.7
-        self.artikel_verkaufspreis = 1
-        self.artikel_rohertrag = self.artikel_verkaufspreis - self.artikel_einkaufspreis
-
         self.optimaler_reward = self.artikel_absatz.sum() * self.artikel_rohertrag
         self.statistics.set_artikel(self.aktueller_artikel)
         return self.state, self.info
 
     def make_action(self, action):
         self.vergangene_tage += self.bestellrythmus
-        self.abschriften = 0
+        self.abschriften = 0  # Werden in self.state verwendet, daher keine lokale Var. der Methode
         self.fehlmenge = 0
         action = int(action)
-        absatz = self.artikel_absatz[self.vergangene_tage]
+        absatz = self.artikel_absatz[self.vergangene_tage - self.bestellrythmus:self.vergangene_tage].sum()
         done = self.tage <= self.vergangene_tage + self.bestellrythmus
         # Produkte sind ein Tag älter
         # BUG: Wenn ein Feier- oder Sonntag zwischen den Absatztagen lag, altern die Produkte trotzdem nur um einen Tag
-        self.bestands_frische -= 1
+        self.bestands_frische -= self.bestellrythmus
         abgelaufene = np.argwhere(self.bestands_frische <= 0).reshape(-1)
         if len(abgelaufene) > 0:
             self.bestands_frische = np.delete(self.bestands_frische, abgelaufene)
@@ -297,7 +294,7 @@ class StockSimulation(object):
         # Tagsüber Absatz abziehen und bewerten:
         if absatz > 0:
             if absatz <= self.bestand:
-                self.bestands_frische = self.bestands_frische[int(absatz):]
+                self.bestands_frische = self.bestands_frische[absatz:]
                 self.bestand -= absatz
             else:
                 self.bestands_frische = np.ones((0,), dtype=np.int64)
@@ -317,7 +314,7 @@ class StockSimulation(object):
             # Umsatz
             r_umsatz = absatz * self.artikel_rohertrag
             # Kapitalbindung
-            r_bestand = -(self.bestand * self.artikel_einkaufspreis) * 0.05/365
+            r_bestand = -(self.bestand * self.artikel_einkaufspreis) * self.kap_kosten
             # Belohnung für optimale Bestell-Strategien
             if self.reward_flag == 'TDGewinn':
                 # Temporal Difference Gewinn gibt jeden Tag eine Belohnung
@@ -365,7 +362,7 @@ class StockSimulation(object):
 
         elif self.reward_flag == 'Bestandsreichweite V2':
             if done:
-                reward = self.bestand * (0.05/365) * -self.artikel_einkaufspreis
+                reward = self.bestand * self.kap_kosten * -self.artikel_einkaufspreis
             else:
                 analyse_start = self.vergangene_tage+1
                 analyse_stop = min(self.tage + 1, analyse_start + self.placeholder_mhd)
