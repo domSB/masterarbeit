@@ -12,7 +12,7 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 
-evaluation_run = 29
+evaluation_run = 30
 warengruppe = [55]
 detail_warengruppe = [2363]
 bestell_zyklus = 3
@@ -76,7 +76,7 @@ pred = predictor.predict(
 )
 print(' and done ;)')
 
-simulation = StockSimulation(train_data, pred, 1, 'MCGewinn V2', bestell_zyklus)
+simulation = StockSimulation(train_data, pred, 1, 'TDGewinn V2', bestell_zyklus)
 
 # endregion
 

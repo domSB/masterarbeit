@@ -345,6 +345,9 @@ class StockSimulation(object):
             else:
                 reward = 0
 
+        elif self.reward_flag == 'TDGewinn V2':
+            reward = gradienten_belohnung(self.fehlmenge*10, self.abschriften*10)
+
         elif self.reward_flag == 'Bestandsreichweite':
             kommende_absaetze = np.sum(
                 self.artikel_absatz[self.vergangene_tage+1:self.vergangene_tage+1+self.bestellrythmus]
