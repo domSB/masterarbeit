@@ -282,16 +282,25 @@ class StockSimulation(object):
         action = int(action)
         absatz = self.artikel_absatz[self.vergangene_tage - self.bestellrythmus:self.vergangene_tage].sum()
         done = self.tage <= self.vergangene_tage + self.bestellrythmus
+        # BUG: Nach aktueller Implementierung trifft Bestellung am Tag der Bestellung ein und nicht mit 1 Tag Verzug
+        # Bei Beachtung der OrderLeadTime, muss der folgende Teil des Skriptes 2-fach ausgeführt werden:
+        # - Betrachtung bis Bestellungseingang
+        # - Betrachtung ab Bestellungseingang
+        self.bestand += action
+        self.bestands_frische = np.concatenate(
+            (self.bestands_frische, np.ones((action,), dtype=np.int64) * self.placeholder_mhd))
+
         # Produkte sind ein Tag älter
-        # BUG: Wenn ein Feier- oder Sonntag zwischen den Absatztagen lag, altern die Produkte trotzdem nur um einen Tag
         self.bestands_frische -= self.bestellrythmus
+        # BUG: Wenn ein Feier- oder Sonntag zwischen den Absatztagen lag, altern die Produkte trotzdem nur um einen Tag
         abgelaufene = np.argwhere(self.bestands_frische <= 0).reshape(-1)
         if len(abgelaufene) > 0:
             self.bestands_frische = np.delete(self.bestands_frische, abgelaufene)
             self.abschriften = len(abgelaufene)
             self.bestand -= self.abschriften
             self.optimal_flag = False
-        # Tagsüber Absatz abziehen und bewerten:
+
+        # Absatz abziehen und bewerten:
         if absatz > 0:
             if absatz <= self.bestand:
                 self.bestands_frische = self.bestands_frische[absatz:]
@@ -301,9 +310,6 @@ class StockSimulation(object):
                 self.fehlmenge = absatz - self.bestand
                 self.optimal_flag = False
                 self.bestand = 0
-
-        self.bestand += action
-        self.bestands_frische = np.concatenate((self.bestands_frische, np.ones((action,), dtype=np.int64) * self.placeholder_mhd))
 
         # Rewardberechnung
         if self.reward_flag == 'MCGewinn' or self.reward_flag == 'TDGewinn':
@@ -324,15 +330,12 @@ class StockSimulation(object):
             else:
                 # Monte Carlo Gewinn summiert alle Gewinne auf und gibt die Summe am Ende der Episode zurück
                 self.gesamt_belohnung += (r_abschrift + r_ausfall + r_bestand + r_umsatz)
-
                 if done:
                     reward = self.gesamt_belohnung
                     if self.optimal_flag:
                         reward += 30
                 else:
                     reward = 0
-        elif self.reward_flag == 'Bestand':
-            raise NotImplementedError('Muss noch gecoded werden')
 
         elif self.reward_flag == 'MCGewinn V2':
             self.anz_abschriften += self.abschriften
@@ -353,11 +356,9 @@ class StockSimulation(object):
                 else:
                     reward = 0.1
             elif reichweite > 0:
-                # Korrigierbarer Überbestand?
                 reward = reichweite * - 0.1
             else:
                 reward = reichweite * 0.3  # fürs Erste fixe Bestrafung
-
             reward = np.clip(reward, -3, 3)
 
         elif self.reward_flag == 'Bestandsreichweite V2':
@@ -383,6 +384,10 @@ class StockSimulation(object):
                     kap_kosten=0.05 / 365
                 )
                 reward = np.clip(reward, -7, 7)
+
+        elif self.reward_flag == 'Bestand':
+            # TODO: Ursprüngliche Belohnungsfunktion implementieren
+            raise NotImplementedError('Muss noch gecoded werden')
 
         else:
             raise NotImplementedError('Unbekannte Belohnungsart')

@@ -12,7 +12,7 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 
-evaluation_run = 22
+evaluation_run = 24
 warengruppe = [55]
 detail_warengruppe = [2363]
 bestell_zyklus = 3
@@ -28,7 +28,7 @@ pretrain_episodes = 100
 # etwas mehr als 300 Experiences per Episode. An Anfang kürzere möglich.
 batch_size = 32
 
-learn_step = 4
+learn_step = 1
 max_tau = learn_step * 1000
 
 epsilon_start = 1
