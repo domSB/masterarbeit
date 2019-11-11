@@ -413,7 +413,7 @@ class Memory:
     per_epsilon = 0.01
     per_alpha = 0.6
     per_beta = 0.4
-    per_beta_increment = 0.0001
+    per_beta_increment = 0.000025
     abs_error_clip = 1.
 
     def __init__(self, capacity):
