@@ -12,23 +12,23 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 
-evaluation_run = 26
+evaluation_run = 29
 warengruppe = [55]
 detail_warengruppe = [2363]
 bestell_zyklus = 3
 
 state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
 action_size = 6
-learning_rate = 0.00025
+learning_rate = 0.001
 
 memory_size = 30000
 
 episodes = 10000
 pretrain_episodes = 5
-batch_size = 32
+batch_size = 64
 
 learn_step = 1
-max_tau = learn_step * 1000
+max_tau = learn_step * 10000
 
 epsilon_start = 1
 epsilon_stop = 0.03
