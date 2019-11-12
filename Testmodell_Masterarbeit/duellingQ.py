@@ -13,7 +13,7 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=33,
+    run_id=34,
     warengruppe=[55],
     detail_warengruppe=[2363],
     use_one_article=False,
@@ -35,7 +35,7 @@ hps = Hyperparameter(
     reward_func='TDGewinn V2',
     sim_state_group=1,
     main_size=256,
-    main_activation='relu',
+    main_activation='tanh',
     main_regularizer=None,
     value_size=32,
     value_activation='relu',
@@ -76,7 +76,10 @@ simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
 
 print([tr.shape for tr in train_data])
-# state_size[0] += simulation_data[2].shape[1]
+if hps.sim_state_group > 1:
+    state_size = hps.state_size
+    state_size[0] += simulation_data[2].shape[1]
+    hps.set_hparam('state_size', state_size)
 
 predictor = Predictor()
 predictor.build_model(
@@ -148,7 +151,7 @@ if training:
             agent.merged,
             feed_dict={
                 agent.v_rewards: simulation.statistics.rewards(),
-                agent.v_reward_optimal: info['Optimal'],
+                agent.v_qs: agent.current_qs,
                 agent.v_actions: simulation.statistics.actions(),
                 agent.v_bestand: simulation.statistics.bestand(),
                 agent.v_abschriften: simulation.statistics.abschrift(),

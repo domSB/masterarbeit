@@ -522,6 +522,7 @@ class DDDQAgent:
         self.batch_size = hparams.batch_size
         self.gamma = hparams.gamma
         self.curr_loss = -1
+        self.current_qs = []
         self.possible_actions = np.identity(hparams.action_size, dtype=int).tolist()
         self.dq_network = DDDQNetwork(hparams, name='DQNetwork')
         self.target_network = DDDQNetwork(hparams, name='TargetNetwork')
@@ -536,10 +537,10 @@ class DDDQAgent:
             self.summary_reward_sum = tf.summary.scalar('Gesamtbelohnung', self.v_rewards_sum)
             self.v_rewards_min = tf.math.reduce_min(self.v_rewards)
             self.summary_reward_min = tf.summary.scalar('MinBelohnung', self.v_rewards_min)
-            self.v_reward_optimal = tf.placeholder(tf.float32, shape=None, name='OptimaleBelohnung')
-            self.v_proz_reward = tf.math.divide(self.v_rewards_sum, self.v_reward_optimal)
-            self.summary_opti_reward = tf.summary.scalar('OptBelohnung', self.v_reward_optimal)
-            self.summary_proz_reward = tf.summary.scalar('ProzBelohnung', self.v_proz_reward)
+            self.v_qs = tf.placeholder(tf.float32, shape=None, name='Q_Values')
+            self.v_mean_q = tf.math.reduce_mean(self.v_qs)
+            self.summary_q_values = tf.summary.histogram('Q_Values', self.v_qs)
+            self.summary_mean_q_value = tf.summary.scalar('Durchschnittl_QWert', self.v_mean_q)
             self.v_epsilon = tf.placeholder(tf.float32, shape=None, name='Epsilon')
             self.summary_epsilon = tf.summary.scalar('Epsilon', self.v_epsilon)
             self.v_loss = tf.placeholder(tf.float32, shape=None, name='Loss')
@@ -644,6 +645,7 @@ class DDDQAgent:
         )
         self.memory.batch_update(tree_idx, absolute_errors)
         self.curr_loss = loss
+        self.current_qs = q_next_state
 # endregion
 
 

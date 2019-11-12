@@ -345,7 +345,7 @@ class StockSimulation(object):
 
         elif self.reward_flag == 'TDGewinn V2':
             reward = gradienten_belohnung(self.fehlmenge*10, self.abschriften*10)
-            reward = reward / (388 / self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden.
+            # reward = reward / (388 / self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
 
         elif self.reward_flag == 'Bestandsreichweite':
             kommende_absaetze = np.sum(
