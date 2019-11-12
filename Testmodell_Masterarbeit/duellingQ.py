@@ -162,9 +162,9 @@ if training:
         )
         agent.writer.add_summary(summary, episode)
         agent.writer.flush()
-        if episode % 25 == 0:
+        if episode % 100 == 0:
             print('Finished Episode: {epi} @ Epsilon {epsi}'.format(epi=episode, epsi=agent.epsilon))
-            save_path = saver.save(agent.sess, os.path.join(model_path, 'model.ckpt').format(episode=episode))
+            save_path = saver.save(agent.sess, os.path.join(hps.model_dir, 'model.ckpt'), global_step=episode)
         # endregion
 
 
