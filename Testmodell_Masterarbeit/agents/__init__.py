@@ -20,6 +20,39 @@ def decay(epoch):
         return 1e-5
 
 
+def normalized_columns_initializer(std=1.0):
+    """ Vorgeschlagen von Arthur Juliani"""
+    def _initializer(shape, dtype=None, partition_info=None):
+        out = np.random.randn(*shape).astype(np.float32)
+        out *= std / np.sqrt(np.square(out).sum(axis=0, keepdims=True))
+        return tf.constant(out)
+    return _initializer
+
+
+def update_target_graph(from_scope, to_scope):
+    """
+    Helper function to copy Parameters from one Network to another.
+    :param from_scope:
+    :param to_scope:
+    :return: list of ops to execute
+    """
+    from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, from_scope)
+    to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, to_scope)
+    op_holder = []
+    for from_var, to_var in zip(from_vars, to_vars):
+        op_holder.append(to_var.assign(from_var))
+    return op_holder
+
+
+def discount(x, _gamma):
+    """
+    Helper function to discount rewards.
+    :param x:
+    :param _gamma:
+    :return:
+    """
+    return lfilter([1], [1, -_gamma], x[::-1], axis=0)[::-1]
+
 # region Prädiktor
 class Predictor(object):
     def __init__(self):
@@ -409,7 +442,50 @@ class DDDQNetwork:
             self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 
-class Memory:
+class UniformSamplingMemory:
+    """
+    Replay Buffer with uniform sampling
+    """
+    def __init__(self, hparams):
+        self.storage = deque(maxlen=hparams.memory_size)
+
+    def store(self, _experience):
+        """
+        Store an experience in the deque
+        :param _experience:
+        :return:
+        """
+        self.storage.append(_experience)
+
+    def sample(self, n):
+        """
+        Return a batch of size n
+        :param n:
+        :return: None, Experiences, uniform_weights
+        """
+        storage_size = len(self.storage)
+        index = np.random.choice(np.arange(storage_size),
+                                 size=n,
+                                 replace=False)
+        experiences = [self.storage[i] for i in index]
+        uniform_weights = [1/n for i in index]
+        return None, experiences, uniform_weights
+
+    def batch_update(self, tree_idx, abs_errors):
+        """
+        Methode für einheitlichen Aufbau.
+        Macht nix.
+        :param tree_idx:
+        :param abs_errors:
+        :return:
+        """
+        pass
+
+
+class ImportanceSamplingMemory:
+    """
+    Replay-Buffer mit Importance Sampling
+    """
     def __init__(self, hparams):
         self.tree = SumTree(hparams.memory_size)
         self.per_epsilon = hparams.per_epsilon
@@ -419,6 +495,11 @@ class Memory:
         self.abs_error_clip = hparams.per_error_clip
 
     def store(self, _experience):
+        """
+        Store an experience in the binary tree
+        :param _experience:
+        :return:
+        """
         max_priority = np.max(self.tree.tree[-self.tree.capacity:])
         if max_priority == 0:
             max_priority = self.abs_error_clip
@@ -426,6 +507,11 @@ class Memory:
         self.tree.add(max_priority, _experience)
 
     def sample(self, n):
+        """
+        Return a batch of size n
+        :param n:
+        :return: Experience-Indexes, Experiences, importance_sampling_weights
+        """
         memory_b = []
         b_idx, b_is_weights = np.empty((n,), dtype=np.int32), np.empty((n, 1), dtype=np.float32)
 
@@ -447,6 +533,12 @@ class Memory:
         return b_idx, memory_b, b_is_weights
 
     def batch_update(self, tree_idx, abs_errors):
+        """
+        Update Importance Weights
+        :param tree_idx:
+        :param abs_errors:
+        :return:
+        """
         abs_errors += self.per_epsilon
         clipped_errors = np.minimum(abs_errors, self.abs_error_clip)
         ps = np.power(clipped_errors, self.per_alpha)
@@ -468,6 +560,12 @@ class SumTree:
         self.data = np.zeros(capacity, dtype=object)
 
     def add(self, priority, data):
+        """
+        Add an experience.
+        :param priority:
+        :param data:
+        :return:
+        """
         tree_index = self.data_pointer + self.capacity - 1
         self.data[self.data_pointer] = data
         self.update(tree_index, priority)
@@ -476,6 +574,12 @@ class SumTree:
             self.data_pointer = 0
 
     def update(self, tree_index, priority):
+        """
+        Update the importance of a batch of experiences.
+        :param tree_index:
+        :param priority:
+        :return:
+        """
         change = priority - self.tree[tree_index]
         self.tree[tree_index] = priority
         while tree_index != 0:
@@ -483,6 +587,11 @@ class SumTree:
             self.tree[tree_index] += change
 
     def get_leaf(self, v):
+        """
+        Get Leaf-Node for weight v
+        :param v:
+        :return:
+        """
         parent_index = 0
         while True:
             left_child_index = 2 * parent_index + 1
@@ -505,6 +614,9 @@ class SumTree:
 
 
 class Experience:
+    """
+    Simple helper to store Experiences.
+    """
     def __init__(self, _state, _reward, _done, _next_state, _action):
         self.state = np.array(_state)
         self.reward = _reward
@@ -514,6 +626,9 @@ class Experience:
 
 
 class DDDQAgent:
+    """
+    Deep Duelling Double Q-Learning Agent
+    """
     def __init__(self, _session, hparams):
         self.sess = _session
         self.epsilon = hparams.epsilon_start
@@ -526,7 +641,10 @@ class DDDQAgent:
         self.possible_actions = np.identity(hparams.action_size, dtype=int).tolist()
         self.dq_network = DDDQNetwork(hparams, name='DQNetwork')
         self.target_network = DDDQNetwork(hparams, name='TargetNetwork')
-        self.memory = Memory(hparams)
+        if hparams.use_importance_sampling:
+            self.memory = ImportanceSamplingMemory(hparams)
+        else:
+            self.memory = UniformSamplingMemory(hparams)
         self.sess.run(tf.global_variables_initializer())
         # self.update_target()
         self.writer = tf.summary.FileWriter(hparams.log_dir, self.sess.graph)
@@ -577,6 +695,12 @@ class DDDQAgent:
         self.merged = tf.summary.merge_all()
 
     def act(self, _state):
+        """
+        Method to choose an action.
+        Reduces Epsilon by the factor eps_decay every time.
+        :param _state:
+        :return:
+        """
         self.epsilon = max(self.epsilon * self.eps_decay, self.eps_stop)
         if self.epsilon > np.random.rand():
             _action = random.choice(self.possible_actions)
@@ -591,17 +715,26 @@ class DDDQAgent:
         return _action
 
     def update_target(self):
-        from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'DQNetwork')
-        to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'TargetNetwork')
-        update_ops = []
-        for from_var, to_var in zip(from_vars, to_vars):
-            update_ops.append(to_var.assign(from_var))
+        """
+        Copies the Parameters of the Action-Network to the Target-Network
+        :return:
+        """
+        update_ops = update_target_graph('DQNetwork', 'TargetNetwork')
         self.sess.run(update_ops)
 
     def remember(self, _experience):
+        """
+        Stores an experience in an internal Replay-Buffer
+        :param _experience:
+        :return:
+        """
         self.memory.store(_experience)
 
     def train(self):
+        """
+        Takes a batch from the replay-buffer and performs a network update
+        :return:
+        """
         tree_idx, batch, is_weights_batch = self.memory.sample(self.batch_size)
         state_batch = np.array([exp.state for exp in batch])
         reward_batch = np.array([exp.reward for exp in batch])
@@ -650,29 +783,10 @@ class DDDQAgent:
 
 
 # region Asynchronous Advantage Actor Critic
-def normalized_columns_initializer(std=1.0):
-    """ Vorgeschlagen von Arthur Juliani"""
-    def _initializer(shape, dtype=None, partition_info=None):
-        out = np.random.randn(*shape).astype(np.float32)
-        out *= std / np.sqrt(np.square(out).sum(axis=0, keepdims=True))
-        return tf.constant(out)
-    return _initializer
-
-
-def update_target_graph(from_scope, to_scope):
-    from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, from_scope)
-    to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, to_scope)
-    op_holder = []
-    for from_var, to_var in zip(from_vars, to_vars):
-        op_holder.append(to_var.assign(from_var))
-    return op_holder
-
-
-def discount(x, _gamma):
-    return lfilter([1], [1, -_gamma], x[::-1], axis=0)[::-1]
-
-
 class A3CNetwork:
+    """
+    Neuronales Netz des Actor-Critic.
+    """
     def __init__(self, scope, _trainer, _state_size):
         with tf.variable_scope(scope):
             self.inputs = tf.placeholder(shape=[None, *_state_size], dtype=tf.float32)
@@ -687,7 +801,7 @@ class A3CNetwork:
                 bias_initializer=None
             )(self.hidden)
             self.policy += 1e-7
-            # verhindert NANs wenn log(policy) berechnet wird. Führt zum Abbruch des Worker-Threads
+            # verhindert NANs wenn log(policy) berechnet wird. Führt sonst zum Abbruch des Worker-Threads
             self.value = tf.keras.layers.Dense(
                 1,
                 activation=None,
