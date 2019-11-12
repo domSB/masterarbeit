@@ -351,31 +351,31 @@ class Agent(object):
 
 # region Duelling Double Deep Agent
 class DDDQNetwork:
-    def __init__(self, _state_size, _action_size, _learning_rate, name):
-        self.state_size = _state_size
-        self.action_size = _action_size
-        self.learning_rate = _learning_rate
+    def __init__(self, hparams, name):
+        self.state_size = hparams.state_size
+        self.action_size = hparams.action_size
+        self.learning_rate = hparams.learning_rate
         self.name = name
 
         with tf.variable_scope(self.name):
-            self.inputs_ = tf.placeholder(tf.float32, [None, *_state_size], name='Inputs')
+            self.inputs_ = tf.placeholder(tf.float32, [None, *hparams.state_size], name='Inputs')
 
             self.is_weights = tf.placeholder(tf.float32, [None, 1], name='IS_Weights')
 
-            self.actions_ = tf.placeholder(tf.float32, [None, _action_size], name='Actions')
+            self.actions_ = tf.placeholder(tf.float32, [None, hparams.action_size], name='Actions')
 
             self.target_q = tf.placeholder(tf.float32, [None], name='Target')
 
             self.dense_one = tf.keras.layers.Dense(
-                units=256,
-                activation=tf.nn.relu,
-                # kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
+                units=hparams.main_size,
+                activation=hparams.main_activation,
+                kernel_regularizer=hparams.main_regularizer,
                 name='EingangsDense'
             )(self.inputs_)
             self.value_fc = tf.keras.layers.Dense(
-                units=32,
-                activation=tf.nn.relu,
-                # kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
+                units=hparams.value_size,
+                activation=hparams.value_activation,
+                kernel_regularizer=hparams.value_regularizer,
                 name='ValueFC'
             )(self.dense_one)
             self.value = tf.keras.layers.Dense(
@@ -384,9 +384,9 @@ class DDDQNetwork:
                 name='Value'
             )(self.value_fc)
             self.advantage_fc = tf.keras.layers.Dense(
-                units=32,
-                activation=tf.nn.relu,
-                # kernel_regularizer=tf.keras.regularizers.l1(l=0.01),
+                units=hparams.avantage_size,
+                activation=hparams.advantage_activation,
+                kernel_regularizer=hparams.advantage_regularizer,
                 name='AdvantageFC'
             )(self.dense_one)
             self.advantage = tf.keras.layers.Dense(
@@ -410,14 +410,13 @@ class DDDQNetwork:
 
 
 class Memory:
-    per_epsilon = 0.01
-    per_alpha = 0.6
-    per_beta = 0.4
-    per_beta_increment = 0.000025
-    abs_error_clip = 1.
-
-    def __init__(self, capacity):
-        self.tree = SumTree(capacity)
+    def __init__(self, hparams):
+        self.tree = SumTree(hparams.memory_size)
+        self.per_epsilon = hparams.per_epsilon
+        self.per_alpha = hparams.per_alpha
+        self.per_beta = hparams.per_beta
+        self.per_beta_increment = hparams.per_beta_increment
+        self.abs_error_clip = hparams.per_error_clip
 
     def store(self, _experience):
         max_priority = np.max(self.tree.tree[-self.tree.capacity:])
@@ -515,34 +514,21 @@ class Experience:
 
 
 class DDDQAgent:
-    def __init__(
-            self,
-            _eps_start,
-            _eps_stop,
-            _eps_decay,
-            _learning_rate,
-            _batch_size,
-            _action_size,
-            _state_size,
-            _gamma,
-            _memory_size,
-            _session,
-            _log_dir
-    ):
+    def __init__(self, _session, hparams):
         self.sess = _session
-        self.epsilon = _eps_start
-        self.eps_stop = _eps_stop
-        self.eps_decay = _eps_decay
-        self.batch_size = _batch_size
-        self.gamma = _gamma
+        self.epsilon = hparams.epsilon_start
+        self.eps_stop = hparams.epsilon_stop
+        self.eps_decay = hparams.epsilon_decay
+        self.batch_size = hparams.batch_size
+        self.gamma = hparams.gamma
         self.curr_loss = -1
-        self.possible_actions = np.identity(_action_size, dtype=int).tolist()
-        self.dq_network = DDDQNetwork(_state_size, _action_size, _learning_rate, name='DQNetwork')
-        self.target_network = DDDQNetwork(_state_size, _action_size, _learning_rate, name='TargetNetwork')
-        self.memory = Memory(_memory_size)
+        self.possible_actions = np.identity(hparams.action_size, dtype=int).tolist()
+        self.dq_network = DDDQNetwork(hparams, name='DQNetwork')
+        self.target_network = DDDQNetwork(hparams, name='TargetNetwork')
+        self.memory = Memory(hparams)
         self.sess.run(tf.global_variables_initializer())
         # self.update_target()
-        self.writer = tf.summary.FileWriter(_log_dir, self.sess.graph)
+        self.writer = tf.summary.FileWriter(hparams.log_dir, self.sess.graph)
         with tf.name_scope('Modell'):
             self.v_rewards = tf.placeholder(tf.float32, shape=None, name='Belohnungen')
             self.reward_histo = tf.summary.histogram('Belohnungen', self.v_rewards)

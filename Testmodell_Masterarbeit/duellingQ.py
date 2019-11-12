@@ -6,49 +6,66 @@ from simulation import StockSimulation
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
 from agents import DDDQAgent, Experience, Predictor
+from utils import Hyperparameter
 
 tf.get_logger().setLevel('ERROR')
 
 
 # region Hyperparameter
-
-evaluation_run = 31
-warengruppe = [55]
-detail_warengruppe = [2363]
-bestell_zyklus = 3
-
-state_size = np.array([18])  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
-action_size = 6
-learning_rate = 0.0001
-
-memory_size = 30000
-
-episodes = 10000
-pretrain_episodes = 5
-batch_size = 64
-
-learn_step = 1
-max_tau = learn_step * 10000
-
-epsilon_start = 1
-epsilon_stop = 0.03
-epsilon_decay = 0.9999
-
-gamma = 0.99
+hps = Hyperparameter(
+    run_id=33,
+    warengruppe=[55],
+    detail_warengruppe=[2363],
+    use_one_article=False,
+    bestell_zyklus=3,
+    state_size=[18],  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+    action_size=6,
+    learning_rate=0.001,
+    memory_size=30000,
+    episodes=10000,
+    pretrain_episodes=5,
+    batch_size=32,
+    learn_step=1,
+    max_tau=10000,
+    epsilon_start=1,
+    epsilon_stop=0.03,
+    epsilon_decay=0.9999,
+    gamma=0.99,
+    do_train=True,
+    reward_func='TDGewinn V2',
+    sim_state_group=1,
+    main_size=256,
+    main_activation='relu',
+    main_regularizer=None,
+    value_size=32,
+    value_activation='relu',
+    value_regularizer=None,
+    avantage_size=32,
+    advantage_activation='relu',
+    advantage_regularizer=None,
+    per_epsilon=0.01,
+    per_alpha=0.6,
+    per_beta=0.4,
+    per_beta_increment=0.00025,
+    per_error_clip=1.0
+)
 
 training = True
-dir_name = str(evaluation_run) + 'eval' + str(warengruppe[0])
-if detail_warengruppe:
-    dir_name = dir_name + '-' + str(detail_warengruppe[0])
-model_path = os.path.join('files', 'models', 'DDDQN', dir_name)
-log_dir = os.path.join('files', 'logging', 'DDDQN', dir_name)
+dir_name = str(hps.run_id) + 'eval' + str(hps.warengruppe[0])
+if hps.detail_warengruppe:
+    dir_name = dir_name + '-' + str(hps.detail_warengruppe[0])
+hps.add_hparam('model_dir', os.path.join('files', 'models', 'DDDQN', dir_name))
+hps.add_hparam('log_dir', os.path.join('files', 'logging', 'DDDQN', dir_name))
+if not os.path.exists(hps.log_dir):
+    os.mkdir(hps.log_dir)
+    os.mkdir(hps.model_dir)
 
 simulation_params = {
-    'ZielWarengruppen': warengruppe,
-    'DetailWarengruppe': detail_warengruppe
+    'ZielWarengruppen': hps.warengruppe,
+    'DetailWarengruppe': hps.detail_warengruppe
 }
 
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe[0]))
+predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
@@ -76,32 +93,22 @@ pred = predictor.predict(
 )
 print(' and done ;)')
 
-simulation = StockSimulation(train_data, pred, 1, 'TDGewinn V2', bestell_zyklus)
-
+simulation = StockSimulation(train_data, pred, hps)
+hps.save(os.path.join(hps.log_dir, 'Hyperparameter.yaml'))
 # endregion
 
 if training:
     # region Initialisieren
     session = tf.Session()
-    agent = DDDQAgent(
-        epsilon_start,
-        epsilon_stop,
-        epsilon_decay,
-        learning_rate,
-        batch_size,
-        action_size,
-        state_size,
-        gamma,
-        memory_size,
-        session,
-        log_dir
-    )
-
+    agent = DDDQAgent(session, hps)
     # endregion
     # region ReplayBuffer befüllen
-    artikel_markt = simulation.possibles[np.random.choice(len(simulation.possibles))]
-    saver = tf.train.Saver(max_to_keep=1)
-    for episode in range(pretrain_episodes):
+    if hps.use_one_article:
+        artikel_markt = simulation.possibles[np.random.choice(len(simulation.possibles))]
+    else:
+        artikel_markt = None
+    saver = tf.train.Saver(max_to_keep=None)
+    for episode in range(hps.pretrain_episodes):
         state, info = simulation.reset(artikel_markt)
         done = False
         while not done:
@@ -113,24 +120,25 @@ if training:
     # endregion
     tau = 0
     target_update_counter = 0
-    for episode in range(episodes):
+    for episode in range(hps.episodes):
         # region Training
         step = 0
         state, info = simulation.reset(artikel_markt)
         done = False
         while not done:
             step += 1
-            tau += 1
+
             action = agent.act(np.array(state))
             reward, done, next_state = simulation.make_action(np.argmax(action))
             experience = Experience(state, reward, done, next_state, action)
             agent.remember(experience)
             state = next_state
 
-            if step % learn_step == 0:
+            if step % hps.learn_step == 0:
+                tau += 1
                 agent.train()
 
-            if tau > max_tau:
+            if tau > hps.max_tau:
                 agent.update_target()
                 tau = 0
                 target_update_counter += 1

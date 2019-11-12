@@ -154,7 +154,7 @@ class Statistics(object):
 
 
 class StockSimulation(object):
-    def __init__(self, simulation_data, pred, state_flag, reward_flag, bestellrythmus):
+    def __init__(self, simulation_data, pred, hparams):
         """
 
         :param simulation_data: 4er Tupel aus Labels, dynamischem Zustand, statischem Zustand und der Ids zum zuordnen
@@ -167,8 +167,8 @@ class StockSimulation(object):
         self.lab, self.dyn, self.stat, self.ids = simulation_data
         self.pred = pred
         self.possibles = np.unique(self.ids)
-        self.state_flag = state_flag
-        self.reward_flag = reward_flag
+        self.state_flag = hparams.sim_state_group
+        self.reward_flag = hparams.reward_func
         self.aktueller_markt = None
         self.aktueller_artikel = None
         self.artikel_absatz = None
@@ -193,7 +193,7 @@ class StockSimulation(object):
         self.kap_kosten = 0.05/365
         self.optimaler_reward = None
         self.placeholder_mhd = 14
-        self.bestellrythmus = bestellrythmus
+        self.bestellrythmus = hparams.bestell_zyklus
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
 
@@ -227,9 +227,7 @@ class StockSimulation(object):
 
     def reset(self, artikel_markt=None):
         """
-        wahl = np.random.choice(len(possibles), int(len(possibles) * percentage))
-            args_test = np.argwhere(np.isin(idx, possibles[wahl])).reshape(-1)
-            idx = self.split_helper[:, 0] + self.split_helper[:, 1] * 1000000
+        ...
         """
         if type(artikel_markt) == tuple:
             name_wahl = artikel_markt[0] + artikel_markt[1] * 1000000
