@@ -14,7 +14,7 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=38,
+    run_id=40,
     warengruppe=[17],
     detail_warengruppe=None,
     use_one_article=False,
@@ -23,7 +23,7 @@ hps = Hyperparameter(
     action_size=6,
     learning_rate=0.0001,
     memory_size=30000,
-    episodes=10000,
+    episodes=20000,
     pretrain_episodes=5,
     batch_size=32,
     learn_step=1,
