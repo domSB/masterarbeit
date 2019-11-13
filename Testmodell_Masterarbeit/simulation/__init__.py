@@ -353,15 +353,17 @@ class StockSimulation(object):
             )
             reichweite = self.bestand - kommende_absaetze
             if reichweite == 0:
-                if kommende_absaetze > 0:  # Eine Art Importance Sampling für A3C
-                    reward = 3
-                else:
-                    reward = 0.1
+                reward = 3
+                # if kommende_absaetze > 0:  # Eine Art Importance Sampling für A3C
+                #     reward = 3
+                # else:
+                #     reward = 0.1
             elif reichweite > 0:
-                reward = reichweite * - 0.1
+                reward = reichweite**2 * - 0.1
             else:
-                reward = reichweite * 0.3  # fürs Erste fixe Bestrafung
+                reward = reichweite**2 * -0.3  # fürs Erste fixe Bestrafung
             reward = np.clip(reward, -3, 3)
+            reward = reward / 10
 
         elif self.reward_flag == 'Bestandsreichweite V2':
             if done:
