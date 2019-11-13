@@ -156,6 +156,9 @@ class Predictor(object):
 
 # region Duelling Double Deep Agent
 class DDDQNetwork:
+    """
+    Duelling Double Deep Agent Network
+    """
     def __init__(self, hparams, name):
         self.state_size = hparams.state_size
         self.action_size = hparams.action_size
@@ -430,6 +433,12 @@ class DDDQAgent:
             self.v_rewards_min = tf.math.reduce_min(self.v_rewards)
             self.summary_reward_min = tf.summary.scalar('Minimum', self.v_rewards_min)
 
+            # Validierungs Belohnung
+            self.v_val_rewards = tf.placeholder(tf.float32, shape=None, name='v_val_Belohnungen')
+            self.val_reward_histo = tf.summary.histogram('Val_Verteilung', self.v_val_rewards)
+            self.v_val_rewards_sum = tf.math.reduce_sum(self.v_val_rewards)
+            self.summary_val_reward_sum = tf.summary.scalar('Val_Summe', self.v_val_rewards_sum)
+
         with tf.name_scope('Values'):
             # StateValues
             self.v_vs = tf.placeholder(tf.float32, shape=None, name='v_StateValues')
@@ -477,11 +486,19 @@ class DDDQAgent:
             self.v_actions_sum = tf.math.reduce_sum(self.v_actions)
             self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.v_actions_sum)
 
+            # Validation Actions
+            self.v_val_actions = tf.placeholder(tf.float32, shape=None, name='v_val_Aktionen')
+            self.v_val_actions_sum = tf.math.reduce_sum(self.v_val_actions)
+
         with tf.name_scope('Bewegungen'):
             # Absatz
             self.v_absatz = tf.placeholder(tf.float32, shape=None, name='v_Absatz')
             self.v_absatz_sum = tf.math.reduce_sum(self.v_absatz)
             self.summary_absatz_sum = tf.summary.scalar('Absatz', self.v_absatz_sum)
+
+            # Validation Absatz
+            self.v_val_absatz = tf.placeholder(tf.float32, shape=None, name='v_val_Absatz')
+            self.v_val_absatz_sum = tf.math.reduce_sum(self.v_val_absatz)
 
             # Abschriften
             self.v_abschriften = tf.placeholder(tf.float32, shape=None, name='v_Abschriften')
@@ -491,6 +508,13 @@ class DDDQAgent:
             self.v_abschrift_proz = tf.math.divide(self.v_abschriften_sum, self.v_actions_sum)
             self.summary_abschrift_proz = tf.summary.scalar('AbschriftProzent', self.v_abschrift_proz)
 
+            # Validation Abschriften
+            self.v_val_abschriften = tf.placeholder(tf.float32, shape=None, name='v_val_Abschriften')
+            self.v_val_abschriften_sum = tf.math.reduce_sum(self.v_val_abschriften)
+
+            self.v_val_abschrift_proz = tf.math.divide(self.v_val_abschriften_sum, self.v_val_actions_sum)
+            self.summary_val_abschrift_proz = tf.summary.scalar('Val_AbschriftProzent', self.v_val_abschrift_proz)
+
             # Fehlmenge
             self.v_fehlmenge = tf.placeholder(tf.float32, shape=None, name='v_Fehlmenge')
             self.v_fehlmenge_sum = tf.math.reduce_sum(self.v_fehlmenge)
@@ -498,6 +522,13 @@ class DDDQAgent:
 
             self.v_fehlmenge_proz = tf.math.divide(self.v_fehlmenge_sum, self.v_absatz_sum)
             self.summary_fehlmenge_proz = tf.summary.scalar('FehlmengeProzent', self.v_fehlmenge_proz)
+
+            # Validation Fehlmenge
+            self.v_val_fehlmenge = tf.placeholder(tf.float32, shape=None, name='v_val_Fehlmenge')
+            self.v_val_fehlmenge_sum = tf.math.reduce_sum(self.v_val_fehlmenge)
+
+            self.v_val_fehlmenge_proz = tf.math.divide(self.v_val_fehlmenge_sum, self.v_val_absatz_sum)
+            self.summary_val_fehlmenge_proz = tf.summary.scalar('Val_FehlmengeProzent', self.v_val_fehlmenge_proz)
 
         self.merged = tf.summary.merge_all()
 

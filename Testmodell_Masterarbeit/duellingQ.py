@@ -106,11 +106,10 @@ validator = StockSimulation(test_data, test_pred, hps)
 hps.save(os.path.join(hps.log_dir, 'Hyperparameter.yaml'))
 # endregion
 
+session = tf.Session()
+agent = DDDQAgent(session, hps)
 if training:
-    # region Initialisieren
-    session = tf.Session()
-    agent = DDDQAgent(session, hps)
-    # endregion
+
     # region ReplayBuffer befüllen
     if hps.use_one_article:
         artikel_markt = simulation.possibles[np.random.choice(len(simulation.possibles))]
@@ -133,6 +132,7 @@ if training:
         # region Training
         step = 0
         state, info = simulation.reset(artikel_markt)
+        val_state, _ = validator.reset(artikel_markt)
         done = False
         while not done:
             step += 1
@@ -142,6 +142,10 @@ if training:
             experience = Experience(state, reward, done, next_state, action)
             agent.remember(experience)
             state = next_state
+
+            val_action = agent.act(np.array(val_state))
+            val_reward, _, val_next_state = validator.make_action(np.argmax(val_action))
+            val_state = val_next_state
 
             if step % hps.learn_step == 0:
                 tau += 1
@@ -157,13 +161,18 @@ if training:
             agent.merged,
             feed_dict={
                 agent.v_rewards: simulation.statistics.rewards(),
+                agent.v_val_rewards: validator.statistics.rewards(),
                 agent.v_as: agent.curr_as,
                 agent.v_vs: agent.curr_vs,
                 agent.v_actions: simulation.statistics.actions(),
+                agent.v_val_actions: validator.statistics.actions(),
                 agent.v_bestand: simulation.statistics.bestand(),
                 agent.v_abschriften: simulation.statistics.abschrift(),
                 agent.v_fehlmenge: simulation.statistics.fehlmenge(),
                 agent.v_absatz: simulation.statistics.absaetze(),
+                agent.v_val_abschriften: validator.statistics.abschrift(),
+                agent.v_val_fehlmenge: validator.statistics.fehlmenge(),
+                agent.v_val_absatz: validator.statistics.absaetze(),
                 agent.v_epsilon: agent.epsilon,
                 agent.v_loss: agent.curr_loss,
                 agent.v_beta: agent.memory.per_beta,

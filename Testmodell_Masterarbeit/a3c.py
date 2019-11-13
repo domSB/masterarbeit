@@ -6,6 +6,7 @@ import tensorflow as tf
 from time import sleep
 
 from agents import Predictor, A3CNetwork, Worker
+from agents.evaluation import Evaluator
 from simulation import StockSimulation
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
@@ -84,22 +85,22 @@ predictor.build_model(
 )
 predictor.load_from_weights(predictor_path)
 print('Arbeite mit: ', dir_name)
-print('Predicting',  end='')
+print('Predicting', end='')
 train_pred = predictor.predict(
     {
         'dynamic_input': train_data[1],
         'static_input': train_data[2]
     }
 )
-print(' and done ;)')
-print('Predicting',  end='')
+print('and done ;)')
+print('Predicting', end='')
 test_pred = predictor.predict(
     {
         'dynamic_input': test_data[1],
         'static_input': test_data[2]
     }
 )
-print(' and done ;)')
+print('and done ;)')
 # endregion
 tf.reset_default_graph()
 hps.save(os.path.join(hps.log_dir, 'Hyperparameter.yaml'))
@@ -152,4 +153,8 @@ with tf.Session() as sess:
         sleep(0.3)
         worker_threads.append(t)
     coord.join(worker_threads)
+    simulation = StockSimulation(train_data, train_pred, hps)
+    validator = StockSimulation(test_data, test_pred, hps)
+    evaluation = Evaluator(master_network, simulation, validator, hps, session=sess)
+    evaluation.show()
 
