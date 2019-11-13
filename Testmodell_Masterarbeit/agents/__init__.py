@@ -637,7 +637,8 @@ class DDDQAgent:
         self.batch_size = hparams.batch_size
         self.gamma = hparams.gamma
         self.curr_loss = -1
-        self.current_qs = []
+        self.curr_vs = []
+        self.curr_as = []
         self.possible_actions = np.identity(hparams.action_size, dtype=int).tolist()
         self.dq_network = DDDQNetwork(hparams, name='DQNetwork')
         self.target_network = DDDQNetwork(hparams, name='TargetNetwork')
@@ -648,49 +649,83 @@ class DDDQAgent:
         self.sess.run(tf.global_variables_initializer())
         # self.update_target()
         self.writer = tf.summary.FileWriter(hparams.log_dir, self.sess.graph)
-        with tf.name_scope('Modell'):
-            self.v_rewards = tf.placeholder(tf.float32, shape=None, name='Belohnungen')
-            self.reward_histo = tf.summary.histogram('Belohnungen', self.v_rewards)
+        with tf.name_scope('Belohnungen'):
+            # Belohnung
+            self.v_rewards = tf.placeholder(tf.float32, shape=None, name='v_Belohnungen')
+            self.reward_histo = tf.summary.histogram('Verteilung', self.v_rewards)
             self.v_rewards_sum = tf.math.reduce_sum(self.v_rewards)
-            self.summary_reward_sum = tf.summary.scalar('Gesamtbelohnung', self.v_rewards_sum)
+            self.summary_reward_sum = tf.summary.scalar('Summe', self.v_rewards_sum)
             self.v_rewards_min = tf.math.reduce_min(self.v_rewards)
-            self.summary_reward_min = tf.summary.scalar('MinBelohnung', self.v_rewards_min)
-            self.v_qs = tf.placeholder(tf.float32, shape=None, name='Q_Values')
-            self.v_mean_q = tf.math.reduce_mean(self.v_qs)
-            self.summary_q_values = tf.summary.histogram('Q_Values', self.v_qs)
-            self.summary_mean_q_value = tf.summary.scalar('Durchschnittl_QWert', self.v_mean_q)
-            self.v_epsilon = tf.placeholder(tf.float32, shape=None, name='Epsilon')
-            self.summary_epsilon = tf.summary.scalar('Epsilon', self.v_epsilon)
+            self.summary_reward_min = tf.summary.scalar('Minimum', self.v_rewards_min)
+
+        with tf.name_scope('Values'):
+            # StateValues
+            self.v_vs = tf.placeholder(tf.float32, shape=None, name='v_StateValues')
+            self.summary_v_values = tf.summary.histogram('StateValues', self.v_vs)
+            self.v_mean_v = tf.math.reduce_mean(self.v_vs)
+            self.summary_mean_v_value = tf.summary.scalar('StateValue', self.v_mean_v)
+
+            # AdvantageValues
+            self.v_as = tf.placeholder(tf.float32, shape=None, name='v_AdvantageValues')
+            self.v_best_as = tf.math.reduce_max(self.v_as, axis=0)
+            self.summary_a_values = tf.summary.histogram('AdvantageValues', self.v_as)
+            self.summary_best_a_values = tf.summary.histogram('BestAdvantageValues', self.v_best_as)
+            self.v_mean_a = tf.math.reduce_mean(self.v_best_as)
+            self.v_std_a = tf.math.reduce_std(self.v_best_as)
+            self.summary_mean_a_value = tf.summary.scalar('BestAdvantageValueMean', self.v_mean_a)
+            self.summary_std_a_value = tf.summary.scalar('BestAdvantageValueVariance', self.v_std_a)
+
+            # Loss
             self.v_loss = tf.placeholder(tf.float32, shape=None, name='Loss')
             self.summary_loss = tf.summary.scalar('Loss', self.v_loss)
-            self.v_beta = tf.placeholder(tf.float32, shape=None, name='Beta')
+
+        with tf.name_scope('Hyperparameter'):
+            # Epsilon
+            self.v_epsilon = tf.placeholder(tf.float32, shape=None, name='v_Epsilon')
+            self.summary_epsilon = tf.summary.scalar('Epsilon', self.v_epsilon)
+            # Beta
+            self.v_beta = tf.placeholder(tf.float32, shape=None, name='v_Beta')
             self.summary_beta = tf.summary.scalar('Beta', self.v_beta)
-            self.v_target_updates = tf.placeholder(tf.float32, shape=None, name='TargetUpdates')
+            # TargetUpdates
+            self.v_target_updates = tf.placeholder(tf.float32, shape=None, name='v_TargetUpdates')
             self.summary_target_update = tf.summary.scalar('TargetUpdates', self.v_target_updates)
+
         with tf.name_scope('Bestand'):
-            self.v_bestand = tf.placeholder(tf.float32, shape=None, name='Bestand')
+            # Bestand
+            self.v_bestand = tf.placeholder(tf.float32, shape=None, name='v_Bestand')
             self.v_bestand_max = tf.math.reduce_max(self.v_bestand)
             self.summary_bestand_max = tf.summary.scalar('Maximum', self.v_bestand_max)
+
             self.v_bestand_mean = tf.math.reduce_mean(self.v_bestand)
             self.summary_bestand_mean = tf.summary.scalar('Durchschnitt', self.v_bestand_mean)
-            self.v_actions = tf.placeholder(tf.float32, shape=None, name='Aktionen')
+
+            # Actions
+            self.v_actions = tf.placeholder(tf.float32, shape=None, name='v_Aktionen')
             self.action_histo = tf.summary.histogram('Aktionen', self.v_actions)
             self.v_actions_sum = tf.math.reduce_sum(self.v_actions)
             self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.v_actions_sum)
+
         with tf.name_scope('Bewegungen'):
-            self.v_abschriften = tf.placeholder(tf.float32, shape=None)
-            self.v_abschriften_sum = tf.math.reduce_sum(self.v_abschriften, name='PLAbschriften')
-            self.summary_abschriften_sum = tf.summary.scalar('Abschriften', self.v_abschriften_sum)
-            self.v_fehlmenge = tf.placeholder(tf.float32, shape=None, name='PLFehlmenge')
-            self.v_fehlmenge_sum = tf.math.reduce_sum(self.v_fehlmenge)
-            self.summary_fehlmenge_sum = tf.summary.scalar('Fehlmenge', self.v_fehlmenge_sum)
-            self.v_absatz = tf.placeholder(tf.float32, shape=None, name='PLAbsatz')
+            # Absatz
+            self.v_absatz = tf.placeholder(tf.float32, shape=None, name='v_Absatz')
             self.v_absatz_sum = tf.math.reduce_sum(self.v_absatz)
             self.summary_absatz_sum = tf.summary.scalar('Absatz', self.v_absatz_sum)
-            self.v_fehlmenge_proz = tf.math.divide(self.v_fehlmenge_sum, self.v_absatz_sum)
-            self.summary_fehlmenge_proz = tf.summary.scalar('FehlmengeProzent', self.v_fehlmenge_proz)
+
+            # Abschriften
+            self.v_abschriften = tf.placeholder(tf.float32, shape=None, name='v_Abschriften')
+            self.v_abschriften_sum = tf.math.reduce_sum(self.v_abschriften)
+            self.summary_abschriften_sum = tf.summary.scalar('Abschriften', self.v_abschriften_sum)
+
             self.v_abschrift_proz = tf.math.divide(self.v_abschriften_sum, self.v_actions_sum)
             self.summary_abschrift_proz = tf.summary.scalar('AbschriftProzent', self.v_abschrift_proz)
+
+            # Fehlmenge
+            self.v_fehlmenge = tf.placeholder(tf.float32, shape=None, name='v_Fehlmenge')
+            self.v_fehlmenge_sum = tf.math.reduce_sum(self.v_fehlmenge)
+            self.summary_fehlmenge_sum = tf.summary.scalar('Fehlmenge', self.v_fehlmenge_sum)
+
+            self.v_fehlmenge_proz = tf.math.divide(self.v_fehlmenge_sum, self.v_absatz_sum)
+            self.summary_fehlmenge_proz = tf.summary.scalar('FehlmengeProzent', self.v_fehlmenge_proz)
 
         self.merged = tf.summary.merge_all()
 
@@ -767,18 +802,25 @@ class DDDQAgent:
                 target_qs_batch.append(target)
 
         target_qs_batch = np.array(target_qs_batch)
-        _, loss, absolute_errors = self.sess.run(
-            [self.dq_network.optimizer, self.dq_network.loss, self.dq_network.absolute_errors],
+        _, loss, absolute_errors, state_vals, advantages = self.sess.run(
+            [
+                self.dq_network.optimizer,
+                self.dq_network.loss,
+                self.dq_network.absolute_errors,
+                self.dq_network.value,
+                self.dq_network.advantage,
+            ],
             feed_dict={
                 self.dq_network.inputs_: state_batch,
                 self.dq_network.target_q: target_qs_batch,
                 self.dq_network.actions_: action_batch,
-                self.dq_network.is_weights: is_weights_batch
+                self.dq_network.is_weights: is_weights_batch,
             }
         )
         self.memory.batch_update(tree_idx, absolute_errors)
         self.curr_loss = loss
-        self.current_qs = q_next_state
+        self.curr_vs = state_vals
+        self.curr_as = advantages
 # endregion
 
 
@@ -787,15 +829,15 @@ class A3CNetwork:
     """
     Neuronales Netz des Actor-Critic.
     """
-    def __init__(self, scope, _trainer, _state_size):
+    def __init__(self, scope, _trainer, hparams):
         with tf.variable_scope(scope):
-            self.inputs = tf.placeholder(shape=[None, *_state_size], dtype=tf.float32)
+            self.inputs = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32)
             self.hidden = tf.keras.layers.Dense(
-                512,
-                activation=tf.keras.activations.elu
+                hparams.main_size,
+                activation=hparams.main_activation
             )(self.inputs)
             self.policy = tf.keras.layers.Dense(
-                6,
+                hparams.action_size,
                 activation=tf.keras.activations.softmax,
                 kernel_initializer=normalized_columns_initializer(0.01),
                 bias_initializer=None
@@ -835,28 +877,29 @@ class A3CNetwork:
 
 
 class Worker:
-    def __init__(self, env, name, _trainer, _model_path, _logging_path, _global_episodes, _state_size):
+    def __init__(self, env, name, _trainer, _global_episodes, hparams):
         self.name = "worker_" + str(name)
         self.number = name
-        self.model_path = _model_path
+        self.model_path = hparams.model_dir
+        self.gamma = hparams.gamma
         self.trainer = _trainer
         self.global_episodes = _global_episodes
         self.increment = self.global_episodes.assign_add(1)
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_mean_values = []
-        self.summary_writer = tf.summary.FileWriter(os.path.join(_logging_path, "train_" + str(self.number)))
+        self.summary_writer = tf.summary.FileWriter(os.path.join(hparams.log_dir, "train_" + str(self.number)))
 
         # Create the local copy of the network and the tensorflow op to copy global paramters to local network
-        self.local_AC = A3CNetwork(self.name, _trainer, _state_size)
+        self.local_AC = A3CNetwork(self.name, _trainer, hparams)
         self.update_local_ops = update_target_graph('global', self.name)
 
-        self.actions = np.identity(4, dtype=bool).tolist()
+        self.actions = np.identity(hparams.action_size, dtype=bool).tolist()
         self.env = env
         self.rewards_plus = None
         self.value_plus = None
 
-    def train(self, rollout, _sess, _gamma, bootstrap_value):
+    def train(self, rollout, _sess, bootstrap_value):
         rollout = np.array(rollout)
         observations = rollout[:, 0]
         actions = rollout[:, 1]
@@ -868,10 +911,10 @@ class Worker:
         # generate the advantage and discounted returns.
         # The advantage function uses "Generalized Advantage Estimation"
         self.rewards_plus = np.asarray(rewards.tolist() + [bootstrap_value])
-        discounted_rewards = discount(self.rewards_plus, _gamma)[:-1]
+        discounted_rewards = discount(self.rewards_plus, self.gamma)[:-1]
         self.value_plus = np.asarray(values.tolist() + [bootstrap_value])
-        advantages = rewards + _gamma * self.value_plus[1:] - self.value_plus[:-1]
-        advantages = discount(advantages, _gamma)
+        advantages = rewards + self.gamma * self.value_plus[1:] - self.value_plus[:-1]
+        advantages = discount(advantages, self.gamma)
 
         # Update the global network using gradients from loss
         # Generate network statistics to periodically save
@@ -892,7 +935,7 @@ class Worker:
         )
         return v_l / len(rollout), p_l / len(rollout), e_l / len(rollout), g_n, v_n
 
-    def work(self, _gamma, _sess, _coord, _saver):
+    def work(self, _sess, _coord, _saver):
         episode_count = _sess.run(self.global_episodes)
         total_steps = 0
         print("Starting worker " + str(self.number))
@@ -935,7 +978,7 @@ class Worker:
                             self.local_AC.value,
                             feed_dict={self.local_AC.inputs: [state]}
                         )[0, 0]
-                        v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, _sess, _gamma, target_v)
+                        v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, _sess, target_v)
                         episode_buffer = []
                         _sess.run(self.update_local_ops)
                     if done:
@@ -947,7 +990,7 @@ class Worker:
 
                 # Update the network using the episode buffer at the end of the episode.
                 if len(episode_buffer) != 0:
-                    v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, _sess, _gamma, 0.0)
+                    v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, _sess, 0.0)
 
                 # Periodically save model parameters and summary statistics.
                 if episode_count % 5 == 0 and episode_count != 0:

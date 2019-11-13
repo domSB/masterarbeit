@@ -13,14 +13,14 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=35,
+    run_id=38,
     warengruppe=[55],
     detail_warengruppe=[2363],
     use_one_article=False,
     bestell_zyklus=3,
     state_size=[18],  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
     action_size=6,
-    learning_rate=0.001,
+    learning_rate=0.0001,
     memory_size=30000,
     episodes=10000,
     pretrain_episodes=5,
@@ -30,7 +30,7 @@ hps = Hyperparameter(
     epsilon_start=1,
     epsilon_stop=0.03,
     epsilon_decay=0.9999,
-    gamma=0.99,
+    gamma=0.95,
     do_train=True,
     reward_func='TDGewinn V2',
     sim_state_group=1,
@@ -48,7 +48,8 @@ hps = Hyperparameter(
     per_beta=0.4,
     per_beta_increment=0.00025,
     per_error_clip=1.0,
-    use_importance_sampling=True
+    use_importance_sampling=True,
+    rest_laufzeit=14
 )
 
 training = True
@@ -61,18 +62,13 @@ if not os.path.exists(hps.log_dir):
     os.mkdir(hps.log_dir)
     os.mkdir(hps.model_dir)
 
-simulation_params = {
-    'ZielWarengruppen': hps.warengruppe,
-    'DetailWarengruppe': hps.detail_warengruppe
-}
-
 predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
 # endregion
 
-pipeline = DataPipeLine(**simulation_params)
+pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe, DetailWarengruppe=hps.detail_warengruppe)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
 
@@ -148,11 +144,12 @@ if training:
                 target_update_counter += 1
         # endregion
         # region Lerninformationen
-        summary = agent.sess.run(
-            agent.merged,
+        summary, _ = agent.sess.run(
+            [agent.merged, tf.print(agent.v_best_as.shape)],
             feed_dict={
                 agent.v_rewards: simulation.statistics.rewards(),
-                agent.v_qs: agent.current_qs,
+                agent.v_as: agent.curr_as,
+                agent.v_vs: agent.curr_vs,
                 agent.v_actions: simulation.statistics.actions(),
                 agent.v_bestand: simulation.statistics.bestand(),
                 agent.v_abschriften: simulation.statistics.abschrift(),

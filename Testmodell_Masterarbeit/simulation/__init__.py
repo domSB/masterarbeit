@@ -192,7 +192,7 @@ class StockSimulation(object):
         self.artikel_rohertrag = 0.3
         self.kap_kosten = 0.05/365
         self.optimaler_reward = None
-        self.placeholder_mhd = 14
+        self.placeholder_mhd = hparams.rest_laufzeit
         self.bestellrythmus = hparams.bestell_zyklus
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
@@ -345,7 +345,7 @@ class StockSimulation(object):
 
         elif self.reward_flag == 'TDGewinn V2':
             reward = gradienten_belohnung(self.fehlmenge*10, self.abschriften*10)
-            # reward = reward / (388 / self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
+            reward = reward / 10  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
 
         elif self.reward_flag == 'Bestandsreichweite':
             kommende_absaetze = np.sum(
