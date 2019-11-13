@@ -1,8 +1,10 @@
-import tensorflow as tf
-import numpy as np
 import os
 import threading
+import multiprocessing
+import tensorflow as tf
+
 from time import sleep
+
 from agents import Predictor, A3CNetwork, Worker
 from simulation import StockSimulation
 from data.access import DataPipeLine
@@ -12,14 +14,14 @@ from utils import Hyperparameter
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=3,
+    run_id=5,
     warengruppe=[55],
     detail_warengruppe=None,
     use_one_article=False,
     bestell_zyklus=3,
     state_size=[18],  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
     action_size=6,
-    learning_rate=0.0001,
+    learning_rate=0.001,
     memory_size=30000,
     episodes=10000,
     pretrain_episodes=5,
@@ -32,16 +34,16 @@ hps = Hyperparameter(
     gamma=0.95,
     do_train=True,
     reward_func='TDGewinn V2',
-    sim_state_group=1,
-    main_size=256,
+    sim_state_group=2,
+    main_size=64,
     main_activation='tanh',
-    main_regularizer=None,
+    main_regularizer='l2',
     value_size=32,
     value_activation='relu',
-    value_regularizer=None,
+    value_regularizer='l2',
     avantage_size=32,
     advantage_activation='relu',
-    advantage_regularizer=None,
+    advantage_regularizer='l2',
     per_epsilon=0.01,
     per_alpha=0.6,
     per_beta=0.4,
@@ -81,6 +83,7 @@ predictor.build_model(
     static_state_shape=simulation_data[2].shape[1]
 )
 predictor.load_from_weights(predictor_path)
+print('Arbeite mit: ', dir_name)
 print('Predicting',  end='')
 pred = predictor.predict(
     {
@@ -97,11 +100,10 @@ with tf.device("/cpu:0"):
     global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
     trainer = tf.train.AdamOptimizer(hps.learning_rate)
     master_network = A3CNetwork('global', None, hps)
-    # num_workers = multiprocessing.cpu_count()
-    num_workers = 32  # Arbeitsspeicher Restriktion
+    num_workers = multiprocessing.cpu_count()
     workers = []
     # Create worker classes
-    for i in range(num_workers):
+    for i in range(num_workers-1):
         workers.append(
             Worker(
                 StockSimulation(train_data, pred, hps),
@@ -111,6 +113,16 @@ with tf.device("/cpu:0"):
                 hps
             )
         )
+    workers.append(
+        Worker(
+            StockSimulation(test_data, pred, hps),
+            num_workers-1,
+            trainer,
+            global_episodes,
+            hps,
+            use_as_validator=True
+        )
+    )
     saver = tf.train.Saver(max_to_keep=1)
 
 with tf.Session() as sess:
@@ -129,10 +141,7 @@ with tf.Session() as sess:
         worker_work = lambda: worker.work(sess, coord, saver)
         t = threading.Thread(target=worker_work)
         t.start()
-        sleep(0.2)
+        sleep(0.3)
         worker_threads.append(t)
     coord.join(worker_threads)
-    eingabe = input('Fertig? (j/n)')
-    if eingabe == 'j':
-        coord.request_stop()
 

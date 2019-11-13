@@ -832,10 +832,12 @@ class A3CNetwork:
     def __init__(self, scope, _trainer, hparams):
         with tf.variable_scope(scope):
             self.inputs = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32)
-            self.hidden = tf.keras.layers.Dense(
+            self.dense = tf.keras.layers.Dense(
                 hparams.main_size,
-                activation=hparams.main_activation
+                activation=hparams.main_activation,
+                kernel_regularizer=hparams.main_regularizer
             )(self.inputs)
+            self.hidden = tf.keras.layers.Dropout(0.3)(self.dense)
             self.policy = tf.keras.layers.Dense(
                 hparams.action_size,
                 activation=tf.keras.activations.softmax,
@@ -877,13 +879,18 @@ class A3CNetwork:
 
 
 class Worker:
-    def __init__(self, env, name, _trainer, _global_episodes, hparams):
+    """
+    Workerclass for Actor Critic
+    """
+    def __init__(self, env, name, _trainer, _global_episodes, hparams, use_as_validator=False):
         self.name = "worker_" + str(name)
         self.number = name
         self.model_path = hparams.model_dir
         self.gamma = hparams.gamma
         self.trainer = _trainer
         self.global_episodes = _global_episodes
+        self.max_episodes = hparams.episodes
+        self.use_as_validator = use_as_validator
         self.increment = self.global_episodes.assign_add(1)
         self.episode_rewards = []
         self.episode_lengths = []
@@ -900,6 +907,8 @@ class Worker:
         self.value_plus = None
 
     def train(self, rollout, _sess, bootstrap_value):
+        if self.use_as_validator:
+            return None, None, None, None, None
         rollout = np.array(rollout)
         observations = rollout[:, 0]
         actions = rollout[:, 1]
@@ -1012,11 +1021,12 @@ class Worker:
                     summary.value.add(tag='Perf/Reward', simple_value=float(mean_reward))
                     summary.value.add(tag='Perf/Length', simple_value=float(mean_length))
                     summary.value.add(tag='Perf/Value', simple_value=float(mean_value))
-                    summary.value.add(tag='Losses/Value Loss', simple_value=float(v_l))
-                    summary.value.add(tag='Losses/Policy Loss', simple_value=float(p_l))
-                    summary.value.add(tag='Losses/Entropy', simple_value=float(e_l))
-                    summary.value.add(tag='Losses/Grad Norm', simple_value=float(g_n))
-                    summary.value.add(tag='Losses/Var Norm', simple_value=float(v_n))
+                    if not self.use_as_validator:
+                        summary.value.add(tag='Losses/Value Loss', simple_value=float(v_l))
+                        summary.value.add(tag='Losses/Policy Loss', simple_value=float(p_l))
+                        summary.value.add(tag='Losses/Entropy', simple_value=float(e_l))
+                        summary.value.add(tag='Losses/Grad Norm', simple_value=float(g_n))
+                        summary.value.add(tag='Losses/Var Norm', simple_value=float(v_n))
                     summary.value.add(tag='Model/Bestellmenge', simple_value=float(bestell_menge))
                     summary.value.add(tag='Model/Absatz', simple_value=float(absatz_menge))
                     summary.value.add(tag='Model/Abschriften', simple_value=float(abschrift_menge))
@@ -1030,5 +1040,7 @@ class Worker:
                 if self.name == 'worker_0':
                     _sess.run(self.increment)
                 episode_count += 1
+                if episode_count > self.max_episodes:
+                    _coord.should_stop()
 
 # endregion
