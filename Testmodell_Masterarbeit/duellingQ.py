@@ -1,5 +1,6 @@
 import os
 import random
+import time
 import tensorflow as tf
 import numpy as np
 from simulation import StockSimulation
@@ -181,9 +182,10 @@ if training:
         )
         agent.writer.add_summary(summary, episode)
         agent.writer.flush()
-        if episode % 100 == 0:
-            print('Finished Episode: {epi} @ Epsilon {epsi}'.format(epi=episode, epsi=agent.epsilon))
-            save_path = saver.save(agent.sess, os.path.join(hps.model_dir, 'model.ckpt'), global_step=episode)
+        if episode % 25 == 0:
+            print(time.strftime('%T') + ' Episode: {epi} @ Epsilon {epsi}'.format(epi=episode, epsi=agent.epsilon))
+            if episode % 1000 == 0:
+                save_path = saver.save(agent.sess, os.path.join(hps.model_dir, 'model.ckpt'), global_step=episode)
         # endregion
 
 evaluation = Evaluator(agent, simulation, validator, hps)
