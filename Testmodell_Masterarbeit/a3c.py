@@ -15,7 +15,7 @@ from utils import Hyperparameter
 # region Hyperparameter
 hps = Hyperparameter(
     run_id=5,
-    warengruppe=[55],
+    warengruppe=[17],
     detail_warengruppe=None,
     use_one_article=False,
     bestell_zyklus=3,
@@ -35,7 +35,7 @@ hps = Hyperparameter(
     do_train=True,
     reward_func='TDGewinn V2',
     sim_state_group=2,
-    main_size=64,
+    main_size=256,
     main_activation='tanh',
     main_regularizer='l2',
     value_size=32,
@@ -85,10 +85,18 @@ predictor.build_model(
 predictor.load_from_weights(predictor_path)
 print('Arbeite mit: ', dir_name)
 print('Predicting',  end='')
-pred = predictor.predict(
+train_pred = predictor.predict(
     {
         'dynamic_input': train_data[1],
         'static_input': train_data[2]
+    }
+)
+print(' and done ;)')
+print('Predicting',  end='')
+test_pred = predictor.predict(
+    {
+        'dynamic_input': test_data[1],
+        'static_input': test_data[2]
     }
 )
 print(' and done ;)')
@@ -106,7 +114,7 @@ with tf.device("/cpu:0"):
     for i in range(num_workers-1):
         workers.append(
             Worker(
-                StockSimulation(train_data, pred, hps),
+                StockSimulation(train_data, train_pred, hps),
                 i,
                 trainer,
                 global_episodes,
@@ -115,7 +123,7 @@ with tf.device("/cpu:0"):
         )
     workers.append(
         Worker(
-            StockSimulation(test_data, pred, hps),
+            StockSimulation(test_data, test_pred, hps),
             num_workers-1,
             trainer,
             global_episodes,

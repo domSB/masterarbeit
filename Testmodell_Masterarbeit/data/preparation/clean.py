@@ -101,8 +101,8 @@ def create_frame_from_raw_data(params):
     absatz.reset_index(drop=True, inplace=True)
     # Verwerfe Artikel, die seltener als an 10 Tage p.a. verkauft werden.
     absatz_vorgaenge = absatz.groupby(['Artikel', 'Jahr', 'Markt'])['Menge'].count()
-    art_abs_mehr_30_art = absatz_vorgaenge[absatz_vorgaenge > 30].index.get_level_values('Artikel').values
-    art_abs_mehr_30_mkt = absatz_vorgaenge[absatz_vorgaenge > 30].index.get_level_values('Markt').values
+    art_abs_mehr_30_art = absatz_vorgaenge[absatz_vorgaenge > 10].index.get_level_values('Artikel').values
+    art_abs_mehr_30_mkt = absatz_vorgaenge[absatz_vorgaenge > 10].index.get_level_values('Markt').values
     art_abs_mehr_30 = [(art, mkt) for art, mkt in zip(art_abs_mehr_30_art, art_abs_mehr_30_mkt)]
     art_abs_mehr_30 = set(art_abs_mehr_30)
     absatz.set_index(['Artikel', 'Markt'], drop=False, inplace=True)

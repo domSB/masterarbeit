@@ -1041,6 +1041,6 @@ class Worker:
                     _sess.run(self.increment)
                 episode_count += 1
                 if episode_count > self.max_episodes:
-                    _coord.should_stop()
+                    _coord.request_stop()
 
 # endregion

@@ -6,16 +6,16 @@ from simulation import StockSimulation
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
 from agents import DDDQAgent, Experience, Predictor
+from agents.evaluation import Evaluator
 from utils import Hyperparameter
 
 tf.get_logger().setLevel('ERROR')
 
-
 # region Hyperparameter
 hps = Hyperparameter(
     run_id=38,
-    warengruppe=[55],
-    detail_warengruppe=[2363],
+    warengruppe=[17],
+    detail_warengruppe=None,
     use_one_article=False,
     bestell_zyklus=3,
     state_size=[18],  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
@@ -85,15 +85,24 @@ predictor.build_model(
 )
 predictor.load_from_weights(predictor_path)
 print('Predicting', end='')
-pred = predictor.predict(
+train_pred = predictor.predict(
     {
         'dynamic_input': train_data[1],
         'static_input': train_data[2]
     }
 )
-print(' and done ;)')
+print('and done ;)')
+print('Predicting', end='')
+test_pred = predictor.predict(
+    {
+        'dynamic_input': test_data[1],
+        'static_input': test_data[2]
+    }
+)
+print('and done ;)')
 
-simulation = StockSimulation(train_data, pred, hps)
+simulation = StockSimulation(train_data, train_pred, hps)
+validator = StockSimulation(test_data, test_pred, hps)
 hps.save(os.path.join(hps.log_dir, 'Hyperparameter.yaml'))
 # endregion
 
@@ -144,8 +153,8 @@ if training:
                 target_update_counter += 1
         # endregion
         # region Lerninformationen
-        summary, _ = agent.sess.run(
-            [agent.merged, tf.print(agent.v_best_as.shape)],
+        summary = agent.sess.run(
+            agent.merged,
             feed_dict={
                 agent.v_rewards: simulation.statistics.rewards(),
                 agent.v_as: agent.curr_as,
@@ -168,5 +177,7 @@ if training:
             save_path = saver.save(agent.sess, os.path.join(hps.model_dir, 'model.ckpt'), global_step=episode)
         # endregion
 
+evaluation = Evaluator(agent, simulation, validator, hps)
+evaluation.show()
 
 
