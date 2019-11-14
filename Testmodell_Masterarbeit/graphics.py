@@ -137,65 +137,89 @@ plt.style.use('ggplot')
 # endregion
 
 # region Predictor Accuracy
-warengruppe = 55
-state_size = np.array([18])
+# warengruppe = 55
+# state_size = np.array([18])
+#
+# predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
+# available_weights = os.listdir(predictor_dir)
+# available_weights.sort()
+# predictor_path = os.path.join(predictor_dir, available_weights[-1])
+#
+# pipeline = DataPipeLine(ZielWarengrupppe=[warengruppe])
+# simulation_data = pipeline.get_regression_data()
+# train_data, test_data = split_np_arrays(*simulation_data)
+#
+# print([tr.shape for tr in train_data])
+# state_size[0] += simulation_data[2].shape[1]
+#
+# predictor = Predictor()
+# predictor.build_model(
+#     dynamic_state_shape=simulation_data[1].shape[2],
+#     static_state_shape=simulation_data[2].shape[1]
+# )
+# predictor.load_from_weights(predictor_path)
+# print('Predicting', end='')
+# pred = predictor.predict(
+#     {
+#         'dynamic_input': train_data[1],
+#         'static_input': train_data[2]
+#     }
+# )
+# lab, dyn, stat, ids = train_data
+# possibles = np.unique(ids)
+#
+# for i in range(3):
+#     position_wahl = np.random.choice(len(possibles))
+#     ids_wahl = np.argwhere(np.isin(ids, possibles[position_wahl])).reshape(-1)
+#     static_state = stat[ids_wahl]
+#     dynamic_state = dyn[ids_wahl]
+#     predicted_state = pred[ids_wahl]
+#     true_state = lab[ids_wahl]
+#     artikel_absatz = (dyn[ids_wahl, 0, 0] * 8).astype(np.int64)
+#     vorhersagen = np.argmax(predicted_state, axis=2)
+#     df = pd.DataFrame(
+#         {
+#             '1-Tages Prognose': vorhersagen[:-1, 0],
+#             'Absatz': artikel_absatz[1:]
+#         }
+#     )
+#     df.plot.bar(rot=90)
+#     fig, (ax1, ax2) = plt.subplots(2, 1, sharex='all')
+#     ax1.plot(artikel_absatz[2:], '.', label='Absatz')
+#     ax1.plot(vorhersagen[1:-1, 0], '2', label='1-Tages-Prognose')
+#     ax1.plot(vorhersagen[0:-2, 1], '*', label='2-Tages-Prognose')
+#     ax1.set_ylabel('Menge')
+#     ax1.legend()
+#     ax2.plot(vorhersagen[1:-1, 0] - artikel_absatz[2:], '.', label='Prognose Abweichung')
+#     ax2.legend()
+#     ax2.set_xlabel('Verkaufstage')
+#     ax2.set_ylabel('Menge')
+#     plt.show()
 
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
-available_weights = os.listdir(predictor_dir)
-available_weights.sort()
-predictor_path = os.path.join(predictor_dir, available_weights[-1])
+# endregion
 
-pipeline = DataPipeLine(ZielWarengrupppe=[warengruppe])
-simulation_data = pipeline.get_regression_data()
-train_data, test_data = split_np_arrays(*simulation_data)
+# region Q Konvergenz
+data_dir = os.path.join('files', 'prepared', 'Logging', 'DDDQN')
 
-print([tr.shape for tr in train_data])
-state_size[0] += simulation_data[2].shape[1]
+big_q = pd.read_json(os.path.join(data_dir, 'BigQ.json'))
+small_q = pd.read_json(os.path.join(data_dir, 'ClippedQ.json'))
+big_q.set_index(1, inplace=True)
+small_q.set_index(1, inplace=True)
 
-predictor = Predictor()
-predictor.build_model(
-    dynamic_state_shape=simulation_data[1].shape[2],
-    static_state_shape=simulation_data[2].shape[1]
+metrics = pd.DataFrame(
+    data={
+        'Epoch': big_q.index.values,
+        'RegularQ': big_q[2],
+        'ScaledQ': small_q[2],
+    },
+    index=big_q.index.values
 )
-predictor.load_from_weights(predictor_path)
-print('Predicting', end='')
-pred = predictor.predict(
-    {
-        'dynamic_input': train_data[1],
-        'static_input': train_data[2]
-    }
-)
-lab, dyn, stat, ids = train_data
-possibles = np.unique(ids)
 
-for i in range(3):
-    position_wahl = np.random.choice(len(possibles))
-    ids_wahl = np.argwhere(np.isin(ids, possibles[position_wahl])).reshape(-1)
-    static_state = stat[ids_wahl]
-    dynamic_state = dyn[ids_wahl]
-    predicted_state = pred[ids_wahl]
-    true_state = lab[ids_wahl]
-    artikel_absatz = (dyn[ids_wahl, 0, 0] * 8).astype(np.int64)
-    vorhersagen = np.argmax(predicted_state, axis=2)
-    df = pd.DataFrame(
-        {
-            '1-Tages Prognose': vorhersagen[:-1, 0],
-            'Absatz': artikel_absatz[1:]
-        }
-    )
-    df.plot.bar(rot=90)
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex='all')
-    ax1.plot(artikel_absatz[2:], '.', label='Absatz')
-    ax1.plot(vorhersagen[1:-1, 0], '2', label='1-Tages-Prognose')
-    ax1.plot(vorhersagen[0:-2, 1], '*', label='2-Tages-Prognose')
-    ax1.set_ylabel('Menge')
-    ax1.legend()
-    ax2.plot(vorhersagen[1:-1, 0] - artikel_absatz[2:], '.', label='Prognose Abweichung')
-    ax2.legend()
-    ax2.set_xlabel('Verkaufstage')
-    ax2.set_ylabel('Menge')
-    plt.show()
-
-
-
+plt.plot(metrics.loc[:, 'RegularQ'], label='Q bei Standard-Belohnung ')
+plt.plot(metrics.loc[:, 'ScaledQ'], label='Q bei skalierter Belohnung')
+plt.legend()
+plt.xlabel('Episode')
+plt.title('Konvergenz der Q-Werte')
+plt.savefig(os.path.join('files', 'graphics', 'Konvergenz der Q-Werte.png'))
+plt.show()
 # endregion
