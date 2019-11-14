@@ -14,7 +14,7 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=40,
+    run_id=41,
     warengruppe=[17],
     detail_warengruppe=None,
     use_one_article=False,
@@ -22,7 +22,7 @@ hps = Hyperparameter(
     state_size=[18],  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
     action_size=6,
     learning_rate=0.0001,
-    memory_size=30000,
+    memory_size=100000,
     episodes=20000,
     pretrain_episodes=5,
     batch_size=32,
@@ -34,15 +34,15 @@ hps = Hyperparameter(
     gamma=0.95,
     do_train=True,
     reward_func='TDGewinn V2',
-    sim_state_group=1,
+    sim_state_group=2,
     main_size=256,
-    main_activation='tanh',
+    main_activation='elu',
     main_regularizer=None,
     value_size=32,
-    value_activation='relu',
+    value_activation='elu',
     value_regularizer=None,
     avantage_size=32,
-    advantage_activation='relu',
+    advantage_activation='elu',
     advantage_regularizer=None,
     drop_out_rate=0.3,
     per_epsilon=0.01,

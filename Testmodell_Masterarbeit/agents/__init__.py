@@ -643,8 +643,8 @@ class A3CNetwork:
             self.dropout_main = tf.keras.layers.Dropout(hparams.drop_out_rate)(self.fc_main)
             self.fc_policy = tf.keras.layers.Dense(
                 hparams.avantage_size,
-                activation=hparams.avantage_activation,
-                kernel_regularizer=hparams.avantage_regularizer
+                activation=hparams.advantage_activation,
+                kernel_regularizer=hparams.advantage_regularizer
             )(self.dropout_main)
             self.dropout_policy = tf.keras.layers.Dropout(hparams.drop_out_rate)(self.fc_policy)
             self.fc_value = tf.keras.layers.Dense(
