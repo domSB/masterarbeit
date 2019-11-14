@@ -15,7 +15,7 @@ from utils import Hyperparameter
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=5,
+    run_id=6,
     warengruppe=[17],
     detail_warengruppe=None,
     use_one_article=False,
@@ -24,7 +24,7 @@ hps = Hyperparameter(
     action_size=6,
     learning_rate=0.001,
     memory_size=30000,
-    episodes=10000,
+    episodes=40000,
     pretrain_episodes=5,
     batch_size=32,
     learn_step=1,
@@ -45,6 +45,7 @@ hps = Hyperparameter(
     avantage_size=32,
     advantage_activation='relu',
     advantage_regularizer='l2',
+    drop_out_rate=0.3,
     per_epsilon=0.01,
     per_alpha=0.6,
     per_beta=0.4,

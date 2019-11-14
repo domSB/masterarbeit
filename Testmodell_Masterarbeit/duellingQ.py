@@ -44,6 +44,7 @@ hps = Hyperparameter(
     avantage_size=32,
     advantage_activation='relu',
     advantage_regularizer=None,
+    drop_out_rate=0.3,
     per_epsilon=0.01,
     per_alpha=0.6,
     per_beta=0.4,

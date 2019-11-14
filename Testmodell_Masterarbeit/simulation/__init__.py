@@ -354,10 +354,6 @@ class StockSimulation(object):
             reichweite = self.bestand - kommende_absaetze
             if reichweite == 0:
                 reward = 3
-                # if kommende_absaetze > 0:  # Eine Art Importance Sampling für A3C
-                #     reward = 3
-                # else:
-                #     reward = 0.1
             elif reichweite > 0:
                 reward = reichweite**2 * - 0.1
             else:
