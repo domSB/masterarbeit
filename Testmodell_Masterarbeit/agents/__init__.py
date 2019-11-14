@@ -635,18 +635,30 @@ class A3CNetwork:
     def __init__(self, scope, _trainer, hparams):
         with tf.variable_scope(scope):
             self.inputs = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32)
-            self.dense = tf.keras.layers.Dense(
+            self.fc_main = tf.keras.layers.Dense(
                 hparams.main_size,
                 activation=hparams.main_activation,
                 kernel_regularizer=hparams.main_regularizer
             )(self.inputs)
-            self.hidden = tf.keras.layers.Dropout(0.3)(self.dense)
+            self.dropout_main = tf.keras.layers.Dropout(hparams.drop_out_rate)(self.fc_main)
+            self.fc_policy = tf.keras.layers.Dense(
+                hparams.avantage_size,
+                activation=hparams.avantage_activation,
+                kernel_regularizer=hparams.avantage_regularizer
+            )(self.dropout_main)
+            self.dropout_policy = tf.keras.layers.Dropout(hparams.drop_out_rate)(self.fc_policy)
+            self.fc_value = tf.keras.layers.Dense(
+                hparams.value_size,
+                activation=hparams.value_activation,
+                kernel_regularizer=hparams.value_regularizer
+            )(self.dropout_main)
+            self.dropout_value = tf.keras.layers.Dropout(hparams.drop_out_rate)(self.fc_value)
             self.policy = tf.keras.layers.Dense(
                 hparams.action_size,
                 activation=tf.keras.activations.softmax,
                 kernel_initializer=normalized_columns_initializer(0.01),
                 bias_initializer=None
-            )(self.hidden)
+            )(self.dropout_policy)
             self.policy += 1e-7
             # verhindert NANs wenn log(policy) berechnet wird. Führt sonst zum Abbruch des Worker-Threads
             self.value = tf.keras.layers.Dense(
@@ -654,7 +666,7 @@ class A3CNetwork:
                 activation=None,
                 kernel_initializer=normalized_columns_initializer(1.0),
                 bias_initializer=None
-            )(self.hidden)
+            )(self.dropout_value)
 
         if scope != 'global':
             self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
