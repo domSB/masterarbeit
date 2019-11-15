@@ -8,13 +8,13 @@ from data.access import DataPipeLine
 from data.preparation import split_np_arrays
 from agents import DDDQAgent, Experience, Predictor
 from agents.evaluation import Evaluator
-from utils import Hyperparameter
+from utils import Hyperparameter, StateOperator
 
 tf.get_logger().setLevel('ERROR')
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=41,
+    run_id=43,
     warengruppe=[17],
     detail_warengruppe=None,
     use_one_article=False,
@@ -23,7 +23,7 @@ hps = Hyperparameter(
     action_size=6,
     learning_rate=0.0001,
     memory_size=100000,
-    episodes=20000,
+    episodes=5000,
     pretrain_episodes=5,
     batch_size=32,
     learn_step=1,
@@ -34,8 +34,11 @@ hps = Hyperparameter(
     gamma=0.95,
     do_train=True,
     reward_func='TDGewinn V2',
-    sim_state_group=2,
-    main_size=256,
+    sim_state_group=1,
+    use_lstm=True,
+    lstm_units=32,
+    time_steps=6,
+    main_size=64,
     main_activation='elu',
     main_regularizer=None,
     value_size=32,
@@ -86,7 +89,7 @@ predictor.build_model(
     static_state_shape=simulation_data[2].shape[1]
 )
 predictor.load_from_weights(predictor_path)
-print('Predicting', end='')
+print('Predicting ', end='')
 train_pred = predictor.predict(
     {
         'dynamic_input': train_data[1],
@@ -94,7 +97,7 @@ train_pred = predictor.predict(
     }
 )
 print('and done ;)')
-print('Predicting', end='')
+print('Predicting ', end='')
 test_pred = predictor.predict(
     {
         'dynamic_input': test_data[1],
@@ -104,7 +107,12 @@ test_pred = predictor.predict(
 print('and done ;)')
 
 simulation = StockSimulation(train_data, train_pred, hps)
+train_op = StateOperator(hps)
+val_op = StateOperator(hps)
+
 validator = StockSimulation(test_data, test_pred, hps)
+
+
 hps.save(os.path.join(hps.log_dir, 'Hyperparameter.yaml'))
 # endregion
 
@@ -120,13 +128,14 @@ if training:
     saver = tf.train.Saver(max_to_keep=None)
     for episode in range(hps.pretrain_episodes):
         state, info = simulation.reset(artikel_markt)
+        train_op.start(state)
         done = False
         while not done:
             action = random.choice(agent.possible_actions)
             reward, done, next_state = simulation.make_action(np.argmax(action))
-            experience = Experience(state, reward, done, next_state, action)
+            train_op.add(next_state)
+            experience = Experience(train_op.pre_state, reward, done, train_op.state, action)
             agent.remember(experience)
-            state = next_state
     # endregion
     tau = 0
     target_update_counter = 0
@@ -134,20 +143,22 @@ if training:
         # region Training
         step = 0
         state, info = simulation.reset(artikel_markt)
+        train_op.start(state)
         val_state, _ = validator.reset(artikel_markt)
+        val_op.start(val_state)
         done = False
         while not done:
             step += 1
 
-            action = agent.act(np.array(state))
+            action = agent.act(np.array(train_op.state))
             reward, done, next_state = simulation.make_action(np.argmax(action))
-            experience = Experience(state, reward, done, next_state, action)
+            train_op.add(next_state)
+            experience = Experience(train_op.pre_state, reward, done, train_op.state, action)
             agent.remember(experience)
-            state = next_state
 
-            val_action = agent.act(np.array(val_state))
+            val_action = agent.act(np.array(val_op.state))
             val_reward, _, val_next_state = validator.make_action(np.argmax(val_action))
-            val_state = val_next_state
+            val_op.add(val_next_state)
 
             if step % hps.learn_step == 0:
                 tau += 1

@@ -8,6 +8,7 @@ import tensorflow as tf
 
 from scipy.signal import lfilter
 
+from utils import StateOperator
 tf.get_logger().setLevel('ERROR')
 
 
@@ -166,8 +167,15 @@ class DDDQNetwork:
         self.name = name
 
         with tf.variable_scope(self.name):
-            self.inputs_ = tf.placeholder(tf.float32, [None, *hparams.state_size], name='Inputs')
-
+            if hparams.use_lstm:
+                self.inputs_ = tf.placeholder(
+                    shape=[None, hparams.time_steps, *hparams.state_size],
+                    dtype=tf.float32,
+                    name='Inputs')
+                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM')(self.inputs_)
+            else:
+                self.inputs_ = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32, name='Inputs')
+                self.firsts = tf.keras.layers.Flatten(name='FlatInputs')(self.inputs_)
             self.is_weights = tf.placeholder(tf.float32, [None, 1], name='IS_Weights')
 
             self.actions_ = tf.placeholder(tf.float32, [None, hparams.action_size], name='Actions')
@@ -179,7 +187,7 @@ class DDDQNetwork:
                 activation=hparams.main_activation,
                 kernel_regularizer=hparams.main_regularizer,
                 name='EingangsDense'
-            )(self.inputs_)
+            )(self.firsts)
             self.value_fc = tf.keras.layers.Dense(
                 units=hparams.value_size,
                 activation=hparams.value_activation,
@@ -546,7 +554,7 @@ class DDDQAgent:
             qs_of_state = self.sess.run(
                 self.dq_network.output,
                 feed_dict={
-                    self.dq_network.inputs_: _state.reshape((1, *_state.shape))
+                    self.dq_network.inputs_: np.expand_dims(_state, axis=0)
                 })
             choice = np.argmax(qs_of_state)
             _action = self.possible_actions[int(choice)]
@@ -634,12 +642,20 @@ class A3CNetwork:
     """
     def __init__(self, scope, _trainer, hparams):
         with tf.variable_scope(scope):
-            self.inputs = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32)
+            if hparams.use_lstm:
+                self.inputs = tf.placeholder(
+                    shape=[None, hparams.time_steps, *hparams.state_size],
+                    dtype=tf.float32,
+                    name='Inputs')
+                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM')(self.inputs)
+            else:
+                self.inputs = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32, name='Inputs')
+                self.firsts = tf.keras.layers.Flatten(name='FlatInputs')(self.inputs)
             self.fc_main = tf.keras.layers.Dense(
                 hparams.main_size,
                 activation=hparams.main_activation,
                 kernel_regularizer=hparams.main_regularizer
-            )(self.inputs)
+            )(self.firsts)
             self.dropout_main = tf.keras.layers.Dropout(hparams.drop_out_rate)(self.fc_main)
             self.fc_policy = tf.keras.layers.Dense(
                 hparams.avantage_size,
@@ -720,6 +736,7 @@ class Worker:
         self.env = env
         self.rewards_plus = None
         self.value_plus = None
+        self.hparams = hparams
 
     def train(self, rollout, _sess, bootstrap_value):
         if self.use_as_validator:
@@ -768,28 +785,30 @@ class Worker:
                 _sess.run(self.update_local_ops)
                 episode_buffer = []
                 episode_values = []
-                episode_states = []
+                # episode_states = []
                 episode_reward = 0
                 episode_step_count = 0
                 done = False
+                state_op = StateOperator(self.hparams)
                 state, info = self.env.reset()
-                episode_states.append(state)
+                state_op.start(state)
+                # episode_states.append(state_op.state)
                 while not done:
                     # Take an action using probabilities from policy network output.
                     a_dist, v = _sess.run(
                         [self.local_AC.policy, self.local_AC.value],
-                        feed_dict={self.local_AC.inputs: [state]})
+                        feed_dict={self.local_AC.inputs: [state_op.state]})
                     a = np.random.choice(a_dist[0], p=a_dist[0])
                     a = np.argmax(a_dist == a)
 
                     reward, done, next_state = self.env.make_action(a)
-                    episode_states.append(next_state)
+                    state_op.add(next_state)
+                    # episode_states.append(state_op.state)
 
-                    episode_buffer.append([state, a, reward, next_state, done, v[0, 0]])
+                    episode_buffer.append([state_op.pre_state, a, reward, state_op.state, done, v[0, 0]])
                     episode_values.append(v[0, 0])
 
                     episode_reward += reward
-                    state = next_state
                     total_steps += 1
                     episode_step_count += 1
 
@@ -800,7 +819,7 @@ class Worker:
                         # value estimation.
                         target_v = _sess.run(
                             self.local_AC.value,
-                            feed_dict={self.local_AC.inputs: [state]}
+                            feed_dict={self.local_AC.inputs: [state_op.state]}
                         )[0, 0]
                         v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, _sess, target_v)
                         episode_buffer = []

@@ -5,6 +5,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from utils import StateOperator
 
 
 def get_statistik(env):
@@ -46,6 +47,7 @@ class Evaluator:
         self.test_env = testing_simulation
         self.name = hparams.warengruppe[0]
         self.run_id = hparams.run_id
+        self.hparams = hparams
         if hparams.detail_warengruppe is not None:
             self.name += '-' + hparams.detail_warengruppe[0]
 
@@ -60,30 +62,33 @@ class Evaluator:
         Method to run all possible episodes with the agent
         :return:
         """
+        state_op = StateOperator(self.hparams)
         artikels = env.possibles
         if self.agent_type == 'DDDQN':
             for artikel in tqdm(artikels):
                 state, info = env.reset(artikel)
+                state_op.start(state)
                 done = False
                 while not done:
-                    action = self.agent.act(state)
+                    action = self.agent.act(state_op.state)
                     reward, done, next_state = env.make_action(np.argmax(action))
-                    state = next_state
+                    state_op.add(next_state)
         else:
             for artikel in tqdm(artikels):
                 state, info = env.reset(artikel)
+                state_op.start(state)
                 done = False
                 while not done:
                     strategy, value = self.sess.run(
                         [self.agent.policy, self.agent.value],
                         feed_dict={
-                            self.agent.inputs: [state]
+                            self.agent.inputs: [state_op.state]
                         }
                     )
                     action = np.random.choice(strategy[0], p=strategy[0])
                     action = np.argmax(strategy == action)
                     reward, done, next_state = env.make_action(action)
-                    state = next_state
+                    state_op.add(next_state)
         stats = get_statistik(env)
         return stats
 
