@@ -199,27 +199,32 @@ plt.style.use('ggplot')
 # endregion
 
 # region Q Konvergenz
-data_dir = os.path.join('files', 'prepared', 'Logging', 'DDDQN')
+# data_dir = os.path.join('files', 'prepared', 'Logging', 'DDDQN')
+#
+# big_q = pd.read_json(os.path.join(data_dir, 'BigQ.json'))
+# small_q = pd.read_json(os.path.join(data_dir, 'ClippedQ.json'))
+# big_q.set_index(1, inplace=True)
+# small_q.set_index(1, inplace=True)
+#
+# metrics = pd.DataFrame(
+#     data={
+#         'Epoch': big_q.index.values,
+#         'RegularQ': big_q[2],
+#         'ScaledQ': small_q[2],
+#     },
+#     index=big_q.index.values
+# )
+#
+# plt.plot(metrics.loc[:, 'RegularQ'], label='Q bei Standard-Belohnung ')
+# plt.plot(metrics.loc[:, 'ScaledQ'], label='Q bei skalierter Belohnung')
+# plt.legend()
+# plt.xlabel('Episode')
+# plt.title('Konvergenz der Q-Werte')
+# plt.savefig(os.path.join('files', 'graphics', 'Konvergenz der Q-Werte.png'))
+# plt.show()
+# endregion
 
-big_q = pd.read_json(os.path.join(data_dir, 'BigQ.json'))
-small_q = pd.read_json(os.path.join(data_dir, 'ClippedQ.json'))
-big_q.set_index(1, inplace=True)
-small_q.set_index(1, inplace=True)
-
-metrics = pd.DataFrame(
-    data={
-        'Epoch': big_q.index.values,
-        'RegularQ': big_q[2],
-        'ScaledQ': small_q[2],
-    },
-    index=big_q.index.values
-)
-
-plt.plot(metrics.loc[:, 'RegularQ'], label='Q bei Standard-Belohnung ')
-plt.plot(metrics.loc[:, 'ScaledQ'], label='Q bei skalierter Belohnung')
-plt.legend()
-plt.xlabel('Episode')
-plt.title('Konvergenz der Q-Werte')
-plt.savefig(os.path.join('files', 'graphics', 'Konvergenz der Q-Werte.png'))
-plt.show()
+# region Absatzverteilung
+pipeline = DataPipeLine(ZielWarengruppen=[28], DetailWarengruppe=None)
+absatz, bewegung, artikelstamm = pipeline.get_statistics_data()
 # endregion
