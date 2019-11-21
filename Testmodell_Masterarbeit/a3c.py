@@ -16,7 +16,7 @@ from utils import Hyperparameter
 # region Hyperparameter
 hps = Hyperparameter(
     run_id=9,
-    warengruppe=[28],
+    warengruppe=[6],
     detail_warengruppe=None,
     use_one_article=False,
     bestell_zyklus=3,
