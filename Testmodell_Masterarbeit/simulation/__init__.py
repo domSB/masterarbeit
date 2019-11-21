@@ -167,7 +167,14 @@ class StockSimulation(object):
         self.lab, self.dyn, self.stat, self.ids = simulation_data
         self.pred = pred
         self.possibles = np.unique(self.ids)
-        self.state_flag = hparams.sim_state_group
+        self.state_flag = {
+            'FullPredict': hparams.state_FullPredict,
+            'Predict': hparams.state_Predict,
+            'Time': hparams.state_Time,
+            'Weather': hparams.state_Weather,
+            'Sales': hparams.state_Sales,
+            'ArtikelInfo': hparams.state_ArtikelInfo
+        }
         self.reward_flag = hparams.reward_func
         self.aktueller_markt = None
         self.aktueller_artikel = None
@@ -199,31 +206,62 @@ class StockSimulation(object):
 
     @property
     def state(self):
-        state = np.concatenate(
-            (
-                np.argmax(self.predicted_state[self.vergangene_tage], axis=1),
-                np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
-            ), axis=0
-        )
-        if self.state_flag >= 1:
-            state = np.concatenate(
-                (
-                    self.dynamic_state[self.vergangene_tage, 0, -9:],
-                    state
-                ), axis=0
-            )
-        if self.state_flag >= 2:
-            state = np.concatenate(
-                (
-                    self.static_state[0, :],
-                    state
-                )
-            )
+        state = np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
+
+        if self.state_flag['Predict']:
+            if self.state_flag['FullPredict']:
+                prediction = self.predicted_state[self.vergangene_tage].reshape(-1)
+            else:
+                prediction = np.argmax(self.predicted_state[self.vergangene_tage], axis=1)
+            state = np.concatenate((state, prediction), axis=0)
+
+        if self.state_flag['Sales']:
+            sales = self.dynamic_state[self.vergangene_tage, 0, 0].reshape(-1)
+            state = np.concatenate((state, sales), axis=0)
+
+        if self.state_flag['Weather']:
+            weather_and_prices = self.dynamic_state[self.vergangene_tage, 0, 1:-9]
+            state = np.concatenate((state, weather_and_prices), axis=0)
+
+        if self.state_flag['Time']:
+            time = self.dynamic_state[self.vergangene_tage, 0, -9:]
+            state = np.concatenate((state, time), axis=0)
+
+        if self.state_flag['ArtikelInfo']:
+            art_info = self.static_state[0, :]
+            state = np.concatenate((state, art_info), axis=0)
+
         return state
 
     @property
     def info(self):
         return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt, 'Optimal': self.optimaler_reward}
+
+    @property
+    def state_size(self):
+        """
+        The Size of the returned array
+        :return: int : size
+        """
+        state_size = np.array([3])
+        if self.state_flag['Predict']:
+            if self.state_flag['FullPredict']:
+                state_size += 6*16
+            else:
+                state_size += 6
+
+        if self.state_flag['Time']:
+            state_size += 9
+
+        if self.state_flag['Weather']:
+            state_size += 11
+
+        if self.state_flag['Sales']:
+            state_size += 1
+
+        if self.state_flag['ArtikelInfo']:
+            state_size += self.stat.shape[1]
+        return state_size
 
     def reset(self, artikel_markt=None):
         """

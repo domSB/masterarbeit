@@ -15,12 +15,12 @@ from utils import Hyperparameter
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=9,
-    warengruppe=[6],
+    run_id=11,
+    warengruppe=[28],
     detail_warengruppe=None,
     use_one_article=False,
     bestell_zyklus=3,
-    state_size=[18],  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
+    state_size=[3],  # Zeitdimension, 6 Vorhersagen, Bestand, Abschriften, Fehlbestand
     action_size=6,
     learning_rate=0.00025,
     memory_size=30000,
@@ -35,7 +35,12 @@ hps = Hyperparameter(
     gamma=0.95,
     do_train=True,
     reward_func='TDGewinn V2',
-    sim_state_group=2,
+    state_FullPredict=False,
+    state_Predict=False,
+    state_Time=True,
+    state_Weather=True,
+    state_Sales=True,
+    state_ArtikelInfo=True,
     use_lstm=True,
     lstm_units=32,
     time_steps=6,
@@ -75,13 +80,8 @@ predictor_path = os.path.join(predictor_dir, available_weights[-1])
 
 pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe, DetailWarengruppe=hps.detail_warengruppe)
 simulation_data = pipeline.get_regression_data()
-
-if hps.sim_state_group > 1:
-    state_size = hps.state_size
-    state_size[0] += simulation_data[2].shape[1]
-    hps.set_hparam('state_size', state_size)
-
 train_data, test_data = split_np_arrays(*simulation_data)
+
 predictor = Predictor()
 predictor.build_model(
     dynamic_state_shape=simulation_data[1].shape[2],
@@ -107,6 +107,8 @@ test_pred = predictor.predict(
 print('and done ;)')
 # endregion
 tf.reset_default_graph()
+simulation = StockSimulation(train_data, train_pred, hps)
+hps.set_hparam('state_size', list(simulation.state_size))
 hps.save(os.path.join(hps.log_dir, 'Hyperparameter.yaml'))
 
 with tf.device("/cpu:0"):
@@ -147,8 +149,6 @@ with tf.Session() as sess:
     else:
         sess.run(tf.global_variables_initializer())
 
-    # This is where the asynchronous magic happens.
-    # Start the "work" process for each worker in a separate threat.
     worker_threads = []
     for worker in workers:
         worker_work = lambda: worker.work(sess, coord, saver)
@@ -157,7 +157,6 @@ with tf.Session() as sess:
         sleep(0.3)
         worker_threads.append(t)
     coord.join(worker_threads)
-    simulation = StockSimulation(train_data, train_pred, hps)
     validator = StockSimulation(test_data, test_pred, hps)
     evaluation = Evaluator(master_network, simulation, validator, hps, session=sess)
     evaluation.show()

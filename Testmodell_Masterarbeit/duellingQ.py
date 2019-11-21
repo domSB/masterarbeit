@@ -34,7 +34,12 @@ hps = Hyperparameter(
     gamma=0.95,
     do_train=True,
     reward_func='TDGewinn V2',
-    sim_state_group=2,
+    state_FullPredict=True,
+    state_Predict=True,
+    state_Time=True,
+    state_Weather=True,
+    state_Sales=True,
+    state_ArtikelInfo=True,
     use_lstm=True,
     lstm_units=32,
     time_steps=9,
@@ -78,10 +83,6 @@ simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data)
 
 print([tr.shape for tr in train_data])
-if hps.sim_state_group > 1:
-    state_size = hps.state_size
-    state_size[0] += simulation_data[2].shape[1]
-    hps.set_hparam('state_size', state_size)
 
 predictor = Predictor()
 predictor.build_model(
@@ -112,7 +113,7 @@ val_op = StateOperator(hps)
 
 validator = StockSimulation(test_data, test_pred, hps)
 
-
+hps.set_hparam('state_size', list(simulation.state_size))
 hps.save(os.path.join(hps.log_dir, 'Hyperparameter.yaml'))
 # endregion
 
