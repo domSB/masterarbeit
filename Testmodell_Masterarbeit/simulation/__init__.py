@@ -62,8 +62,8 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
     return reward
 
 
-def gradienten_belohnung(ausfall, abschrift):
-    z = np.log(3/(ausfall**2+abschrift**2+1))/4 + 3
+def gradienten_belohnung(ausfall, abschrift, bestand=0):
+    z = np.log(3/(bestand**2+ausfall**2+abschrift**2+1))/4 + 3
     return z
 
 
@@ -382,8 +382,8 @@ class StockSimulation(object):
                 reward = 0
 
         elif self.reward_flag == 'TDGewinn V2':
-            reward = gradienten_belohnung(self.fehlmenge*10, self.abschriften*10)
-            reward = reward / 10  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
+            reward = gradienten_belohnung(self.fehlmenge, self.abschriften, self.bestand)
+            reward = reward / (388/self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
 
         elif self.reward_flag == 'Bestandsreichweite':
             kommende_absaetze = np.sum(
