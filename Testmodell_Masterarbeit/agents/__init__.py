@@ -167,15 +167,25 @@ class DDDQNetwork:
         self.name = name
 
         with tf.variable_scope(self.name):
-            if hparams.use_lstm:
-                self.inputs_ = tf.placeholder(
+            if hparams.use_double_lstm:
+                self.inputs = tf.placeholder(
                     shape=[None, hparams.time_steps, *hparams.state_size],
                     dtype=tf.float32,
                     name='Inputs')
-                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM')(self.inputs_)
+                self.intermediate_lstm = tf.keras.layers.LSTM(
+                    hparams.lstm_units,
+                    return_sequences=True,
+                    name='LSTM_1')(self.inputs)
+                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM_2')(self.intermediate_lstm)
+            elif hparams.use_lstm:
+                self.inputs = tf.placeholder(
+                    shape=[None, hparams.time_steps, *hparams.state_size],
+                    dtype=tf.float32,
+                    name='Inputs')
+                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM')(self.inputs)
             else:
-                self.inputs_ = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32, name='Inputs')
-                self.firsts = tf.keras.layers.Flatten(name='FlatInputs')(self.inputs_)
+                self.inputs = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32, name='Inputs')
+                self.firsts = tf.keras.layers.Flatten(name='FlatInputs')(self.inputs)
             self.is_weights = tf.placeholder(tf.float32, [None, 1], name='IS_Weights')
 
             self.actions_ = tf.placeholder(tf.float32, [None, hparams.action_size], name='Actions')
@@ -568,7 +578,7 @@ class DDDQAgent:
             qs_of_state = self.sess.run(
                 self.dq_network.output,
                 feed_dict={
-                    self.dq_network.inputs_: np.expand_dims(_state, axis=0)
+                    self.dq_network.inputs: np.expand_dims(_state, axis=0)
                 })
             choice = np.argmax(qs_of_state)
             _action = self.possible_actions[int(choice)]
@@ -606,13 +616,13 @@ class DDDQAgent:
         q_next_state = self.sess.run(
             self.dq_network.output,
             feed_dict={
-                self.dq_network.inputs_: next_state_batch
+                self.dq_network.inputs: next_state_batch
             }
         )
         q_target_next_state = self.sess.run(
             self.target_network.output,
             feed_dict={
-                self.target_network.inputs_: next_state_batch
+                self.target_network.inputs: next_state_batch
             }
         )
         for i in range(len(batch)):
@@ -636,7 +646,7 @@ class DDDQAgent:
                 self.dq_network.advantage,
             ],
             feed_dict={
-                self.dq_network.inputs_: state_batch,
+                self.dq_network.inputs: state_batch,
                 self.dq_network.target_q: target_qs_batch,
                 self.dq_network.actions_: action_batch,
                 self.dq_network.is_weights: is_weights_batch,
@@ -656,7 +666,17 @@ class A3CNetwork:
     """
     def __init__(self, scope, _trainer, hparams):
         with tf.variable_scope(scope):
-            if hparams.use_lstm:
+            if hparams.use_double_lstm:
+                self.inputs = tf.placeholder(
+                    shape=[None, hparams.time_steps, *hparams.state_size],
+                    dtype=tf.float32,
+                    name='Inputs')
+                self.intermediate_lstm = tf.keras.layers.LSTM(
+                    hparams.lstm_units,
+                    return_sequences=True,
+                    name='LSTM_1')(self.inputs)
+                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM_2')(self.intermediate_lstm)
+            elif hparams.use_lstm:
                 self.inputs = tf.placeholder(
                     shape=[None, hparams.time_steps, *hparams.state_size],
                     dtype=tf.float32,
