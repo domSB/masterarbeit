@@ -186,28 +186,38 @@ class DDDQNetwork:
                 units=hparams.main_size,
                 activation=hparams.main_activation,
                 kernel_regularizer=hparams.main_regularizer,
+                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                #bias_initializer=tf.constant_initializer(0.1),
                 name='EingangsDense'
             )(self.firsts)
             self.value_fc = tf.keras.layers.Dense(
                 units=hparams.value_size,
                 activation=hparams.value_activation,
                 kernel_regularizer=hparams.value_regularizer,
+                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                #bias_initializer=tf.constant_initializer(0.1),
                 name='ValueFC'
             )(self.dense_one)
             self.value = tf.keras.layers.Dense(
                 units=1,
                 activation=None,
+                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                #bias_initializer=tf.constant_initializer(0.1),
                 name='Value'
             )(self.value_fc)
             self.advantage_fc = tf.keras.layers.Dense(
                 units=hparams.avantage_size,
                 activation=hparams.advantage_activation,
                 kernel_regularizer=hparams.advantage_regularizer,
+                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                #bias_initializer=tf.constant_initializer(0.1),
                 name='AdvantageFC'
             )(self.dense_one)
             self.advantage = tf.keras.layers.Dense(
                 units=self.action_size,
                 activation=None,
+                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                #bias_initializer=tf.constant_initializer(0.1),
                 name='Advantage'
             )(self.advantage_fc)
 
