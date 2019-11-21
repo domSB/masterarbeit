@@ -241,6 +241,7 @@ class UniformSamplingMemory:
     """
     def __init__(self, hparams):
         self.storage = deque(maxlen=hparams.memory_size)
+        self.per_beta = 0
 
     def store(self, _experience):
         """
@@ -261,7 +262,7 @@ class UniformSamplingMemory:
                                  size=n,
                                  replace=False)
         experiences = [self.storage[i] for i in index]
-        uniform_weights = [1/n for i in index]
+        uniform_weights = np.array([[1/n] for i in index])
         return None, experiences, uniform_weights
 
     def batch_update(self, tree_idx, abs_errors):
@@ -312,6 +313,9 @@ class ImportanceSamplingMemory:
         self.per_beta = np.min([1., self.per_beta + self.per_beta_increment])
 
         p_min = np.min(self.tree.tree[-self.tree.capacity:]) / self.tree.total_priority
+        if p_min == 0:
+            # Initialisierungsproblem, p_min auf Epsilon setzen, da Epsilon die minimale Wahrscheinlichkeit ist
+            p_min = self.per_epsilon
         max_weight = (p_min * n) ** (-self.per_beta)
         for k in range(n):
             a, b = priority_segment * k, priority_segment * (k + 1)
