@@ -80,8 +80,7 @@ predictor_path = os.path.join(predictor_dir, available_weights[-1])
 
 pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe, DetailWarengruppe=hps.detail_warengruppe)
 simulation_data = pipeline.get_regression_data()
-train_data, test_data = split_np_arrays(*simulation_data)
-
+train_data, test_data = split_np_arrays(*simulation_data, by_time=hps.use_one_article, only_one=hps.use_one_article)
 print([tr.shape for tr in train_data])
 
 predictor = Predictor()
@@ -148,6 +147,7 @@ if training:
         val_state, _ = validator.reset(artikel_markt)
         val_op.start(val_state)
         done = False
+        val_done = False
         while not done:
             step += 1
 
@@ -157,9 +157,10 @@ if training:
             experience = Experience(train_op.pre_state, reward, done, train_op.state, action)
             agent.remember(experience)
 
-            val_action = agent.act(np.array(val_op.state))
-            val_reward, _, val_next_state = validator.make_action(np.argmax(val_action))
-            val_op.add(val_next_state)
+            if not val_done:
+                val_action = agent.act(np.array(val_op.state))
+                val_reward, val_done, val_next_state = validator.make_action(np.argmax(val_action))
+                val_op.add(val_next_state)
 
             if step % hps.learn_step == 0:
                 tau += 1

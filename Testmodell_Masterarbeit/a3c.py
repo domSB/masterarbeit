@@ -2,6 +2,7 @@ import os
 import threading
 import multiprocessing
 import tensorflow as tf
+import numpy as np
 
 from time import sleep
 
@@ -81,7 +82,9 @@ predictor_path = os.path.join(predictor_dir, available_weights[-1])
 
 pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe, DetailWarengruppe=hps.detail_warengruppe)
 simulation_data = pipeline.get_regression_data()
-train_data, test_data = split_np_arrays(*simulation_data)
+train_data, test_data = split_np_arrays(*simulation_data, by_time=hps.use_one_article, only_one=hps.use_one_article)
+
+print('Artikel', train_data[3][0], test_data[3][0])
 
 predictor = Predictor()
 predictor.build_model(
@@ -109,6 +112,7 @@ print('and done ;)')
 # endregion
 tf.reset_default_graph()
 simulation = StockSimulation(train_data, train_pred, hps)
+
 hps.set_hparam('state_size', list(simulation.state_size))
 hps.save(os.path.join(hps.log_dir, 'Hyperparameter.yaml'))
 
