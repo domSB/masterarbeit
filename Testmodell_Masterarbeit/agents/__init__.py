@@ -908,7 +908,7 @@ class Worker:
                 if self.name == 'worker_0':
                     _sess.run(self.increment)
                 episode_count += 1
-                if episode_count > self.max_episodes:
+                if episode_count > self.max_episodes and self.name == 'worker_0':
                     _coord.request_stop()
 
 # endregion
