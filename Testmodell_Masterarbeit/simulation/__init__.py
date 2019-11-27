@@ -206,25 +206,27 @@ class StockSimulation(object):
 
     @property
     def state(self):
+        day = self.vergangene_tage
+
         state = np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
 
         if self.state_flag['Predict']:
             if self.state_flag['FullPredict']:
-                prediction = self.predicted_state[self.vergangene_tage].reshape(-1)
+                prediction = self.predicted_state[day].reshape(-1)
             else:
-                prediction = np.argmax(self.predicted_state[self.vergangene_tage], axis=1)
+                prediction = np.argmax(self.predicted_state[day], axis=1)
             state = np.concatenate((state, prediction), axis=0)
 
         if self.state_flag['Sales']:
-            sales = self.dynamic_state[self.vergangene_tage, 0, 0].reshape(-1)
+            sales = self.dynamic_state[day+1-self.bestellrythmus:day+1, 0, 0].reshape(-1)
             state = np.concatenate((state, sales), axis=0)
 
         if self.state_flag['Weather']:
-            weather_and_prices = self.dynamic_state[self.vergangene_tage, 0, 1:-9]
+            weather_and_prices = self.dynamic_state[day+1-self.bestellrythmus:day+1, 0, 1:-9].reshape(-1)
             state = np.concatenate((state, weather_and_prices), axis=0)
 
         if self.state_flag['Time']:
-            time = self.dynamic_state[self.vergangene_tage, 0, -9:]
+            time = self.dynamic_state[day+1-self.bestellrythmus:day+1, 0, -9:].reshape(-1)
             state = np.concatenate((state, time), axis=0)
 
         if self.state_flag['ArtikelInfo']:
@@ -251,13 +253,13 @@ class StockSimulation(object):
                 state_size += 6
 
         if self.state_flag['Time']:
-            state_size += 9
+            state_size += 9 * self.bestellrythmus
 
         if self.state_flag['Weather']:
-            state_size += 11
+            state_size += 11 * self.bestellrythmus
 
         if self.state_flag['Sales']:
-            state_size += 1
+            state_size += 1 * self.bestellrythmus
 
         if self.state_flag['ArtikelInfo']:
             state_size += self.stat.shape[1]
@@ -297,7 +299,7 @@ class StockSimulation(object):
         self.bestands_frische = np.ones((self.bestand,), dtype=np.int64) * self.placeholder_mhd
         self.break_bestand = np.sum(self.artikel_absatz) * 2
 
-        self.vergangene_tage = 0
+        self.vergangene_tage = self.bestellrythmus - 1
         self.tage = self.dynamic_state.shape[0]
 
         self.abschriften = 0
@@ -383,7 +385,7 @@ class StockSimulation(object):
 
         elif self.reward_flag == 'TDGewinn V2':
             reward = gradienten_belohnung(self.fehlmenge, self.abschriften, self.bestand)
-            reward = reward / (388/self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
+            reward = reward / (self.tage/self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
 
         elif self.reward_flag == 'Bestandsreichweite':
             kommende_absaetze = np.sum(
