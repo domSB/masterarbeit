@@ -720,7 +720,7 @@ class A3CNetwork:
 
         if scope != 'global':
             self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
-            self.actions_onehot = tf.one_hot(self.actions, 6, dtype=tf.float32)
+            self.actions_onehot = tf.one_hot(self.actions, hparams.action_size, dtype=tf.float32)
             self.target_v = tf.placeholder(shape=[None], dtype=tf.float32)
             self.advantages = tf.placeholder(shape=[None], dtype=tf.float32)
 
