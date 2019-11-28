@@ -11,46 +11,67 @@ from agents.evaluation import Evaluator
 from utils import Hyperparameter, StateOperator
 
 tf.get_logger().setLevel('ERROR')
-
+"""
+[1604., 618
+ 1606., 0
+  1605., 181
+  1588., 129
+  1609., 44
+  1603., 
+  1587., 
+  1620., 
+  1612.,
+  1613., 
+  1611.,
+  1627., 
+  1619., 
+  1617., 
+  1614., 
+  1622., 
+  1615., 1628.,
+       1607., 1629., 1631., 1589., 1592., 1610., 1623., 1626., 1630.,
+       1591., 1585., 1590., 1789., 1618., 2066., 1639., 1621., 1580.,
+        1651., 2451., 1814., 4062., 1608.]
+"""
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=60,
+    run_id=62,
     warengruppe=[17],
     detail_warengruppe=None,
-    use_one_article=True,
+    use_one_article=False,
     bestell_zyklus=3,
-    state_size=[3],  # Bestand, Abschriften, Fehlbestand
+    state_size=[4],  # Bestand, Abschriften, Fehlbestand, Vorjahresabsatz
     action_size=12,
-    learning_rate=0.001,
+    learning_rate=0.00025,
     memory_size=100000,
-    episodes=5000,
+    episodes=20000,
     pretrain_episodes=5,
     batch_size=32,
     learn_step=4,
-    max_tau=2000,
+    max_tau=4000,
     epsilon_start=1,
     epsilon_stop=0.05,
     epsilon_decay=0.99995,
     gamma=0.95,
     do_train=True,
-    reward_func='TDGewinn V2',
+    reward_func='TDGewinn',
     state_FullPredict=True,
     state_Predict=True,
     state_Time=True,
     state_Weather=False,
-    state_Sales=False,
-    state_ArtikelInfo=False,
+    state_Sales=True,
+    state_ArtikelInfo=True,
     use_lstm=True,
-    use_double_lstm=False,
+    use_double_lstm=True,
     lstm_units=32,
-    time_steps=9,
-    main_size=128,
+    time_steps=6,
+    main_size=64,
     main_activation='elu',
     main_regularizer=None,
-    value_size=32,
+    value_size=16,
     value_activation='tanh',
     value_regularizer=None,
-    avantage_size=32,
+    avantage_size=16,
     advantage_activation='tanh',
     advantage_regularizer=None,
     drop_out_rate=0.3,
@@ -60,7 +81,7 @@ hps = Hyperparameter(
     per_beta_increment=0.00001,
     per_error_clip=1.0,
     use_importance_sampling=True,
-    rest_laufzeit=6
+    rest_laufzeit=14
 )
 
 training = True
