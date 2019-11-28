@@ -361,15 +361,16 @@ class StockSimulation(object):
             # Umsatzausfall
             r_ausfall = self.fehlmenge * -self.artikel_rohertrag
             # Umsatz
-            r_umsatz = absatz * self.artikel_rohertrag
+            r_umsatz = 0
+            # r_umsatz = absatz * self.artikel_rohertrag
             # Kapitalbindung
             r_bestand = -(self.bestand * self.artikel_einkaufspreis) * self.kap_kosten
             # Belohnung für optimale Bestell-Strategien
             if self.reward_flag == 'TDGewinn':
                 # Temporal Difference Gewinn gibt jeden Tag eine Belohnung
                 reward = r_abschrift + r_ausfall + r_bestand + r_umsatz
-                if done and self.optimal_flag:
-                    reward += 30
+                reward = reward / 100
+
             else:
                 # Monte Carlo Gewinn summiert alle Gewinne auf und gibt die Summe am Ende der Episode zurück
                 self.gesamt_belohnung += (r_abschrift + r_ausfall + r_bestand + r_umsatz)
