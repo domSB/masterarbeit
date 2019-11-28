@@ -225,22 +225,115 @@ plt.style.use('ggplot')
 # plt.show()
 # endregion
 
-# region Absatzverteilung
-pipeline = DataPipeLine(ZielWarengruppen=[28], DetailWarengruppe=None)
-absatz, bewegung, artikelstamm = pipeline.get_statistics_data()
+# region Werbehäufigkeit
+
+artikelstamm = pd.read_csv(
+    'files/raw/0 ArtikelstammV4.csv',
+    header=0,
+    names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
+           'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
+           'GuG', 'OSE', 'OSEText', 'Saisonal',
+           'Kern', 'Bio', 'Glutenfrei',
+           'Laktosefrei', 'MarkeFK', 'Region']
+)
+warenausgang = pd.read_csv(
+    'files/raw/0 Warenausgang.Time.csv',
+    header=1,
+    names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
+)
+warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
+wareneingang = pd.read_csv(
+    'files/raw/0 Wareneingang.Time.csv',
+    header=1,
+    names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
+)
+
+wareneingang['Datum'] = pd.to_datetime(wareneingang['Datum'], format='%d.%m.%y')
+
+bestand = pd.read_csv(
+    'files/raw/0 Warenbestand.Time.csv',
+    header=1,
+    names=['Markt', 'Artikel', 'Bestand', 'EK', 'VK', 'Anfangsbestand', 'Datum']
+)
+bestand['Datum'] = pd.to_datetime(bestand['Datum'], format='%d.%m.%y')
+aktionspreise = pd.read_csv(
+    'files/raw/0 Aktionspreise.Time.csv',
+    header=1,
+    names=['Artikel', 'DatumAb', 'DatumBis', 'Aktionspreis']
+)
+artikel = warenausgang.Artikel.unique()
+aktionspreise = aktionspreise[aktionspreise.Artikel.isin(artikel)]
+aktionspreise['DatumAb'] = pd.to_datetime(aktionspreise['DatumAb'], format='%d.%m.%Y')
+aktionspreise['DatumBis'] = pd.to_datetime(aktionspreise['DatumBis'], format='%d.%m.%Y')
+aktions_menge = aktionspreise[['Artikel', 'Aktionspreis']].groupby('Artikel').count()
+plt.style.use('ggplot')
+plt.hist(aktions_menge.Aktionspreis, bins=100)
+plt.xlabel('Anzahl Werbeaktionen')
+plt.ylabel('Anzahl Artikel')
+plt.title('Werbehäufigkeit der Artikel in 2 Jahren')
+
+absatz = warenausgang[warenausgang.Belegtyp.isin(['UMSATZ_SCANNING', 'UMSATZ_AKTION'])]
+absatz.drop(columns=['Markt'], inplace=True)
+absatz = absatz.groupby(['Artikel', 'Datum']).sum()
+absatz.reset_index(inplace=True)
+artikelstamm.set_index('Artikel', inplace=True)
+absatz = pd.merge(absatz, artikelstamm.Warengruppe, how='left', left_on='Artikel', right_index=True)
+absatz = absatz.groupby(['Warengruppe', 'Datum']).sum()
+absatz.reset_index(inplace=True)
+absatz.drop(columns=['Artikel'], inplace=True)
+test = pd.pivot_table(absatz, values='Menge', index=['Datum'], columns=['Warengruppe'], aggfunc=np.sum)
+test.fillna(0, inplace=True)
+arr = test.drop(columns=[82, 22]).T.to_numpy()
+y_tick_labels = test.drop(columns=[82, 22]).T.index.values
+x_tick_labels = test.drop(columns=[82, 22]).T.columns.strftime('%b-%Y')
+y_ticks = np.arange(0, len(y_tick_labels), 3)
+x_ticks = np.arange(0, len(x_tick_labels), 101)
+y_ticks_labels = y_tick_labels[y_ticks]
+x_ticks_labels = x_tick_labels[x_ticks]
+
+fig, ax = plt.subplots()
+im = ax.imshow(arr, cmap=cm.gist_rainbow, aspect='auto')
+ax.set_yticks(y_ticks)
+ax.set_yticklabels(y_ticks_labels)
+ax.set_xticks(x_ticks)
+ax.set_xticklabels(x_ticks_labels)
+plt.setp(ax.get_xticklabels(), rotation=-30, ha='left', va='top',
+         rotation_mode="anchor")
+cbar = ax.figure.colorbar(im, ax=ax)
+cbar.ax.set_ylabel('Tagesabsatz', rotation=-90, va="bottom")
+ax.set_xlabel('Datum')
+ax.set_ylabel('Warengruppe')
+ax.set_title('Verteilung der Warengruppenabsätze')
+plt.savefig('files/graphics/Verteilung der Warengruppenabsätze.png')
+plt.show()
+
+plt.style.use('ggplot')
+fig, ax = plt.subplots(figsize=(8, 4), dpi=150)
+flierprops = dict(marker='.', markerfacecolor='blue', markersize=2)
+bp = ax.boxplot(test.to_numpy(), flierprops=flierprops)
+x_tick_labels = test.columns.values
+x_ticks = np.arange(0, len(x_tick_labels), 3)
+x_ticks_labels = x_tick_labels[x_ticks]
+ax.set_xticks(x_ticks)  # Diagramm umgedreht
+ax.set_xticklabels(x_ticks_labels)
+ax.set_xlabel('Warengruppe')
+ax.set_title('Streubreite der Tagesabsätze je Warengruppe')
+plt.savefig('files/graphics/Warengruppen Boxplot.png')
+plt.show()
+
 # endregion
 
 # region Skalierung Abschriften
-indir = os.path.join('Testmodell_Masterarbeit', 'files', 'prepared', 'Logging', 'DDDQN')
-df = pd.read_csv(os.path.join(indir, 'Skalierung Abschriften.csv'))
-dd = df.ewm(com=0.6).mean()
-plt.style.use('ggplot')
-plt.plot(df.Absatz, label='Absatz')
-plt.plot(df.Fehlmenge, label='Fehlmenge')
-plt.plot(df.Abschrift, label='Abschrift')
-plt.legend()
-plt.title('Skalierung der Messgrößen Abschrift & Fehlmenge')
-plt.savefig(
-    os.path.join('Testmodell_Masterarbeit', 'files', 'graphics', 'Skalierung der Messwerte Abschrift & Fehlmenge.png'))
-plt.show()
+# indir = os.path.join('Testmodell_Masterarbeit', 'files', 'prepared', 'Logging', 'DDDQN')
+# df = pd.read_csv(os.path.join(indir, 'Skalierung Abschriften.csv'))
+# dd = df.ewm(com=0.6).mean()
+# plt.style.use('ggplot')
+# plt.plot(df.Absatz, label='Absatz')
+# plt.plot(df.Fehlmenge, label='Fehlmenge')
+# plt.plot(df.Abschrift, label='Abschrift')
+# plt.legend()
+# plt.title('Skalierung der Messgrößen Abschrift & Fehlmenge')
+# plt.savefig(
+#     os.path.join('Testmodell_Masterarbeit', 'files', 'graphics', 'Skalierung der Messwerte Abschrift & Fehlmenge.png'))
+# plt.show()
 # endregion

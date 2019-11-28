@@ -45,11 +45,11 @@ class Evaluator:
         self.sess = session
         self.train_env = training_simulation
         self.test_env = testing_simulation
-        self.name = hparams.warengruppe[0]
+        self.name = str(hparams.warengruppe[0])
         self.run_id = hparams.run_id
         self.hparams = hparams
         if hparams.detail_warengruppe is not None:
-            self.name += '-' + hparams.detail_warengruppe[0]
+            self.name += '-' + str(hparams.detail_warengruppe[0])
 
     def show(self):
         stats = self.run(self.train_env)
