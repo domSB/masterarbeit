@@ -227,72 +227,122 @@ plt.style.use('ggplot')
 
 # region Werbehäufigkeit
 
-artikelstamm = pd.read_csv(
-    'files/raw/0 ArtikelstammV4.csv',
-    header=0,
-    names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
-           'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
-           'GuG', 'OSE', 'OSEText', 'Saisonal',
-           'Kern', 'Bio', 'Glutenfrei',
-           'Laktosefrei', 'MarkeFK', 'Region']
-)
-warenausgang = pd.read_csv(
-    'files/raw/0 Warenausgang.Time.csv',
-    header=1,
-    names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
-)
-warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
-wareneingang = pd.read_csv(
-    'files/raw/0 Wareneingang.Time.csv',
-    header=1,
-    names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
-)
+# artikelstamm = pd.read_csv(
+#     'files/raw/0 ArtikelstammV4.csv',
+#     header=0,
+#     names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
+#            'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
+#            'GuG', 'OSE', 'OSEText', 'Saisonal',
+#            'Kern', 'Bio', 'Glutenfrei',
+#            'Laktosefrei', 'MarkeFK', 'Region']
+# )
+# warenausgang = pd.read_csv(
+#     'files/raw/0 Warenausgang.Time.csv',
+#     header=1,
+#     names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
+# )
+# warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
+# wareneingang = pd.read_csv(
+#     'files/raw/0 Wareneingang.Time.csv',
+#     header=1,
+#     names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
+# )
+#
+# wareneingang['Datum'] = pd.to_datetime(wareneingang['Datum'], format='%d.%m.%y')
+#
+# bestand = pd.read_csv(
+#     'files/raw/0 Warenbestand.Time.csv',
+#     header=1,
+#     names=['Markt', 'Artikel', 'Bestand', 'EK', 'VK', 'Anfangsbestand', 'Datum']
+# )
+# bestand['Datum'] = pd.to_datetime(bestand['Datum'], format='%d.%m.%y')
+# aktionspreise = pd.read_csv(
+#     'files/raw/0 Aktionspreise.Time.csv',
+#     header=1,
+#     names=['Artikel', 'DatumAb', 'DatumBis', 'Aktionspreis']
+# )
+# artikel = warenausgang.Artikel.unique()
+# aktionspreise = aktionspreise[aktionspreise.Artikel.isin(artikel)]
+# aktionspreise['DatumAb'] = pd.to_datetime(aktionspreise['DatumAb'], format='%d.%m.%Y')
+# aktionspreise['DatumBis'] = pd.to_datetime(aktionspreise['DatumBis'], format='%d.%m.%Y')
+# aktions_menge = aktionspreise[['Artikel', 'Aktionspreis']].groupby('Artikel').count()
+# plt.style.use('ggplot')
+# plt.hist(aktions_menge.Aktionspreis, bins=100)
+# plt.xlabel('Anzahl Werbeaktionen')
+# plt.ylabel('Anzahl Artikel')
+# plt.title('Werbehäufigkeit der Artikel in 2 Jahren')
+#
+# absatz = warenausgang[warenausgang.Belegtyp.isin(['UMSATZ_SCANNING', 'UMSATZ_AKTION'])]
+# absatz.drop(columns=['Markt'], inplace=True)
+# absatz = absatz.groupby(['Artikel', 'Datum']).sum()
+# absatz.reset_index(inplace=True)
+# artikelstamm.set_index('Artikel', inplace=True)
+# absatz = pd.merge(absatz, artikelstamm.Warengruppe, how='left', left_on='Artikel', right_index=True)
+# absatz = absatz.groupby(['Warengruppe', 'Datum']).sum()
+# absatz.reset_index(inplace=True)
+# absatz.drop(columns=['Artikel'], inplace=True)
+# test = pd.pivot_table(absatz, values='Menge', index=['Datum'], columns=['Warengruppe'], aggfunc=np.sum)
+# absatz.fillna(0, inplace=True)
+# arr = test.drop(columns=[82, 22]).T.to_numpy()
+# y_tick_labels = test.drop(columns=[82, 22]).T.index.values
+# x_tick_labels = test.drop(columns=[82, 22]).T.columns.strftime('%b-%Y')
+# y_ticks = np.arange(0, len(y_tick_labels), 3)
+# x_ticks = np.arange(0, len(x_tick_labels), 101)
+# y_ticks_labels = y_tick_labels[y_ticks]
+# x_ticks_labels = x_tick_labels[x_ticks]
+#
+# fig, ax = plt.subplots()
+# im = ax.imshow(arr, cmap=cm.gist_rainbow, aspect='auto')
+# ax.set_yticks(y_ticks)
+# ax.set_yticklabels(y_ticks_labels)
+# ax.set_xticks(x_ticks)
+# ax.set_xticklabels(x_ticks_labels)
+# plt.setp(ax.get_xticklabels(), rotation=-30, ha='left', va='top',
+#          rotation_mode="anchor")
+# cbar = ax.figure.colorbar(im, ax=ax)
+# cbar.ax.set_ylabel('Tagesabsatz', rotation=-90, va="bottom")
+# ax.set_xlabel('Datum')
+# ax.set_ylabel('Warengruppe')
+# ax.set_title('Verteilung der Warengruppenabsätze')
+# plt.savefig('files/graphics/Verteilung der Warengruppenabsätze.png')
+# plt.show()
+#
+# plt.style.use('ggplot')
+# fig, ax = plt.subplots(figsize=(8, 4), dpi=150)
+# flierprops = dict(marker='.', markerfacecolor='blue', markersize=2)
+# bp = ax.boxplot(test.to_numpy(), flierprops=flierprops)
+# x_tick_labels = test.columns.values
+# x_ticks = np.arange(0, len(x_tick_labels), 3)
+# x_ticks_labels = x_tick_labels[x_ticks]
+# ax.set_xticks(x_ticks)  # Diagramm umgedreht
+# ax.set_xticklabels(x_ticks_labels)
+# ax.set_xlabel('Warengruppe')
+# ax.set_title('Streubreite der Tagesabsätze je Warengruppe')
+# plt.savefig('files/graphics/Warengruppen Boxplot.png')
+# plt.show()
 
-wareneingang['Datum'] = pd.to_datetime(wareneingang['Datum'], format='%d.%m.%y')
+# endregion
 
-bestand = pd.read_csv(
-    'files/raw/0 Warenbestand.Time.csv',
-    header=1,
-    names=['Markt', 'Artikel', 'Bestand', 'EK', 'VK', 'Anfangsbestand', 'Datum']
-)
-bestand['Datum'] = pd.to_datetime(bestand['Datum'], format='%d.%m.%y')
-aktionspreise = pd.read_csv(
-    'files/raw/0 Aktionspreise.Time.csv',
-    header=1,
-    names=['Artikel', 'DatumAb', 'DatumBis', 'Aktionspreis']
-)
-artikel = warenausgang.Artikel.unique()
-aktionspreise = aktionspreise[aktionspreise.Artikel.isin(artikel)]
-aktionspreise['DatumAb'] = pd.to_datetime(aktionspreise['DatumAb'], format='%d.%m.%Y')
-aktionspreise['DatumBis'] = pd.to_datetime(aktionspreise['DatumBis'], format='%d.%m.%Y')
-aktions_menge = aktionspreise[['Artikel', 'Aktionspreis']].groupby('Artikel').count()
-plt.style.use('ggplot')
-plt.hist(aktions_menge.Aktionspreis, bins=100)
-plt.xlabel('Anzahl Werbeaktionen')
-plt.ylabel('Anzahl Artikel')
-plt.title('Werbehäufigkeit der Artikel in 2 Jahren')
+# region Saisonalität
+wg = 6
+pipeline = DataPipeLine(ZielWarengruppe=[wg])
+absatz, bewegung, artikelstamm = pipeline.get_statistics_data()
+del bewegung
+absatz = absatz[['Artikel', 'Datum', 'Menge']]
 
-absatz = warenausgang[warenausgang.Belegtyp.isin(['UMSATZ_SCANNING', 'UMSATZ_AKTION'])]
-absatz.drop(columns=['Markt'], inplace=True)
-absatz = absatz.groupby(['Artikel', 'Datum']).sum()
-absatz.reset_index(inplace=True)
-artikelstamm.set_index('Artikel', inplace=True)
-absatz = pd.merge(absatz, artikelstamm.Warengruppe, how='left', left_on='Artikel', right_index=True)
-absatz = absatz.groupby(['Warengruppe', 'Datum']).sum()
-absatz.reset_index(inplace=True)
-absatz.drop(columns=['Artikel'], inplace=True)
-test = pd.pivot_table(absatz, values='Menge', index=['Datum'], columns=['Warengruppe'], aggfunc=np.sum)
-test.fillna(0, inplace=True)
-arr = test.drop(columns=[82, 22]).T.to_numpy()
-y_tick_labels = test.drop(columns=[82, 22]).T.index.values
-x_tick_labels = test.drop(columns=[82, 22]).T.columns.strftime('%b-%Y')
-y_ticks = np.arange(0, len(y_tick_labels), 3)
+absatz = pd.pivot_table(absatz, values='Menge', index=['Datum'], columns=['Artikel'], aggfunc=np.sum)
+# absatz.fillna(0, inplace=True)
+
+absatz = absatz.apply(lambda x: np.log(x+1))
+fig, ax = plt.subplots()
+im = ax.imshow(absatz.T.to_numpy(), cmap=cm.gist_rainbow, aspect='auto')
+y_tick_labels = absatz.T.index.values
+x_tick_labels = absatz.T.columns.strftime('%b-%Y')
+y_ticks = np.arange(0, len(y_tick_labels), 100)
 x_ticks = np.arange(0, len(x_tick_labels), 101)
 y_ticks_labels = y_tick_labels[y_ticks]
 x_ticks_labels = x_tick_labels[x_ticks]
 
-fig, ax = plt.subplots()
-im = ax.imshow(arr, cmap=cm.gist_rainbow, aspect='auto')
 ax.set_yticks(y_ticks)
 ax.set_yticklabels(y_ticks_labels)
 ax.set_xticks(x_ticks)
@@ -300,28 +350,32 @@ ax.set_xticklabels(x_ticks_labels)
 plt.setp(ax.get_xticklabels(), rotation=-30, ha='left', va='top',
          rotation_mode="anchor")
 cbar = ax.figure.colorbar(im, ax=ax)
-cbar.ax.set_ylabel('Tagesabsatz', rotation=-90, va="bottom")
+cbar.ax.set_ylabel('Log-Tagesabsatz', rotation=-90, va="bottom")
 ax.set_xlabel('Datum')
-ax.set_ylabel('Warengruppe')
-ax.set_title('Verteilung der Warengruppenabsätze')
-plt.savefig('files/graphics/Verteilung der Warengruppenabsätze.png')
+ax.set_ylabel('Artikelnummer')
+ax.set_title('Saisonalität der Absätze')
 plt.show()
 
-plt.style.use('ggplot')
-fig, ax = plt.subplots(figsize=(8, 4), dpi=150)
-flierprops = dict(marker='.', markerfacecolor='blue', markersize=2)
-bp = ax.boxplot(test.to_numpy(), flierprops=flierprops)
-x_tick_labels = test.columns.values
-x_ticks = np.arange(0, len(x_tick_labels), 3)
-x_ticks_labels = x_tick_labels[x_ticks]
-ax.set_xticks(x_ticks)  # Diagramm umgedreht
-ax.set_xticklabels(x_ticks_labels)
-ax.set_xlabel('Warengruppe')
-ax.set_title('Streubreite der Tagesabsätze je Warengruppe')
-plt.savefig('files/graphics/Warengruppen Boxplot.png')
+absatz, bewegung, artikelstamm = pipeline.get_statistics_data()
+del bewegung
+absatz = absatz[['Artikel', 'Datum', 'Menge']]
+absatz.Menge = absatz.Menge*8
+absatz['kw'] = absatz.Datum.dt.week
+absatz = absatz.groupby(['Artikel', 'kw'], as_index=False)['Menge'].agg({'Mean': np.mean, 'Std': np.std})
+mean = pd.pivot_table(absatz, values='Mean', index=['Artikel'], columns=['kw'], aggfunc=np.sum)
+std = pd.pivot_table(absatz, values='Std', index=['Artikel'], columns=['kw'], aggfunc=np.sum)
+idx = np.random.choice(len(mean.index.values), 6)
+fig, (ax1, ax2) = plt.subplots(nrows=2)
+for artikel in mean.index.values[idx]:
+    ax1.plot(mean.loc[artikel])
+    ax2.plot(std.loc[artikel])
+ax1.set_title('Wochen-Durchschnitt der WG {wg}'.format(wg=wg))
+ax2.set_title('Standardabweichung')
 plt.show()
-
+absatz.groupby('Artikel', as_index=False)
 # endregion
+
+
 
 # region Skalierung Abschriften
 # indir = os.path.join('Testmodell_Masterarbeit', 'files', 'prepared', 'Logging', 'DDDQN')
