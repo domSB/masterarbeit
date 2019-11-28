@@ -188,6 +188,7 @@ class StockSimulation(object):
         self.bestand = None
         self.bestands_frische = None
         self.break_bestand = None
+        self.absatz_info = None
         self.abschriften = 0
         self.fehlmenge = 0
         self.optimal_flag = None
@@ -208,7 +209,7 @@ class StockSimulation(object):
     def state(self):
         day = self.vergangene_tage
 
-        state = np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8])
+        state = np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8, self.absatz_info])
 
         if self.state_flag['Predict']:
             if self.state_flag['FullPredict']:
@@ -245,7 +246,7 @@ class StockSimulation(object):
         The Size of the returned array
         :return: int : size
         """
-        state_size = np.array([3])
+        state_size = np.array([4])
         if self.state_flag['Predict']:
             if self.state_flag['FullPredict']:
                 state_size += 6*16
@@ -297,7 +298,11 @@ class StockSimulation(object):
         else:
             self.bestand = 0
         self.bestands_frische = np.ones((self.bestand,), dtype=np.int64) * self.placeholder_mhd
-        self.break_bestand = np.sum(self.artikel_absatz) * 2
+        gesamt_absatz = np.sum(self.artikel_absatz)
+        self.break_bestand = gesamt_absatz * 2
+
+        # Soll den Absatz des Vorjahres simulieren
+        self.absatz_info = np.random.normal(gesamt_absatz, gesamt_absatz/6.25) / 1000
 
         self.vergangene_tage = self.bestellrythmus - 1
         self.tage = self.dynamic_state.shape[0]
