@@ -16,14 +16,14 @@ from utils import Hyperparameter
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=18,
+    run_id=21,
     warengruppe=[17],
     detail_warengruppe=None,
-    use_one_article=True,
+    use_one_article=False,
     bestell_zyklus=3,
     state_size=[3],  # Zeitdimension, Bestand, Abschriften, Fehlbestand
     action_size=12,
-    learning_rate=0.001,
+    learning_rate=0.00025,
     memory_size=30000,
     episodes=10000,
     pretrain_episodes=5,
@@ -35,12 +35,12 @@ hps = Hyperparameter(
     epsilon_decay=0.9999,
     gamma=0.95,
     do_train=True,
-    reward_func='TDGewinn V2',
-    state_FullPredict=False,
-    state_Predict=False,
+    reward_func='TDGewinn',
+    state_FullPredict=True,
+    state_Predict=True,
     state_Time=True,
-    state_Weather=True,
-    state_Sales=True,
+    state_Weather=False,
+    state_Sales=False,
     state_ArtikelInfo=True,
     use_lstm=True,
     use_double_lstm=True,
@@ -62,7 +62,8 @@ hps = Hyperparameter(
     per_beta_increment=0.00025,
     per_error_clip=1.0,
     use_importance_sampling=True,
-    rest_laufzeit=14
+    rest_laufzeit=14,
+    ordersatz_einheit=None
 )
 load_model = False
 dir_name = str(hps.run_id) + 'eval' + str(hps.warengruppe[0])

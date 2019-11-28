@@ -201,6 +201,12 @@ class StockSimulation(object):
         self.kap_kosten = 0.05/365
         self.optimaler_reward = None
         self.placeholder_mhd = hparams.rest_laufzeit
+        self.order_satzeinheit = hparams.ordersatz_einheit
+        self.ose = None
+        if self.order_satzeinheit is None:
+            self.ose_dict = {int(str(artikel)[-6:]): np.random.randint(1, 10) for artikel in self.possibles}
+        else:
+            self.ose = hparams.ordersatz_einheit
         self.bestellrythmus = hparams.bestell_zyklus
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
@@ -209,7 +215,7 @@ class StockSimulation(object):
     def state(self):
         day = self.vergangene_tage
 
-        state = np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8, self.absatz_info])
+        state = np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8, self.absatz_info, self.ose / 10])
 
         if self.state_flag['Predict']:
             if self.state_flag['FullPredict']:
@@ -246,7 +252,7 @@ class StockSimulation(object):
         The Size of the returned array
         :return: int : size
         """
-        state_size = np.array([4])
+        state_size = np.array([5])
         if self.state_flag['Predict']:
             if self.state_flag['FullPredict']:
                 state_size += 6*16
@@ -304,6 +310,9 @@ class StockSimulation(object):
         # Soll den Absatz des Vorjahres simulieren
         self.absatz_info = np.random.normal(gesamt_absatz, gesamt_absatz/6.25) / 1000
 
+        if self.order_satzeinheit is None:
+            self.ose = self.ose_dict[self.aktueller_artikel]
+
         self.vergangene_tage = self.bestellrythmus - 1
         self.tage = self.dynamic_state.shape[0]
 
@@ -322,7 +331,7 @@ class StockSimulation(object):
         self.vergangene_tage += self.bestellrythmus
         self.abschriften = 0  # Werden in self.state verwendet, daher keine lokale Var. der Methode
         self.fehlmenge = 0
-        action = int(action)
+        action = int(action) * self.ose
         absatz = self.artikel_absatz[self.vergangene_tage - self.bestellrythmus:self.vergangene_tage].sum()
         done = self.tage <= self.vergangene_tage + self.bestellrythmus
         # BUG: Nach aktueller Implementierung trifft Bestellung am Tag der Bestellung ein und nicht mit 1 Tag Verzug
