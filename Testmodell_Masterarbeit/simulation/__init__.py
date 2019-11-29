@@ -215,7 +215,7 @@ class StockSimulation(object):
     def state(self):
         day = self.vergangene_tage
 
-        state = np.array([self.bestand, self.fehlmenge / 8, self.abschriften / 8, self.absatz_info, self.ose / 10])
+        state = np.array([self.bestand / 8, self.fehlmenge / 8, self.abschriften / 8, self.absatz_info, self.ose / 10])
 
         if self.state_flag['Predict']:
             if self.state_flag['FullPredict']:

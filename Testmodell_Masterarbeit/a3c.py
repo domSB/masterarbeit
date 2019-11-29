@@ -16,7 +16,7 @@ from utils import Hyperparameter
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=21,
+    run_id=22,
     warengruppe=[17],
     detail_warengruppe=None,
     use_one_article=False,
@@ -25,7 +25,7 @@ hps = Hyperparameter(
     action_size=12,
     learning_rate=0.00025,
     memory_size=30000,
-    episodes=10000,
+    episodes=30000,
     pretrain_episodes=5,
     batch_size=32,
     learn_step=1,
@@ -35,7 +35,7 @@ hps = Hyperparameter(
     epsilon_decay=0.9999,
     gamma=0.95,
     do_train=True,
-    reward_func='TDGewinn',
+    reward_func='TDGewinn V2',
     state_FullPredict=True,
     state_Predict=True,
     state_Time=True,

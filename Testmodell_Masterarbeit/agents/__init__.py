@@ -912,3 +912,47 @@ class Worker:
                     _coord.request_stop()
 
 # endregion
+
+
+class Mensch:
+    """
+    Objekt, dass wie ein Mensch bestellen würde.
+    """
+    def __init__(self, hparams):
+        self.sicherheitsaufschlag = hparams.sicherheitsaufschlag
+        self.rundung = hparams.rundung
+        self.zyklus = hparams.bestell_zyklus
+
+    def act(self, state):
+        """
+        Methode zur Auswahl der optimalen Bestellmenge
+        :param state:
+        :return: action
+        """
+        state = state[0]
+        bestand = state[0] * 8
+        ose = state[4] * 10
+        prediction = state[5:]
+        prognose = prediction[0:self.zyklus].sum()
+        optimale_menge = max(prognose - bestand, 0) + self.sicherheitsaufschlag
+        restmenge = optimale_menge % ose
+        bruchmenge = optimale_menge / ose
+        if 0 < bruchmenge < 1:
+            bestellmenge = 1
+        elif bruchmenge >= 1:
+            if restmenge == 0:
+                bestellmenge = bruchmenge
+            else:
+                if self.rundung == 'kleiner':
+                    bestellmenge = np.floor(bruchmenge)
+                elif self.rundung == 'groesser':
+                    bestellmenge = np.ceil(bruchmenge)
+                else:
+                    if restmenge > ose / 2:
+                        bestellmenge = np.ceil(bruchmenge)
+                    else:
+                        bestellmenge = np.floor(bruchmenge)
+        else:
+            bestellmenge = 0
+
+        return bestellmenge

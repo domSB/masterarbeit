@@ -36,13 +36,16 @@ class Evaluator:
     """
     Evaluationsklasse
     """
-    def __init__(self, agent, training_simulation, testing_simulation, hparams, session=None):
+    def __init__(self, agent, training_simulation, testing_simulation, hparams, session=None, validation=True):
         self.agent = agent
-        if hasattr(agent, 'act'):
-            self.agent_type = 'DDDQN'
+        if hasattr(agent, 'rundung'):
+            self.agent_type = 'Mensch'
+        elif hasattr(agent, 'act'):
+            self.agent_type = 'DDDQN-Agent'
         else:
-            self.agent_type = 'A3C'
+            self.agent_type = 'A3C-Agent'
         self.sess = session
+        self.validation = validation
         self.train_env = training_simulation
         self.test_env = testing_simulation
         self.name = str(hparams.warengruppe[0])
@@ -52,8 +55,9 @@ class Evaluator:
             self.name += '-' + str(hparams.detail_warengruppe[0])
 
     def show(self):
-        stats = self.run(self.train_env)
-        self.plot(stats, path=os.path.join('files', 'graphics'), category='Train')
+        if self.validation:
+            stats = self.run(self.train_env)
+            self.plot(stats, path=os.path.join('files', 'graphics'), category='Train')
         stats = self.run(self.test_env)
         self.plot(stats, path=os.path.join('files', 'graphics'), category='Test')
 
@@ -64,14 +68,17 @@ class Evaluator:
         """
         state_op = StateOperator(self.hparams)
         artikels = env.possibles
-        if self.agent_type == 'DDDQN':
+        if self.agent_type != 'A3C-Agent':
             for artikel in tqdm(artikels):
                 state, info = env.reset(artikel)
                 state_op.start(state)
                 done = False
                 while not done:
                     action = self.agent.act(state_op.state)
-                    reward, done, next_state = env.make_action(np.argmax(action))
+                    if self.agent_type == 'DDDQN-Agent':
+                        reward, done, next_state = env.make_action(np.argmax(action))
+                    else:
+                        reward, done, next_state = env.make_action(action)
                     state_op.add(next_state)
         else:
             for artikel in tqdm(artikels):
@@ -120,7 +127,7 @@ class Evaluator:
             plt.savefig(
                 os.path.join(
                     path,
-                    '{typ}-Agent Eval {run_id}-{cat} Warengruppe {name}',
+                    '{typ} Eval {run_id}-{cat} Warengruppe {name}',
                 ).format(typ=self.agent_type, run_id=self.run_id, cat=category, name=self.name))
         else:
             plt.show()
