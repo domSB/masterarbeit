@@ -15,10 +15,10 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparams
 hps = Hyperparameter(
-    run_id=5,
+    run_id=10,
     warengruppe=[17],
     detail_warengruppe=None,
-    sicherheitsaufschlag=0,
+    sicherheitsaufschlag=1,
     rundung=None,
     bestell_zyklus=3,
     state_size=[4],
@@ -29,8 +29,8 @@ hps = Hyperparameter(
     state_Weather=False,
     state_Sales=False,
     state_ArtikelInfo=False,
-    rest_laufzeit=28,
-    ordersatz_einheit=None,
+    rest_laufzeit=14,
+    ordersatz_einheit=1,
     use_one_article=False,
     use_lstm=False,
     time_steps=1,
@@ -61,13 +61,18 @@ pred = predictor.predict(
 )
 print('and done ;)')
 
-simulation = StockSimulation(train_data, pred, hps)
-hps.set_hparam('state_size', list(simulation.state_size))
 # endregion
+for aufschlag in [1, 2, 3]:
+    hps.set_hparam('sicherheitsaufschlag', aufschlag)
 
-agent = Mensch(hps)
+    for ose in [1, 4, -1]:
+        hps.set_hparam('ordersatz_einheit', ose)
+        simulation = StockSimulation(train_data, pred, hps)
+        hps.set_hparam('state_size', list(simulation.state_size))
 
-evaluation = Evaluator(agent, None, simulation, hps, validation=False)
-evaluation.show()
-
+        agent = Mensch(hps)
+        print(hps.run_id, hps.sicherheitsaufschlag, hps.ordersatz_einheit)
+        evaluation = Evaluator(agent, None, simulation, hps, validation=False)
+        evaluation.show()
+        hps.set_hparam('run_id', hps.run_id + 1)
 

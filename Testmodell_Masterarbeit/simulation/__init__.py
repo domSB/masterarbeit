@@ -203,7 +203,7 @@ class StockSimulation(object):
         self.placeholder_mhd = hparams.rest_laufzeit
         self.order_satzeinheit = hparams.ordersatz_einheit
         self.ose = None
-        if self.order_satzeinheit is None:
+        if self.order_satzeinheit == -1:
             self.ose_dict = {int(str(artikel)[-6:]): np.random.randint(1, 10) for artikel in self.possibles}
         else:
             self.ose = hparams.ordersatz_einheit
@@ -310,7 +310,7 @@ class StockSimulation(object):
         # Soll den Absatz des Vorjahres simulieren
         self.absatz_info = np.random.normal(gesamt_absatz, gesamt_absatz/6.25) / 1000
 
-        if self.order_satzeinheit is None:
+        if self.order_satzeinheit is -1:
             self.ose = self.ose_dict[self.aktueller_artikel]
 
         self.vergangene_tage = self.bestellrythmus - 1

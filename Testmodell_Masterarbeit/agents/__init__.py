@@ -934,7 +934,9 @@ class Mensch:
         ose = state[4] * 10
         prediction = state[5:]
         prognose = prediction[0:self.zyklus].sum()
-        optimale_menge = max(prognose - bestand, 0) + self.sicherheitsaufschlag
+        optimale_menge = max(prognose - bestand, 0)
+        if optimale_menge > 0:
+            optimale_menge += self.sicherheitsaufschlag
         restmenge = optimale_menge % ose
         bruchmenge = optimale_menge / ose
         if 0 < bruchmenge < 1:

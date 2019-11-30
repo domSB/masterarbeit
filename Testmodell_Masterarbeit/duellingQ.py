@@ -82,7 +82,7 @@ hps = Hyperparameter(
     per_error_clip=1.0,
     use_importance_sampling=True,
     rest_laufzeit=14,
-    ordersatz_einheit=None
+    ordersatz_einheit=-1
 )
 
 training = True

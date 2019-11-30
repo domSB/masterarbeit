@@ -16,7 +16,7 @@ from utils import Hyperparameter
 
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=22,
+    run_id=23,
     warengruppe=[17],
     detail_warengruppe=None,
     use_one_article=False,
@@ -63,7 +63,7 @@ hps = Hyperparameter(
     per_error_clip=1.0,
     use_importance_sampling=True,
     rest_laufzeit=14,
-    ordersatz_einheit=None
+    ordersatz_einheit=4
 )
 load_model = False
 dir_name = str(hps.run_id) + 'eval' + str(hps.warengruppe[0])
