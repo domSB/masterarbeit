@@ -8,9 +8,9 @@ from scipy.stats import entropy
 def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, ek_preis=0.7,
                                  kap_kosten=0.05 / 365):
     """
-    Berechnet die Belohnung für den kommenden Bestand
+    Entspricht der Reichweiten-orientierten Belohnungsfunktion 3
     """
-    assert len(absatz) > 1, "Belohnungsfunktion benötigt mehr als einen Absatztag für den Horizont."
+    assert len(absatz) > 1, "benötigt mehr als einen Absatztag für den Horizont."
     analyse_tage = len(absatz)
     anfangsbestand = bestand.shape[0]
     kum_absatz = absatz.cumsum()
@@ -63,11 +63,38 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
 
 
 def gradienten_belohnung(ausfall, abschrift, bestand=0):
+    """
+    Entsüricht der Gradienten-optimierten Belohnungsfunktion 4
+    :param ausfall:
+    :param abschrift:
+    :param bestand:
+    :return:
+    """
     z = np.log(3/(bestand**2+ausfall**2+abschrift**2+1))/4 + 3
     return z
 
 
+def belohnung_bestands_orientiert(bestand):
+    """
+    Entspricht der bestands-orientierten Belohnungsfunktion 1
+    :param bestand:
+    :return:
+    """
+    if bestand > 27.5:
+        reward = 0.04992 - (bestand/1000)
+    elif bestand >= 1:
+        reward = np.exp((1 - bestand)/5)
+    else:
+        reward = np.expm1((bestand - 1)/3)
+
+    return reward
+
+
 class Statistics(object):
+    """
+    Das Objekt speichert die Statistiken zum Verhalten der Simulation während des Trainings.
+    Neue Daten für bereits gesehene Artikel werden überschrieben.
+    """
     def __init__(self):
         self.data = {}
         self.artikel = -1
@@ -92,41 +119,53 @@ class Statistics(object):
         self.data[self.artikel] = np.concatenate((self.data[self.artikel], other.reshape(1, 7)), axis=0)
 
     def tage(self, artikel=None):
+        """ Zeitindex des Artikels """
         if artikel is None:
             artikel = self.artikel
         return self.data[artikel][:, 0]
 
     def actions(self, artikel=None):
+        """ Bestellmenge des Agenten. Berücksichtig bereits Ordersatzeinheits-Multiplikator """
         if artikel is None:
             artikel = self.artikel
         return self.data[artikel][:, 1]
 
     def absaetze(self, artikel=None):
+        """ Absätze des Artikels """
         if artikel is None:
             artikel = self.artikel
         return self.data[artikel][:, 2]
 
     def rewards(self, artikel=None):
+        """ Ausgegebene Belohnungen """
         if artikel is None:
             artikel = self.artikel
         return self.data[artikel][:, 3]
 
     def bestand(self, artikel=None):
+        """ Bestandsentwicklung des Artikels """
         if artikel is None:
             artikel = self.artikel
         return self.data[artikel][:, 4]
 
     def fehlmenge(self, artikel=None):
+        """ Ausgebliebene Absätze des Artikels """
         if artikel is None:
             artikel = self.artikel
         return self.data[artikel][:, 5]
 
     def abschrift(self, artikel=None):
+        """ Abschriften des Artikels """
         if artikel is None:
             artikel = self.artikel
         return self.data[artikel][:, 6]
 
     def action_entropy(self, artikel=None):
+        """
+        Aktions-Entropy als Hinweis auf die Verteilung der Aktionen
+        ACHTUNG!! Rechenintensiv. Nur für Debugging nutzen.
+
+        """
         if artikel is None:
             artikel = self.artikel
             a_values, a_count = np.unique(self.actions(artikel), return_counts=True)
@@ -138,6 +177,11 @@ class Statistics(object):
             return entropy(probas.Actions, qk=probas.Absatz)
 
     def plot(self, artikel):
+        """
+        Ergebnisse für einen Artikel plotten.
+        :param artikel:
+        :return:
+        """
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, sharex='all')
         x = self.tage(artikel)
         ax1.plot(x, self.bestand(artikel))
@@ -154,9 +198,9 @@ class Statistics(object):
 
 
 class StockSimulation(object):
+    """ Die Simulation eines Lebensmittelmarktes nach Kapitel 5.1 der Arbeit"""
     def __init__(self, simulation_data, pred, hparams):
         """
-
         :param simulation_data: 4er Tupel aus Labels, dynamischem Zustand, statischem Zustand und der Ids zum zuordnen
         :param pred: Vorberechnete Predictions für schnelleres Training
         :param state_flag: Gibt an, welcher Zustand zurückgegeben werden soll
@@ -213,6 +257,7 @@ class StockSimulation(object):
 
     @property
     def state(self):
+        """ Zustand der Simulation """
         day = self.vergangene_tage
 
         state = np.array([self.bestand / 8, self.fehlmenge / 8, self.abschriften / 8, self.absatz_info, self.ose / 10])
@@ -244,12 +289,13 @@ class StockSimulation(object):
 
     @property
     def info(self):
+        """ Info für Debuggingzwecke. Optimaler Reward nur bei kostenorientierter Belohnung richtig"""
         return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt, 'Optimal': self.optimaler_reward}
 
     @property
     def state_size(self):
         """
-        The Size of the returned array
+        Größe des zurückgegebenen Zustandes, da Zustandsinformationen dynamisch gewählt werden können.
         :return: int : size
         """
         state_size = np.array([5])
@@ -274,7 +320,9 @@ class StockSimulation(object):
 
     def reset(self, artikel_markt=None):
         """
-        ...
+        Zurücksetzen der Simulation nach dem Durchlauf eines Artikels.
+        Muss vor erstmaliger Ausführung einmal zurückgesetzt werden.
+        Artikel und Markt können festgelegt und zufällig gewählt werden.
         """
         if type(artikel_markt) == tuple:
             name_wahl = artikel_markt[0] + artikel_markt[1] * 1000000
@@ -328,6 +376,11 @@ class StockSimulation(object):
         return self.state, self.info
 
     def make_action(self, action):
+        """
+        Wahl einer Bestellmenge. Simualtion springt automatisch bis zum nächsten Bestelltag weiter.
+        :param action:
+        :return:
+        """
         self.vergangene_tage += self.bestellrythmus
         self.abschriften = 0  # Werden in self.state verwendet, daher keine lokale Var. der Methode
         self.fehlmenge = 0
@@ -441,8 +494,8 @@ class StockSimulation(object):
                 reward = np.clip(reward, -7, 7)
 
         elif self.reward_flag == 'Bestand':
-            # TODO: Ursprüngliche Belohnungsfunktion implementieren
-            raise NotImplementedError('Muss noch gecoded werden')
+            theoretischer_bestand = self.bestand - self.fehlmenge
+            reward = belohnung_bestands_orientiert(theoretischer_bestand)
 
         else:
             raise NotImplementedError('Unbekannte Belohnungsart')
