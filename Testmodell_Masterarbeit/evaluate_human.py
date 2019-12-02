@@ -1,13 +1,13 @@
 import os
-import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
 
-from simulation import StockSimulation
-from data.access import DataPipeLine
-from data.preparation import split_np_arrays
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
 from agents import Predictor, Mensch
 from agents.evaluation import Evaluator
+from data.access import DataPipeLine
+from data.preparation import split_np_arrays
+from simulation import StockSimulation
 from utils import Hyperparameter
 
 plt.style.use('ggplot')
@@ -15,7 +15,7 @@ tf.get_logger().setLevel('ERROR')
 
 # region Hyperparams
 hps = Hyperparameter(
-    run_id=10,
+    run_id=20,
     warengruppe=[17],
     detail_warengruppe=None,
     sicherheitsaufschlag=1,
@@ -36,7 +36,7 @@ hps = Hyperparameter(
     time_steps=1,
 )
 
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
+predictor_dir = os.path.join('files', 'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
@@ -75,4 +75,3 @@ for aufschlag in [1, 2, 3]:
         evaluation = Evaluator(agent, None, simulation, hps, validation=False)
         evaluation.show()
         hps.set_hparam('run_id', hps.run_id + 1)
-

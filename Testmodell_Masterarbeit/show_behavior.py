@@ -1,15 +1,13 @@
 import os
 from time import sleep
-import tensorflow as tf
+
 import numpy as np
-import matplotlib.pyplot as plt
+import tensorflow as tf
 
-from collections import deque
-
-from simulation import StockSimulation
+from agents import DDDQAgent, Predictor
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
-from agents import DDDQAgent, Predictor
+from simulation import StockSimulation
 
 
 def name_run(number):
@@ -40,7 +38,7 @@ simulation_params = {
     'ZielWarengruppen': [71],
     'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
 }
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(warengruppe))
+predictor_dir = os.path.join('files', 'models', 'PredictorV2', '02RegWG' + str(warengruppe))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])

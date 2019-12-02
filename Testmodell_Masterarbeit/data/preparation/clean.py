@@ -1,13 +1,15 @@
+import json
 import os
+
 import numpy as np
 import pandas as pd
-import json
+
 from calender.german_holidays import get_german_holiday_calendar
 
 
 def quarters(q):
     """ Erstellt ein One-Hot-Encoding für das Quartal"""
-    first = int(q/2.5)
+    first = int(q / 2.5)
     if 1 < q < 4:
         second = 1
     else:
@@ -381,5 +383,3 @@ def create_frame_from_raw_data(params):
     print('Frames sind erstellt')
     # TODO: Bestand und weitere Stammdaten für Statistiken zurückgeben
     return absatz, bewegung, artikelstamm
-
-

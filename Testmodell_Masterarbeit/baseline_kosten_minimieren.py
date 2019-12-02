@@ -1,11 +1,10 @@
+import os
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import os
-import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
-import matplotlib.dates as mdates
-
-from Testmodell_Masterarbeit.data.preparation.clean import Datapipeline
 
 
 def show_timelines(start, end):
@@ -63,19 +62,19 @@ def show_timelines(start, end):
 plt.style.use('ggplot')
 data_dir = os.path.join('files', 'raw')
 artikelstamm = pd.read_csv(
-            os.path.join(data_dir, '0 ArtikelstammV4.csv'),
-            header=0,
-            names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
-                   'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
-                   'GuG', 'OSE', 'OSEText', 'Saisonal',
-                   'Kern', 'Bio', 'Glutenfrei',
-                   'Laktosefrei', 'MarkeFK', 'Region']
-            )
+    os.path.join(data_dir, '0 ArtikelstammV4.csv'),
+    header=0,
+    names=['Artikel', 'Warengruppe', 'Detailwarengruppe', 'Bezeichnung',
+           'Eigenmarke', 'Einheit', 'Verkaufseinheit', 'MHD',
+           'GuG', 'OSE', 'OSEText', 'Saisonal',
+           'Kern', 'Bio', 'Glutenfrei',
+           'Laktosefrei', 'MarkeFK', 'Region']
+)
 warengruppenstamm = pd.read_csv(
-            os.path.join(data_dir, '0 Warengruppenstamm.csv'),
-            header=1,
-            names=['WG', 'WGNr', 'WGBez', 'Abt', 'AbtNr', 'AbtBez']
-        )
+    os.path.join(data_dir, '0 Warengruppenstamm.csv'),
+    header=1,
+    names=['WG', 'WGNr', 'WGBez', 'Abt', 'AbtNr', 'AbtBez']
+)
 warenausgang = pd.read_csv(
     os.path.join(data_dir, '0 Warenausgang.Markt.csv'),
     header=1,
@@ -101,7 +100,6 @@ benutzte_artikel = pd.unique(warenausgang.Artikel)
 artikelstamm = artikelstamm.loc[benutzte_artikel].copy()
 artikelstamm = artikelstamm[~artikelstamm.Artikelnummer.isna()]
 artikel_mit_ose = artikelstamm.Artikel.to_numpy()
-
 
 show_timelines(warenausgang.Datum.min(), warenausgang.Datum.max())
 # df = testabsatz.pivot_table(index='Datum', columns='Artikel', values='Menge').reindex(strahl)

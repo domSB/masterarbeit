@@ -1,13 +1,9 @@
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
+import pandas as pd
 from matplotlib import cm
-import os
-import random
+
 from data.access import DataPipeLine
-from data.preparation import split_np_arrays
-from agents import Predictor
 
 plt.style.use('ggplot')
 # region Tensorboard Predictor Training
@@ -333,7 +329,7 @@ absatz = absatz[['Artikel', 'Datum', 'Menge']]
 absatz = pd.pivot_table(absatz, values='Menge', index=['Datum'], columns=['Artikel'], aggfunc=np.sum)
 # absatz.fillna(0, inplace=True)
 
-absatz = absatz.apply(lambda x: np.log(x+1))
+absatz = absatz.apply(lambda x: np.log(x + 1))
 fig, ax = plt.subplots()
 im = ax.imshow(absatz.T.to_numpy(), cmap=cm.gist_rainbow, aspect='auto')
 y_tick_labels = absatz.T.index.values
@@ -359,7 +355,7 @@ plt.show()
 absatz, bewegung, artikelstamm = pipeline.get_statistics_data()
 del bewegung
 absatz = absatz[['Artikel', 'Datum', 'Menge']]
-absatz.Menge = absatz.Menge*8
+absatz.Menge = absatz.Menge * 8
 absatz['kw'] = absatz.Datum.dt.week
 absatz = absatz.groupby(['Artikel', 'kw'], as_index=False)['Menge'].agg({'Mean': np.mean, 'Std': np.std})
 mean = pd.pivot_table(absatz, values='Mean', index=['Artikel'], columns=['kw'], aggfunc=np.sum)
@@ -374,7 +370,6 @@ ax2.set_title('Standardabweichung')
 plt.show()
 absatz.groupby('Artikel', as_index=False)
 # endregion
-
 
 
 # region Skalierung Abschriften

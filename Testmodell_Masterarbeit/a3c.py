@@ -1,18 +1,16 @@
+import multiprocessing
 import os
 import threading
-import multiprocessing
-import tensorflow as tf
-import numpy as np
-
 from time import sleep
+
+import tensorflow as tf
 
 from agents import Predictor, A3CNetwork, Worker
 from agents.evaluation import Evaluator
-from simulation import StockSimulation
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
+from simulation import StockSimulation
 from utils import Hyperparameter
-
 
 # region Hyperparameter
 hps = Hyperparameter(
@@ -75,7 +73,7 @@ if not os.path.exists(hps.log_dir):
     os.mkdir(hps.log_dir)
     os.mkdir(hps.model_dir)
 
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
+predictor_dir = os.path.join('files', 'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
@@ -124,7 +122,7 @@ with tf.device("/cpu:0"):
     num_workers = multiprocessing.cpu_count()
     workers = []
     # Create worker classes
-    for i in range(num_workers-1):
+    for i in range(num_workers - 1):
         workers.append(
             Worker(
                 StockSimulation(train_data, train_pred, hps),
@@ -137,7 +135,7 @@ with tf.device("/cpu:0"):
     workers.append(
         Worker(
             StockSimulation(test_data, test_pred, hps),
-            num_workers-1,
+            num_workers - 1,
             trainer,
             global_episodes,
             hps,
@@ -166,4 +164,3 @@ with tf.Session() as sess:
     validator = StockSimulation(test_data, test_pred, hps)
     evaluation = Evaluator(master_network, simulation, validator, hps, session=sess)
     evaluation.show()
-

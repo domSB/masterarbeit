@@ -4,7 +4,6 @@
 German bank holiday.
 """
 
-
 try:
     from pandas import Timedelta
     from pandas.tseries.offsets import Easter, Day, Week
@@ -71,7 +70,6 @@ ALL_GERMAN_HOLIDAY_RULES = {
     'Buß- und Bettag': Holiday('Buß- und Bettag', month=11, day=15,
                                offset=[Week(weekday=2)]),
 }
-
 
 HOLIDAY_EXCLUDE_MAP = {
     'BW': {'Mariä Himmelfahrt',

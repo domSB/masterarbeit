@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 import pandas as pd
 
@@ -10,6 +11,7 @@ class Parameter(object):
     """
     Objekt zur Koordination der Daten-Aufbereitungs-Parameter
     """
+
     def __init__(self, **kwargs):
         """
         Speichert alle relevanten Parameter der Datenaufbereitung und kann an beliebige Funktionen weitergegeben werden.
@@ -71,6 +73,7 @@ class DataPipeLine(object):
     Erleichtert Bedienung und ermöglicht identischen Zugriff auf vorberechnete oder nicht vorberechnete Daten.
     So müssen zur Ausführung nur die Rohdaten auf das System kopiert werden.
     """
+
     def __init__(self, **kwargs):
         """
         Die Initialisierung benötigt die Eigenschaften der zu untersuchenden Daten.

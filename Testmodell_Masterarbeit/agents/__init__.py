@@ -1,14 +1,14 @@
-import random
-import os
 import datetime
+import os
+import random
 from collections import deque
 
 import numpy as np
 import tensorflow as tf
-
 from scipy.signal import lfilter
 
 from utils import StateOperator
+
 tf.get_logger().setLevel('ERROR')
 
 
@@ -23,10 +23,12 @@ def decay(epoch):
 
 def normalized_columns_initializer(std=1.0):
     """ Vorgeschlagen von Arthur Juliani"""
+
     def _initializer(shape, dtype=None, partition_info=None):
         out = np.random.randn(*shape).astype(np.float32)
         out *= std / np.sqrt(np.square(out).sum(axis=0, keepdims=True))
         return tf.constant(out)
+
     return _initializer
 
 
@@ -53,6 +55,7 @@ def discount(x, _gamma):
     :return:
     """
     return lfilter([1], [1, -_gamma], x[::-1], axis=0)[::-1]
+
 
 # region Prädiktor
 class Predictor(object):
@@ -152,6 +155,8 @@ class Predictor(object):
         y = self.model.predict(x)
         y = np.swapaxes(np.array(y), 0, 1)
         return y
+
+
 # endregion
 
 
@@ -160,6 +165,7 @@ class DDDQNetwork:
     """
     Duelling Double Deep Agent Network
     """
+
     def __init__(self, hparams, name):
         self.state_size = hparams.state_size
         self.action_size = hparams.action_size
@@ -196,38 +202,38 @@ class DDDQNetwork:
                 units=hparams.main_size,
                 activation=hparams.main_activation,
                 kernel_regularizer=hparams.main_regularizer,
-                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                #bias_initializer=tf.constant_initializer(0.1),
+                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                # bias_initializer=tf.constant_initializer(0.1),
                 name='EingangsDense'
             )(self.firsts)
             self.value_fc = tf.keras.layers.Dense(
                 units=hparams.value_size,
                 activation=hparams.value_activation,
                 kernel_regularizer=hparams.value_regularizer,
-                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                #bias_initializer=tf.constant_initializer(0.1),
+                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                # bias_initializer=tf.constant_initializer(0.1),
                 name='ValueFC'
             )(self.dense_one)
             self.value = tf.keras.layers.Dense(
                 units=1,
                 activation=None,
-                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                #bias_initializer=tf.constant_initializer(0.1),
+                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                # bias_initializer=tf.constant_initializer(0.1),
                 name='Value'
             )(self.value_fc)
             self.advantage_fc = tf.keras.layers.Dense(
                 units=hparams.avantage_size,
                 activation=hparams.advantage_activation,
                 kernel_regularizer=hparams.advantage_regularizer,
-                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                #bias_initializer=tf.constant_initializer(0.1),
+                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                # bias_initializer=tf.constant_initializer(0.1),
                 name='AdvantageFC'
             )(self.dense_one)
             self.advantage = tf.keras.layers.Dense(
                 units=self.action_size,
                 activation=None,
-                #kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                #bias_initializer=tf.constant_initializer(0.1),
+                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
+                # bias_initializer=tf.constant_initializer(0.1),
                 name='Advantage'
             )(self.advantage_fc)
 
@@ -249,6 +255,7 @@ class UniformSamplingMemory:
     """
     Replay Buffer with uniform sampling
     """
+
     def __init__(self, hparams):
         self.storage = deque(maxlen=hparams.memory_size)
         self.per_beta = 0
@@ -272,7 +279,7 @@ class UniformSamplingMemory:
                                  size=n,
                                  replace=False)
         experiences = [self.storage[i] for i in index]
-        uniform_weights = np.array([[1/n] for i in index])
+        uniform_weights = np.array([[1 / n] for i in index])
         return None, experiences, uniform_weights
 
     def batch_update(self, tree_idx, abs_errors):
@@ -290,6 +297,7 @@ class ImportanceSamplingMemory:
     """
     Replay-Buffer mit Importance Sampling
     """
+
     def __init__(self, hparams):
         self.tree = SumTree(hparams.memory_size)
         self.per_epsilon = hparams.per_epsilon
@@ -424,6 +432,7 @@ class Experience:
     """
     Simple helper to store Experiences.
     """
+
     def __init__(self, _state, _reward, _done, _next_state, _action):
         self.state = np.array(_state)
         self.reward = _reward
@@ -436,6 +445,7 @@ class DDDQAgent:
     """
     Deep Duelling Double Q-Learning Agent
     """
+
     def __init__(self, _session, hparams):
         self.sess = _session
         self.epsilon = hparams.epsilon_start
@@ -656,6 +666,8 @@ class DDDQAgent:
         self.curr_loss = loss
         self.curr_vs = state_vals
         self.curr_as = advantages
+
+
 # endregion
 
 
@@ -664,6 +676,7 @@ class A3CNetwork:
     """
     Neuronales Netz des Actor-Critic.
     """
+
     def __init__(self, scope, _trainer, hparams):
         with tf.variable_scope(scope):
             if hparams.use_double_lstm:
@@ -747,6 +760,7 @@ class Worker:
     """
     Workerclass for Actor Critic
     """
+
     def __init__(self, env, name, _trainer, _global_episodes, hparams, use_as_validator=False):
         self.name = "worker_" + str(name)
         self.number = name
@@ -911,6 +925,7 @@ class Worker:
                 if episode_count > self.max_episodes and self.name == 'worker_0':
                     _coord.request_stop()
 
+
 # endregion
 
 
@@ -918,6 +933,7 @@ class Mensch:
     """
     Objekt, dass wie ein Mensch bestellen würde.
     """
+
     def __init__(self, hparams):
         self.sicherheitsaufschlag = hparams.sicherheitsaufschlag
         self.rundung = hparams.rundung
@@ -935,8 +951,8 @@ class Mensch:
         prediction = state[5:]
         prognose = prediction[0:self.zyklus].sum()
         optimale_menge = max(prognose - bestand, 0)
-        if optimale_menge > 0:
-            optimale_menge += self.sicherheitsaufschlag
+        #         if optimale_menge > 0:
+        optimale_menge += self.sicherheitsaufschlag
         restmenge = optimale_menge % ose
         bruchmenge = optimale_menge / ose
         if 0 < bruchmenge < 1:

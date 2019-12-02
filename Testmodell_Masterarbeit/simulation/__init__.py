@@ -1,7 +1,6 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-
 from scipy.stats import entropy
 
 
@@ -35,7 +34,7 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, e
     # 1. Fall Bestandsreichweite == Orderzyklus
     # ==> Perfekter Bestand
     if bestandsreichweite == order_zyklus:
-        reward = 0.1 + 0.3 * kum_absatz[order_zyklus - 1]**2
+        reward = 0.1 + 0.3 * kum_absatz[order_zyklus - 1] ** 2
         # Exponentielle steigende Belohnung für Treffen von hohen Absätzen
 
     # 2. Fall Bestandsreichweite < Orderzyklus
@@ -70,7 +69,7 @@ def gradienten_belohnung(ausfall, abschrift, bestand=0):
     :param bestand:
     :return:
     """
-    z = np.log(3/(bestand**2+ausfall**2+abschrift**2+1))/4 + 3
+    z = np.log(3 / (bestand ** 2 + ausfall ** 2 + abschrift ** 2 + 1)) / 4 + 3
     return z
 
 
@@ -81,11 +80,11 @@ def belohnung_bestands_orientiert(bestand):
     :return:
     """
     if bestand > 27.5:
-        reward = 0.04992 - (bestand/1000)
+        reward = 0.04992 - (bestand / 1000)
     elif bestand >= 1:
-        reward = np.exp((1 - bestand)/5)
+        reward = np.exp((1 - bestand) / 5)
     else:
-        reward = np.expm1((bestand - 1)/3)
+        reward = np.expm1((bestand - 1) / 3)
 
     return reward
 
@@ -95,6 +94,7 @@ class Statistics(object):
     Das Objekt speichert die Statistiken zum Verhalten der Simulation während des Trainings.
     Neue Daten für bereits gesehene Artikel werden überschrieben.
     """
+
     def __init__(self):
         self.data = {}
         self.artikel = -1
@@ -115,7 +115,7 @@ class Statistics(object):
         :param other: np.array([day, action, reward, bestand, fehlmenge, abschrift])
         :return:
         """
-        assert other.shape == (7, )
+        assert other.shape == (7,)
         self.data[self.artikel] = np.concatenate((self.data[self.artikel], other.reshape(1, 7)), axis=0)
 
     def tage(self, artikel=None):
@@ -199,6 +199,7 @@ class Statistics(object):
 
 class StockSimulation(object):
     """ Die Simulation eines Lebensmittelmarktes nach Kapitel 5.1 der Arbeit"""
+
     def __init__(self, simulation_data, pred, hparams):
         """
         :param simulation_data: 4er Tupel aus Labels, dynamischem Zustand, statischem Zustand und der Ids zum zuordnen
@@ -242,7 +243,7 @@ class StockSimulation(object):
         self.artikel_einkaufspreis = 0.7
         self.artikel_verkaufspreis = 1
         self.artikel_rohertrag = 0.3
-        self.kap_kosten = 0.05/365
+        self.kap_kosten = 0.05 / 365
         self.optimaler_reward = None
         self.placeholder_mhd = hparams.rest_laufzeit
         self.order_satzeinheit = hparams.ordersatz_einheit
@@ -270,15 +271,15 @@ class StockSimulation(object):
             state = np.concatenate((state, prediction), axis=0)
 
         if self.state_flag['Sales']:
-            sales = self.dynamic_state[day+1-self.bestellrythmus:day+1, 0, 0].reshape(-1)
+            sales = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0, 0].reshape(-1)
             state = np.concatenate((state, sales), axis=0)
 
         if self.state_flag['Weather']:
-            weather_and_prices = self.dynamic_state[day+1-self.bestellrythmus:day+1, 0, 1:-9].reshape(-1)
+            weather_and_prices = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0, 1:-9].reshape(-1)
             state = np.concatenate((state, weather_and_prices), axis=0)
 
         if self.state_flag['Time']:
-            time = self.dynamic_state[day+1-self.bestellrythmus:day+1, 0, -9:].reshape(-1)
+            time = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0, -9:].reshape(-1)
             state = np.concatenate((state, time), axis=0)
 
         if self.state_flag['ArtikelInfo']:
@@ -301,7 +302,7 @@ class StockSimulation(object):
         state_size = np.array([5])
         if self.state_flag['Predict']:
             if self.state_flag['FullPredict']:
-                state_size += 6*16
+                state_size += 6 * 16
             else:
                 state_size += 6
 
@@ -356,7 +357,7 @@ class StockSimulation(object):
         self.break_bestand = gesamt_absatz * 2
 
         # Soll den Absatz des Vorjahres simulieren
-        self.absatz_info = np.random.normal(gesamt_absatz, gesamt_absatz/6.25) / 1000
+        self.absatz_info = np.random.normal(gesamt_absatz, gesamt_absatz / 6.25) / 1000
 
         if self.order_satzeinheit is -1:
             self.ose = self.ose_dict[self.aktueller_artikel]
@@ -453,19 +454,20 @@ class StockSimulation(object):
 
         elif self.reward_flag == 'TDGewinn V2':
             reward = gradienten_belohnung(self.fehlmenge, self.abschriften, self.bestand)
-            reward = reward / (self.tage/self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
+            reward = reward / (
+                        self.tage / self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
 
         elif self.reward_flag == 'Bestandsreichweite':
             kommende_absaetze = np.sum(
-                self.artikel_absatz[self.vergangene_tage+1:self.vergangene_tage+1+self.bestellrythmus]
+                self.artikel_absatz[self.vergangene_tage + 1:self.vergangene_tage + 1 + self.bestellrythmus]
             )
             reichweite = self.bestand - kommende_absaetze
             if reichweite == 0:
                 reward = 3
             elif reichweite > 0:
-                reward = reichweite**2 * - 0.1
+                reward = reichweite ** 2 * - 0.1
             else:
-                reward = reichweite**2 * -0.3  # fürs Erste fixe Bestrafung
+                reward = reichweite ** 2 * -0.3  # fürs Erste fixe Bestrafung
             reward = np.clip(reward, -3, 3)
             reward = reward / 10
 
@@ -473,7 +475,7 @@ class StockSimulation(object):
             if done:
                 reward = self.bestand * self.kap_kosten * -self.artikel_einkaufspreis
             else:
-                analyse_start = self.vergangene_tage+1
+                analyse_start = self.vergangene_tage + 1
                 analyse_stop = min(self.tage + 1, analyse_start + self.placeholder_mhd)
                 kommende_absaetze = self.artikel_absatz[analyse_start:analyse_stop]
                 if kommende_absaetze.shape[0] < self.placeholder_mhd:
@@ -509,4 +511,4 @@ class StockSimulation(object):
             np.array([self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften])
         )
 
-        return reward,  done, self.state
+        return reward, done, self.state

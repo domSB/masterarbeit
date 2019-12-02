@@ -1,13 +1,15 @@
 import os
 import random
 import time
-import tensorflow as tf
+
 import numpy as np
-from simulation import StockSimulation
-from data.access import DataPipeLine
-from data.preparation import split_np_arrays
+import tensorflow as tf
+
 from agents import DDDQAgent, Experience, Predictor
 from agents.evaluation import Evaluator
+from data.access import DataPipeLine
+from data.preparation import split_np_arrays
+from simulation import StockSimulation
 from utils import Hyperparameter, StateOperator
 
 tf.get_logger().setLevel('ERROR')
@@ -35,16 +37,16 @@ tf.get_logger().setLevel('ERROR')
 """
 # region Hyperparameter
 hps = Hyperparameter(
-    run_id=64,
-    warengruppe=[17],
+    run_id=65,
+    warengruppe=[28],
     detail_warengruppe=None,
     use_one_article=False,
     bestell_zyklus=3,
     state_size=[4],  # Bestand, Abschriften, Fehlbestand, Vorjahresabsatz
     action_size=12,
-    learning_rate=0.00025,
+    learning_rate=0.001,
     memory_size=100000,
-    episodes=30000,
+    episodes=12000,
     pretrain_episodes=5,
     batch_size=32,
     learn_step=4,
@@ -54,7 +56,7 @@ hps = Hyperparameter(
     epsilon_decay=0.99995,
     gamma=0.95,
     do_train=True,
-    reward_func='TDGewinn',
+    reward_func='Bestand',
     state_FullPredict=True,
     state_Predict=True,
     state_Time=True,
@@ -62,7 +64,7 @@ hps = Hyperparameter(
     state_Sales=True,
     state_ArtikelInfo=True,
     use_lstm=True,
-    use_double_lstm=True,
+    use_double_lstm=False,
     lstm_units=32,
     time_steps=6,
     main_size=64,
@@ -82,7 +84,7 @@ hps = Hyperparameter(
     per_error_clip=1.0,
     use_importance_sampling=True,
     rest_laufzeit=14,
-    ordersatz_einheit=-1
+    ordersatz_einheit=1
 )
 
 training = True
@@ -95,7 +97,7 @@ if not os.path.exists(hps.log_dir):
     os.mkdir(hps.log_dir)
     os.mkdir(hps.model_dir)
 
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
+predictor_dir = os.path.join('files', 'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
@@ -227,5 +229,3 @@ if training:
 
 evaluation = Evaluator(agent, simulation, validator, hps)
 evaluation.show()
-
-

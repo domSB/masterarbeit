@@ -14,11 +14,14 @@ Ein Modell soll je Warengruppe erstellt werden.
 
 """
 import os
+
 import numpy as np
 import tensorflow as tf
+
 from agents import Predictor
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
+
 # [1, 12, 55, 80, 17, 77, 71, 6, 28]
 
 warengruppe = 1
@@ -101,5 +104,3 @@ val_dataset = create_dataset(*test_data[:3], params)
 predictor = Predictor()
 predictor.build_model(**params)
 hist = predictor.train(dataset, val_dataset, params)
-
-

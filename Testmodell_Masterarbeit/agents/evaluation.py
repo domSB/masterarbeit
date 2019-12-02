@@ -2,9 +2,11 @@
 Datei enthält Klassen für das Evaluieren der Agenten
 """
 import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 from tqdm import tqdm
+
 from utils import StateOperator
 
 
@@ -36,6 +38,7 @@ class Evaluator:
     """
     Evaluationsklasse
     """
+
     def __init__(self, agent, training_simulation, testing_simulation, hparams, session=None, validation=True):
         self.agent = agent
         if hasattr(agent, 'rundung'):

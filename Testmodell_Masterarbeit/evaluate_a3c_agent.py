@@ -1,11 +1,13 @@
-import tensorflow as tf
-import matplotlib.pyplot as plt
 import os
+
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
 from agents import Predictor, A3CNetwork
 from agents.evaluation import Evaluator
-from simulation import StockSimulation
 from data.access import DataPipeLine
 from data.preparation import split_np_arrays
+from simulation import StockSimulation
 from utils import Hyperparameter
 
 plt.style.use('ggplot')
@@ -14,7 +16,7 @@ plt.style.use('ggplot')
 hps = Hyperparameter()
 hps.load(os.path.join('files', 'logging', 'A3C', '7eval17', 'Hyperparameter.yaml'))
 
-predictor_dir = os.path.join('files',  'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
+predictor_dir = os.path.join('files', 'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
@@ -65,4 +67,3 @@ with tf.Session() as sess:
 
     evaluation = Evaluator(master_network, simulation, validator, hps, session=sess)
     evaluation.show()
-

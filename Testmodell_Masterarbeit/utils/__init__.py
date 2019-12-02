@@ -2,9 +2,10 @@
 Modul mit mehreren klein Hilfsfunktionen und Hilfsklassen
 """
 
-import yaml
 from collections import deque
+
 import numpy as np
+import yaml
 from tensorflow.contrib.training import HParams
 
 
@@ -12,6 +13,7 @@ class Hyperparameter(HParams):
     """
     Klasse zum speichern der Hyperparemeter
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -40,6 +42,7 @@ class StateOperator:
     """
     Klasse zum identischen behandeln von LSTM-States und einfachen States
     """
+
     def __init__(self, hparams):
         self.use_lstm = hparams.use_lstm
         self.state_size = hparams.state_size
@@ -81,4 +84,3 @@ class StateOperator:
         :return: state
         """
         return np.array(self.preceding_state)
-
