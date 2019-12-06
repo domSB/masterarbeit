@@ -3,16 +3,36 @@ import numpy as np
 
 def split_np_arrays(lab, dyn, stat, split_helper, by_time=False, percentage=0.3,
                     only_one=False):
+    """
+    Hilfsfunktion um die Numpy-Arrays mit den Ausgangsdaten in einen Trainings-
+    und Testdatensatz aufzuteilen. Generell wird nach Artikeln gespalten, dass
+    Trainings- und Testdatensatz volle Zeitreihen von unterschiedlichen Artikeln
+    enthalten.
+    Ein Split nach der Zeitachse ist auch möglich, sodass jede Artikel-Zeitreihe
+    in einen Trainings- und einen Testzeitraum unterteilt werden.
+    Diese Methode muss verwendet werden, wenn der Agent mit nur einem Artikel
+    trainiert wird.
+    :param lab:
+    :param dyn:
+    :param stat:
+    :param split_helper:
+    :param by_time:
+    :param percentage:
+    :param only_one:
+    :return:
+    """
     assert max(split_helper[:, 0]) < 1000000
 
     idx = split_helper[:, 0] + split_helper[:, 1] * 1000000
+    # Das splithelper Element enthält die Werte Markt-Nr. und Artikel-Nr.
+    # Diese werden als eigener Array übergeben, da Numpy nur einen Index
+    # verwendet und die Arrays eigentlich einen Tripel-Index haben.
     possibles = np.unique(idx)
 
     if by_time:
         uni, cnt = np.unique(idx, return_counts=True)
         tage = cnt[0]
-        assert (
-                    cnt == tage).all(), 'Artikel haben nicht alle die gleiche Zeitreihenlänge'
+        assert (cnt == tage).all(), 'Nicht die gleichen Zeitreihenlängen'
         test_tage = int(percentage * tage)
         train_tage = tage - test_tage
         single_mask = np.concatenate((np.ones((train_tage,), dtype=bool),

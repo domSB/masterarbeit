@@ -61,7 +61,11 @@ def day_of_week(day):
 
 def create_frame_from_raw_data(params):
     """
-    Returns Absatz-Frame, Bewegung-Frame & Artikelstamm-Frame
+    Returns Absatz-Frame, Bewegung-Frame & Artikelstamm-Frame.
+
+    Für die Übersichtlichkeit des Aufbereitsprozesses wurde bewusst auf eine
+    Untergliederung in viele Funktionen verzichtet. Einzelne Schritte sind
+    faltbar als Region markiert.
     :param params:
     :return:
     """
@@ -247,10 +251,10 @@ def create_frame_from_raw_data(params):
             detail_warengruppen_index = mapping['Detailwarengruppe']
             detail_warengruppen_index = {int(k): int(v) for k, v in
                                          detail_warengruppen_index.items()}
-            """
-            Kleines Decoding Problem: Json akzeptiert keine ints als Dict-Keys. Darum werden diese beim Speichern
-            automatisch in strings konvertiert. 
-            """
+
+            # Kleines Decoding Problem: Json akzeptiert keine int als Dict-Keys
+            # Darum werden diese beim Speichern automatisch in str konvertiert
+
             warengruppen_index = mapping['Warengruppe']
             warengruppen_index = {int(k): int(v) for k, v in
                                   warengruppen_index.items()}
@@ -279,8 +283,8 @@ def create_frame_from_raw_data(params):
     # region Reindexieren des Absatzes
     cal_cls = get_german_holiday_calendar('SL')
     cal = cal_cls()
-    sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal,
-                                                 weekmask='Mon Tue Wed Thu Fri Sat')
+    w_days = 'Mon Tue Wed Thu Fri Sat'
+    sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask=w_days)
     zeitraum = pd.date_range(
         pd.to_datetime('2018-01-01'),
         pd.to_datetime('2019-07-01') + pd.DateOffset(7),
@@ -301,12 +305,10 @@ def create_frame_from_raw_data(params):
         *absatz.Datum.dt.dayofweek.apply(day_of_week))
     absatz["UNIXDatum"] = absatz["Datum"].astype(np.int64) / (
                 1000000000 * 24 * 3600)
-    # TODO: Feiertage Hinweis in State aufnehmen
-    """
-    Feiertage Variable derzeit nicht notwendig, da nur 1,5 Jahre langer Zeitraum
-    ==> Effekt des Feiertages Weihnachten trifft nur einmal auf. Ob Ausschlag auf 24.12.2018 oder die Feiertagsvariable
-    regressiert wird ist hier egal.   
-    """
+    # Feiertage Variable nicht notwendig, da nur 1,5 Jahre langer Zeitraum
+    # => Effekt des Feiertages Weihnachten trifft nur einmal auf.
+    # Ob Ausschlag auf 24.12.2018 oder die Feiertagsvariable regressiert wird
+    # ist hier egal. Im Operativen Einsatz müssten Feiertage aufgenommen werden.
     # endregion
 
     # region Wetter anfügen
@@ -341,7 +343,8 @@ def create_frame_from_raw_data(params):
     # region reguläre Preise aufbereiten
     preise.sort_values(by=['Datum', 'Artikel'], inplace=True)
     # pd.merge_asof ist ein Left Join mit dem nächsten passenden Key.
-    # Standardmäßig wird in der rechten Tabelle der Gleiche oder nächste Kleinere gesucht.
+    # Standardmäßig wird in der rechten Tabelle der Gleiche oder
+    # nächste Kleinere gesucht.
     absatz = pd.merge_asof(
         absatz,
         preise.loc[:, ["Preis", "Artikel", "Datum"]].copy(),
@@ -379,7 +382,8 @@ def create_frame_from_raw_data(params):
         tolerance=pd.Timedelta('9d'),
         by='Artikel')
     len_nach = absatz.shape[0]
-    assert len_vor == len_nach, 'Anfügen der Aktionspreise hat zu einer Verlängerung der Absätze geführt.'
+    message = 'Anfügen der Aktionspreise führt zur Verlängerung der Absätze.'
+    assert len_vor == len_nach, message
     absatz['Aktionspreis'].where(~(absatz.DatumBis < absatz.Datum),
                                  inplace=True)
     absatz['absRabatt'] = absatz.Preis - absatz.Aktionspreis
@@ -421,5 +425,4 @@ def create_frame_from_raw_data(params):
     absatz.sort_values(['Markt', 'Artikel', 'Datum'], inplace=True)
     # endregion
     print('Frames sind erstellt')
-    # TODO: Bestand und weitere Stammdaten für Statistiken zurückgeben
     return absatz, bewegung, artikelstamm

@@ -14,8 +14,10 @@ class Parameter(object):
 
     def __init__(self, **kwargs):
         """
-        Speichert alle relevanten Parameter der Datenaufbereitung und kann an beliebige Funktionen weitergegeben werden.
-        Wenn keine Parameter beim Initialisieren übergeben werden, werden Standardwerte verwendet.
+        Speichert alle relevanten Parameter der Datenaufbereitung und kann an
+        beliebige Funktionen weitergegeben werden.
+        Wenn keine Parameter beim Initialisieren übergeben werden,
+        werden Standardwerte verwendet.
         :param kwargs:
         """
         self.output_dir = kwargs.get('OutputDirectory',
@@ -43,7 +45,8 @@ class Parameter(object):
     @property
     def name(self):
         """
-        Dieser Name dient der Wiedererkennung zwischengespeicherter Ergebnisse mit den selben Parametern.
+        Dieser Name dient der Wiedererkennung zwischengespeicherter Ergebnisse
+        mit den selben Parametern.
         :return: str aus Warengruppe und Detailwarengruppe, falls vorhanden.
         """
         if self.detail_warengruppen_maske:
@@ -56,7 +59,8 @@ class Parameter(object):
     @property
     def h5name(self):
         """
-        Dieser Name dient der Wiedererkennung zwischengespeicherter Ergebnisse mit den selben Parametern.
+        Dieser Name dient der Wiedererkennung zwischengespeicherter
+        Ergebnisse mit den selben Parametern.
         :return: str aus name und h5-Endung.
         """
         return self.name + ' store.h5'
@@ -64,7 +68,8 @@ class Parameter(object):
     @property
     def npz_name(self):
         """
-        Dieser Name dient der Wiedererkennung zwischengespeicherter Ergebnisse mit den selben Parametern.
+        Dieser Name dient der Wiedererkennung zwischengespeicherter
+        Ergebnisse mit den selben Parametern.
         :return: str aus name und npz-Endung.
         """
         return self.name + ' store.npz'
@@ -73,23 +78,25 @@ class Parameter(object):
 class DataPipeLine(object):
     """
     Objekt für den Datenzugriff aus den einzelnen ausführbaren Dateien.
-    Erleichtert Bedienung und ermöglicht identischen Zugriff auf vorberechnete oder nicht vorberechnete Daten.
+    Erleichtert Bedienung und ermöglicht identischen Zugriff auf vorberechnete
+    oder nicht vorberechnete Daten.
     So müssen zur Ausführung nur die Rohdaten auf das System kopiert werden.
     """
 
     def __init__(self, **kwargs):
         """
-        Die Initialisierung benötigt die Eigenschaften der zu untersuchenden Daten.
-        Insbesondere die Warengruppe und die Detailwarengruppe. Auch können vom Standardverzeichnis abweichende
-        Speicherpfade angegeben werden.
+        Die Initialisierung benötigt die Eigenschaften der zu untersuchenden
+        Daten. Insbesondere die Warengruppe und die Detailwarengruppe.
+        Auch können vom Standardverzeichnis abweichende Speicherpfade angegeben
+        werden.
         :param kwargs:
         """
         self.params = Parameter(**kwargs)
 
     def check_for_raw_data(self):
         """
-        Kurzes Script zum checken, ob alle Rohdaten auf dem System verfügbar sind.
-        Wirft AssertationError bei fehlenden Daten.
+        Kurzes Script zum checken, ob alle Rohdaten auf dem System verfügbar
+        sind. Wirft AssertationError bei fehlenden Daten.
         :return:
         """
         files = os.listdir(self.params.input_dir)
@@ -117,7 +124,7 @@ class DataPipeLine(object):
             split_helper = files['split_helper']
         elif self.params.h5name in os.listdir(self.params.output_dir):
             print(
-                'Teilweise vorberechnete Daten vorhanden\n(1/2)\tLese HDF-Store ...')
+                'Teil-Vorberechnete Daten vorhanden\n(1/2)\tLese HDF-Store ...')
             with pd.HDFStore(os.path.join(self.params.output_dir,
                                           self.params.h5name)) as store:
                 absatz = store.get('Absatz')
@@ -132,7 +139,7 @@ class DataPipeLine(object):
 
         else:
             print(
-                'Keine vorberechneten Daten\n(1/2)\tErstelle DataFrames aus Rohdaten')
+                'Keine vorberechneten Daten\n(1/2)\tErstelle aus Rohdaten')
             absatz, bewegung, artikelstamm = create_frame_from_raw_data(
                 self.params)
             print('Speichere neu berechnete Frames')
@@ -153,7 +160,11 @@ class DataPipeLine(object):
 
     def get_statistics_data(self):
         """
-        Methode gibt die Daten als Pandas-Dataframe zurück, damit diese weiter analysiert werden können.
+        Methode gibt die Daten als Pandas-Dataframe zurück, damit diese weiter
+        analysiert werden können.
+        Die Daten sind bereits so gefilter, wie sie vom Agenten verwendet werden
+        Grafiken aus Kapitel 4 greifen nicht auf diese Objekte zurück, sondern
+        auf ungefilterte Daten.
         :return: absatz, bewegung, artikelstamm
         """
         if self.params.h5name in os.listdir(self.params.output_dir):

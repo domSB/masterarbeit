@@ -4,6 +4,13 @@ from keras.utils import to_categorical
 
 
 def extend_list(list_of_str, length):
+    """
+    Hilfsfunktion um die Spaltennamen einer mehrfach angefügten Tabelle zu
+    erzeugen.
+    :param list_of_str:
+    :param length:
+    :return:
+    """
     list_copy = list_of_str.copy()
     for i in range(1, length):
         list_of_str.extend([name + '_' + str(i) for name in list_copy])
@@ -11,6 +18,15 @@ def extend_list(list_of_str, length):
 
 
 def concat(df, length):
+    """
+    Erzeugt die Zeitreihenstruktur, die für den Prädiktor benötigt wird.
+    Implementierung nicht schön, aber es wurde keine native Methode in Pandas
+    oder Numpy gefunden, die die speziellen Anforderungen dieser Anwendung
+    unterstützen.
+    :param df:
+    :param length:
+    :return:
+    """
     print('Ausgang: ', df.shape)
     cols = list(df.columns)
     cols = extend_list(cols, length)
@@ -44,8 +60,8 @@ def concat(df, length):
 
 def create_numpy_from_frame(params, absatz, artikelstamm):
     """
-    Erstellt 3 Numpy-Arrays für den Prädiktor, speichert diese in einer .npz-Datei und gibt sie zum direkten Verarbeiten
-    auch weiter.
+    Erstellt 3 Numpy-Arrays für den Prädiktor, speichert diese in einer
+    .npz-Datei und gibt sie zum direkten Verarbeiten auch weiter.
     :param params:
     :param absatz: Absatz-Frame
     :param artikelstamm Artikelstamm-Frame
