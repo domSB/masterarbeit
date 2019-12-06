@@ -1,7 +1,8 @@
 import numpy as np
 
 
-def split_np_arrays(lab, dyn, stat, split_helper, by_time=False, percentage=0.3, only_one=False):
+def split_np_arrays(lab, dyn, stat, split_helper, by_time=False, percentage=0.3,
+                    only_one=False):
     assert max(split_helper[:, 0]) < 1000000
 
     idx = split_helper[:, 0] + split_helper[:, 1] * 1000000
@@ -10,16 +11,21 @@ def split_np_arrays(lab, dyn, stat, split_helper, by_time=False, percentage=0.3,
     if by_time:
         uni, cnt = np.unique(idx, return_counts=True)
         tage = cnt[0]
-        assert (cnt == tage).all(), 'Artikel haben nicht alle die gleiche Zeitreihenlänge'
+        assert (
+                    cnt == tage).all(), 'Artikel haben nicht alle die gleiche Zeitreihenlänge'
         test_tage = int(percentage * tage)
         train_tage = tage - test_tage
-        single_mask = np.concatenate((np.ones((train_tage,), dtype=bool), np.zeros((test_tage,), dtype=bool)), axis=0)
+        single_mask = np.concatenate((np.ones((train_tage,), dtype=bool),
+                                      np.zeros((test_tage,), dtype=bool)),
+                                     axis=0)
         train_mask = np.tile(single_mask, len(possibles))
         test_mask = ~train_mask
     else:
-        wahl = np.random.choice(len(possibles), int(len(possibles) * percentage))
+        wahl = np.random.choice(len(possibles),
+                                int(len(possibles) * percentage))
         test_mask = np.argwhere(np.isin(idx, possibles[wahl])).reshape(-1)
-        train_mask = np.argwhere(np.isin(idx, possibles[wahl], invert=True)).reshape(-1)
+        train_mask = np.argwhere(
+            np.isin(idx, possibles[wahl], invert=True)).reshape(-1)
 
     if only_one:
         train_artikel = idx[train_mask][np.random.choice(len(idx[train_mask]))]
@@ -43,4 +49,5 @@ def split_np_arrays(lab, dyn, stat, split_helper, by_time=False, percentage=0.3,
     assert not np.isnan(lab_test).any()
     assert not np.isnan(dyn_test).any()
     assert not np.isnan(stat_test).any()
-    return (lab_train, dyn_train, stat_train, idx[train_mask]), (lab_test, dyn_test, stat_test, idx[test_mask])
+    return (lab_train, dyn_train, stat_train, idx[train_mask]), (
+    lab_test, dyn_test, stat_test, idx[test_mask])

@@ -24,13 +24,16 @@ def concat(df, length):
     for i in range(1, length):
         df = df[df['Markt'] == df['Markt_' + str(i)]]
     x_cols = ['Menge', 'MaxTemp_1D', 'MinTemp_1D', 'Wolken_1D', 'Regen_1D',
-              'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D', 'Preis', 'relRabatt', 'absRabatt',
+              'MaxTemp_2D', 'MinTemp_2D', 'Wolken_2D', 'Regen_2D', 'Preis',
+              'relRabatt', 'absRabatt',
               'j', 'q1', 'q2', 'q_m', 'w1', 'w2', 't1', 't2', 't3']
     x_cols = extend_list(x_cols, length)
     y_cols = ['in1', 'in2', 'in3', 'in4', 'in5', 'in6']
-    x_arr = df[x_cols].to_numpy(dtype=np.float32).reshape(-1, length, int(len(x_cols) / length))
+    x_arr = df[x_cols].to_numpy(dtype=np.float32).reshape(-1, length, int(
+        len(x_cols) / length))
     y_arr = df[y_cols].to_numpy(dtype=np.float32)
-    bins = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 19, 27, 35, 50, 1000000])
+    bins = np.array(
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 19, 27, 35, 50, 1000000])
     y_arr = to_categorical(np.digitize(y_arr * 8, bins) - 1, num_classes=16)
     stat_df = df['Artikel']
     markt = df['Markt']
@@ -57,11 +60,14 @@ def create_numpy_from_frame(params, absatz, artikelstamm):
     split_helper = stat_df['Markt'].reset_index().to_numpy()
     assert not stat_df.isna().any().any(), 'NaNs im Artikelstamm'
     print('INFO - Creating categorical states')
-    stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern', 'Bio', 'Glutenfrei', 'Laktosefrei']
+    stat_state_scalar_cols = ['Eigenmarke', 'GuG', 'OSE', 'Saisonal', 'Kern',
+                              'Bio', 'Glutenfrei', 'Laktosefrei']
     stat = stat_df.loc[:, stat_state_scalar_cols].to_numpy(dtype=np.int8)
     for category, class_numbers in params.stat_state_category_cols.items():
         print(category)
-        category_state = to_categorical(stat_df.loc[:, category], num_classes=class_numbers).astype(np.int8)
+        category_state = to_categorical(stat_df.loc[:, category],
+                                        num_classes=class_numbers).astype(
+            np.int8)
         stat = np.concatenate((stat, category_state), axis=1)
     print('INFO - Speichere NPZ-Dateien')
     return lab, dyn, stat, split_helper

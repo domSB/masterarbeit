@@ -36,13 +36,15 @@ hps = Hyperparameter(
     time_steps=1,
 )
 
-predictor_dir = os.path.join('files', 'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
+predictor_dir = os.path.join('files', 'models', 'PredictorV2',
+                             '02RegWG' + str(hps.warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
 # endregion
 
-pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe, DetailWarengruppe=hps.detail_warengruppe)
+pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe,
+                        DetailWarengruppe=hps.detail_warengruppe)
 simulation_data = pipeline.get_regression_data()
 train_data, test_data = split_np_arrays(*simulation_data, percentage=0)
 

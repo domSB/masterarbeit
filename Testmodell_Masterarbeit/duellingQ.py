@@ -13,28 +13,7 @@ from simulation import StockSimulation
 from utils import Hyperparameter, StateOperator
 
 tf.get_logger().setLevel('ERROR')
-"""
-[1604., 618
- 1606., 0
-  1605., 181
-  1588., 129
-  1609., 44
-  1603., 
-  1587., 
-  1620., 
-  1612.,
-  1613., 
-  1611.,
-  1627., 
-  1619., 
-  1617., 
-  1614., 
-  1622., 
-  1615., 1628.,
-       1607., 1629., 1631., 1589., 1592., 1610., 1623., 1626., 1630.,
-       1591., 1585., 1590., 1789., 1618., 2066., 1639., 1621., 1580.,
-        1651., 2451., 1814., 4062., 1608.]
-"""
+
 # region Hyperparameter
 hps = Hyperparameter(
     run_id=65,
@@ -42,7 +21,7 @@ hps = Hyperparameter(
     detail_warengruppe=None,
     use_one_article=False,
     bestell_zyklus=3,
-    state_size=[4],  # Bestand, Abschriften, Fehlbestand, Vorjahresabsatz
+    state_size=[4],
     action_size=12,
     learning_rate=0.001,
     memory_size=100000,
@@ -97,15 +76,19 @@ if not os.path.exists(hps.log_dir):
     os.mkdir(hps.log_dir)
     os.mkdir(hps.model_dir)
 
-predictor_dir = os.path.join('files', 'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
+predictor_dir = os.path.join('files', 'models', 'PredictorV2',
+                             '02RegWG' + str(hps.warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
 # endregion
 
-pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe, DetailWarengruppe=hps.detail_warengruppe)
+pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe,
+                        DetailWarengruppe=hps.detail_warengruppe)
 simulation_data = pipeline.get_regression_data()
-train_data, test_data = split_np_arrays(*simulation_data, by_time=hps.use_one_article, only_one=hps.use_one_article)
+train_data, test_data = split_np_arrays(*simulation_data,
+                                        by_time=hps.use_one_article,
+                                        only_one=hps.use_one_article)
 print([tr.shape for tr in train_data])
 
 predictor = Predictor()
@@ -147,7 +130,8 @@ if training:
 
     # region ReplayBuffer befüllen
     if hps.use_one_article:
-        artikel_markt = simulation.possibles[np.random.choice(len(simulation.possibles))]
+        artikel_markt = simulation.possibles[
+            np.random.choice(len(simulation.possibles))]
     else:
         artikel_markt = None
     saver = tf.train.Saver(max_to_keep=None)
@@ -159,7 +143,8 @@ if training:
             action = random.choice(agent.possible_actions)
             reward, done, next_state = simulation.make_action(np.argmax(action))
             train_op.add(next_state)
-            experience = Experience(train_op.pre_state, reward, done, train_op.state, action)
+            experience = Experience(train_op.pre_state, reward, done,
+                                    train_op.state, action)
             agent.remember(experience)
     # endregion
     tau = 0
@@ -179,12 +164,14 @@ if training:
             action = agent.act(np.array(train_op.state))
             reward, done, next_state = simulation.make_action(np.argmax(action))
             train_op.add(next_state)
-            experience = Experience(train_op.pre_state, reward, done, train_op.state, action)
+            experience = Experience(train_op.pre_state, reward, done,
+                                    train_op.state, action)
             agent.remember(experience)
 
             if not val_done:
                 val_action = agent.act(np.array(val_op.state))
-                val_reward, val_done, val_next_state = validator.make_action(np.argmax(val_action))
+                val_reward, val_done, val_next_state = validator.make_action(
+                    np.argmax(val_action))
                 val_op.add(val_next_state)
 
             if step % hps.learn_step == 0:
@@ -222,9 +209,13 @@ if training:
         agent.writer.add_summary(summary, episode)
         agent.writer.flush()
         if episode % 25 == 0:
-            print(time.strftime('%T') + ' Episode: {epi} @ Epsilon {epsi}'.format(epi=episode, epsi=agent.epsilon))
+            print(
+                time.strftime('%T') + ' Episode: {epi} @ Epsilon {epsi}'.format(
+                    epi=episode, epsi=agent.epsilon))
             if episode % 1000 == 0:
-                save_path = saver.save(agent.sess, os.path.join(hps.model_dir, 'model.ckpt'), global_step=episode)
+                save_path = saver.save(agent.sess, os.path.join(hps.model_dir,
+                                                                'model.ckpt'),
+                                       global_step=episode)
         # endregion
 
 evaluation = Evaluator(agent, simulation, validator, hps)

@@ -4,12 +4,14 @@ import pandas as pd
 from scipy.stats import entropy
 
 
-def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3, ek_preis=0.7,
+def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3,
+                                 ek_preis=0.7,
                                  kap_kosten=0.05 / 365):
     """
     Entspricht der Reichweiten-orientierten Belohnungsfunktion 3
     """
-    assert len(absatz) > 1, "benötigt mehr als einen Absatztag für den Horizont."
+    assert len(
+        absatz) > 1, "benötigt mehr als einen Absatztag für den Horizont."
     analyse_tage = len(absatz)
     anfangsbestand = bestand.shape[0]
     kum_absatz = absatz.cumsum()
@@ -116,7 +118,8 @@ class Statistics(object):
         :return:
         """
         assert other.shape == (7,)
-        self.data[self.artikel] = np.concatenate((self.data[self.artikel], other.reshape(1, 7)), axis=0)
+        self.data[self.artikel] = np.concatenate(
+            (self.data[self.artikel], other.reshape(1, 7)), axis=0)
 
     def tage(self, artikel=None):
         """ Zeitindex des Artikels """
@@ -168,11 +171,15 @@ class Statistics(object):
         """
         if artikel is None:
             artikel = self.artikel
-            a_values, a_count = np.unique(self.actions(artikel), return_counts=True)
-            abs_values, abs_count = np.unique(self.absaetze(artikel), return_counts=True)
+            a_values, a_count = np.unique(self.actions(artikel),
+                                          return_counts=True)
+            abs_values, abs_count = np.unique(self.absaetze(artikel),
+                                              return_counts=True)
             actions_df = pd.DataFrame(data={'Actions': a_count}, index=a_values)
-            absatz_df = pd.DataFrame(data={'Absatz': abs_count}, index=abs_values)
-            probas = pd.merge(actions_df, absatz_df, how='outer', left_index=True, right_index=True)
+            absatz_df = pd.DataFrame(data={'Absatz': abs_count},
+                                     index=abs_values)
+            probas = pd.merge(actions_df, absatz_df, how='outer',
+                              left_index=True, right_index=True)
             probas.fillna(0, inplace=True)
             return entropy(probas.Actions, qk=probas.Absatz)
 
@@ -249,7 +256,8 @@ class StockSimulation(object):
         self.order_satzeinheit = hparams.ordersatz_einheit
         self.ose = None
         if self.order_satzeinheit == -1:
-            self.ose_dict = {int(str(artikel)[-6:]): np.random.randint(1, 10) for artikel in self.possibles}
+            self.ose_dict = {int(str(artikel)[-6:]): np.random.randint(1, 10)
+                             for artikel in self.possibles}
         else:
             self.ose = hparams.ordersatz_einheit
         self.bestellrythmus = hparams.bestell_zyklus
@@ -261,7 +269,9 @@ class StockSimulation(object):
         """ Zustand der Simulation """
         day = self.vergangene_tage
 
-        state = np.array([self.bestand / 8, self.fehlmenge / 8, self.abschriften / 8, self.absatz_info, self.ose / 10])
+        state = np.array(
+            [self.bestand / 8, self.fehlmenge / 8, self.abschriften / 8,
+             self.absatz_info, self.ose / 10])
 
         if self.state_flag['Predict']:
             if self.state_flag['FullPredict']:
@@ -271,15 +281,19 @@ class StockSimulation(object):
             state = np.concatenate((state, prediction), axis=0)
 
         if self.state_flag['Sales']:
-            sales = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0, 0].reshape(-1)
+            sales = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0,
+                    0].reshape(-1)
             state = np.concatenate((state, sales), axis=0)
 
         if self.state_flag['Weather']:
-            weather_and_prices = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0, 1:-9].reshape(-1)
+            weather_and_prices = self.dynamic_state[
+                                 day + 1 - self.bestellrythmus:day + 1, 0,
+                                 1:-9].reshape(-1)
             state = np.concatenate((state, weather_and_prices), axis=0)
 
         if self.state_flag['Time']:
-            time = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0, -9:].reshape(-1)
+            time = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0,
+                   -9:].reshape(-1)
             state = np.concatenate((state, time), axis=0)
 
         if self.state_flag['ArtikelInfo']:
@@ -291,7 +305,8 @@ class StockSimulation(object):
     @property
     def info(self):
         """ Info für Debuggingzwecke. Optimaler Reward nur bei kostenorientierter Belohnung richtig"""
-        return {'Artikel': self.aktueller_artikel, 'Markt': self.aktueller_markt, 'Optimal': self.optimaler_reward}
+        return {'Artikel': self.aktueller_artikel,
+                'Markt': self.aktueller_markt, 'Optimal': self.optimaler_reward}
 
     @property
     def state_size(self):
@@ -331,16 +346,22 @@ class StockSimulation(object):
             self.aktueller_markt = artikel_markt[1]
             ids_wahl = np.argwhere(np.isin(self.ids, [name_wahl])).reshape(-1)
             if len(ids_wahl) == 0:
-                raise AssertionError('Keine Ids mit diesen Eigenschaften {name}'.format(name=name_wahl))
+                raise AssertionError(
+                    'Keine Ids mit diesen Eigenschaften {name}'.format(
+                        name=name_wahl))
         elif artikel_markt is not None:
             self.aktueller_markt = int('0' + str(artikel_markt)[:-6])
             self.aktueller_artikel = int(str(artikel_markt)[-6:])
-            ids_wahl = np.argwhere(np.isin(self.ids, [artikel_markt])).reshape(-1)
+            ids_wahl = np.argwhere(np.isin(self.ids, [artikel_markt])).reshape(
+                -1)
         else:
             position_wahl = np.random.choice(len(self.possibles))
-            self.aktueller_markt = int('0' + str(self.possibles[position_wahl])[:-6])
-            self.aktueller_artikel = int(str(self.possibles[position_wahl])[-6:])
-            ids_wahl = np.argwhere(np.isin(self.ids, self.possibles[position_wahl])).reshape(-1)
+            self.aktueller_markt = int(
+                '0' + str(self.possibles[position_wahl])[:-6])
+            self.aktueller_artikel = int(
+                str(self.possibles[position_wahl])[-6:])
+            ids_wahl = np.argwhere(
+                np.isin(self.ids, self.possibles[position_wahl])).reshape(-1)
         self.static_state = self.stat[ids_wahl]
         self.dynamic_state = self.dyn[ids_wahl]
         self.predicted_state = self.pred[ids_wahl]
@@ -352,12 +373,14 @@ class StockSimulation(object):
             self.bestand = np.random.choice(start_absatz)
         else:
             self.bestand = 0
-        self.bestands_frische = np.ones((self.bestand,), dtype=np.int64) * self.placeholder_mhd
+        self.bestands_frische = np.ones((self.bestand,),
+                                        dtype=np.int64) * self.placeholder_mhd
         gesamt_absatz = np.sum(self.artikel_absatz)
         self.break_bestand = gesamt_absatz * 2
 
         # Soll den Absatz des Vorjahres simulieren
-        self.absatz_info = np.random.normal(gesamt_absatz, gesamt_absatz / 6.25) / 1000
+        self.absatz_info = np.random.normal(gesamt_absatz,
+                                            gesamt_absatz / 6.25) / 1000
 
         if self.order_satzeinheit is -1:
             self.ose = self.ose_dict[self.aktueller_artikel]
@@ -386,7 +409,8 @@ class StockSimulation(object):
         self.abschriften = 0  # Werden in self.state verwendet, daher keine lokale Var. der Methode
         self.fehlmenge = 0
         action = int(action) * self.ose
-        absatz = self.artikel_absatz[self.vergangene_tage - self.bestellrythmus:self.vergangene_tage].sum()
+        absatz = self.artikel_absatz[
+                 self.vergangene_tage - self.bestellrythmus:self.vergangene_tage].sum()
         done = self.tage <= self.vergangene_tage + self.bestellrythmus
         # BUG: Nach aktueller Implementierung trifft Bestellung am Tag der Bestellung ein und nicht mit 1 Tag Verzug
         # Bei Beachtung der OrderLeadTime, muss der folgende Teil des Skriptes 2-fach ausgeführt werden:
@@ -394,14 +418,16 @@ class StockSimulation(object):
         # - Betrachtung ab Bestellungseingang
         self.bestand += action
         self.bestands_frische = np.concatenate(
-            (self.bestands_frische, np.ones((action,), dtype=np.int64) * self.placeholder_mhd))
+            (self.bestands_frische,
+             np.ones((action,), dtype=np.int64) * self.placeholder_mhd))
 
         # Produkte sind ein Tag älter
         self.bestands_frische -= self.bestellrythmus
         # BUG: Wenn ein Feier- oder Sonntag zwischen den Absatztagen lag, altern die Produkte trotzdem nur um einen Tag
         abgelaufene = np.argwhere(self.bestands_frische <= 0).reshape(-1)
         if len(abgelaufene) > 0:
-            self.bestands_frische = np.delete(self.bestands_frische, abgelaufene)
+            self.bestands_frische = np.delete(self.bestands_frische,
+                                              abgelaufene)
             self.abschriften = len(abgelaufene)
             self.bestand -= self.abschriften
             self.optimal_flag = False
@@ -427,7 +453,8 @@ class StockSimulation(object):
             r_umsatz = 0
             # r_umsatz = absatz * self.artikel_rohertrag
             # Kapitalbindung
-            r_bestand = -(self.bestand * self.artikel_einkaufspreis) * self.kap_kosten
+            r_bestand = -(
+                        self.bestand * self.artikel_einkaufspreis) * self.kap_kosten
             # Belohnung für optimale Bestell-Strategien
             if self.reward_flag == 'TDGewinn':
                 # Temporal Difference Gewinn gibt jeden Tag eine Belohnung
@@ -436,7 +463,8 @@ class StockSimulation(object):
 
             else:
                 # Monte Carlo Gewinn summiert alle Gewinne auf und gibt die Summe am Ende der Episode zurück
-                self.gesamt_belohnung += (r_abschrift + r_ausfall + r_bestand + r_umsatz)
+                self.gesamt_belohnung += (
+                            r_abschrift + r_ausfall + r_bestand + r_umsatz)
                 if done:
                     reward = self.gesamt_belohnung
                     if self.optimal_flag:
@@ -448,18 +476,21 @@ class StockSimulation(object):
             self.anz_abschriften += self.abschriften
             self.anz_fehlmengen += self.fehlmenge
             if done:
-                reward = gradienten_belohnung(self.anz_fehlmengen, self.anz_abschriften)
+                reward = gradienten_belohnung(self.anz_fehlmengen,
+                                              self.anz_abschriften)
             else:
                 reward = 0
 
         elif self.reward_flag == 'TDGewinn V2':
-            reward = gradienten_belohnung(self.fehlmenge, self.abschriften, self.bestand)
+            reward = gradienten_belohnung(self.fehlmenge, self.abschriften,
+                                          self.bestand)
             reward = reward / (
-                        self.tage / self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
+                    self.tage / self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
 
         elif self.reward_flag == 'Bestandsreichweite':
             kommende_absaetze = np.sum(
-                self.artikel_absatz[self.vergangene_tage + 1:self.vergangene_tage + 1 + self.bestellrythmus]
+                self.artikel_absatz[
+                self.vergangene_tage + 1:self.vergangene_tage + 1 + self.bestellrythmus]
             )
             reichweite = self.bestand - kommende_absaetze
             if reichweite == 0:
@@ -476,13 +507,17 @@ class StockSimulation(object):
                 reward = self.bestand * self.kap_kosten * -self.artikel_einkaufspreis
             else:
                 analyse_start = self.vergangene_tage + 1
-                analyse_stop = min(self.tage + 1, analyse_start + self.placeholder_mhd)
-                kommende_absaetze = self.artikel_absatz[analyse_start:analyse_stop]
+                analyse_stop = min(self.tage + 1,
+                                   analyse_start + self.placeholder_mhd)
+                kommende_absaetze = self.artikel_absatz[
+                                    analyse_start:analyse_stop]
                 if kommende_absaetze.shape[0] < self.placeholder_mhd:
                     kommende_absaetze = np.concatenate(
                         (
                             kommende_absaetze,
-                            np.zeros(self.placeholder_mhd - kommende_absaetze.shape[0])
+                            np.zeros(
+                                self.placeholder_mhd - kommende_absaetze.shape[
+                                    0])
                         )
                     )
                 reward = belohnung_bestandsreichweite(
@@ -508,7 +543,9 @@ class StockSimulation(object):
         #     done = True
 
         self.statistics.add(
-            np.array([self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften])
+            np.array(
+                [self.vergangene_tage, action, absatz, reward, self.bestand,
+                 self.fehlmenge, self.abschriften])
         )
 
         return reward, done, self.state

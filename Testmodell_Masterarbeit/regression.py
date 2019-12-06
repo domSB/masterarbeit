@@ -32,7 +32,8 @@ def create_dataset(_lab, _dyn, _stat, _params):
         while True:
             rand_idx = np.random.randint(0, _lab.shape[0])
             labels = _lab[rand_idx]
-            yield {'dynamic_input': _dyn[rand_idx], 'static_input': _stat[rand_idx]}, \
+            yield {'dynamic_input': _dyn[rand_idx],
+                   'static_input': _stat[rand_idx]}, \
                   {
                       '1day': labels[0],
                       '2day': labels[1],
@@ -56,7 +57,8 @@ def create_dataset(_lab, _dyn, _stat, _params):
             }
         ),
         output_shapes=(
-            {'dynamic_input': tf.TensorShape([_params['time_steps'], _params['dynamic_state_shape']]),
+            {'dynamic_input': tf.TensorShape(
+                [_params['time_steps'], _params['dynamic_state_shape']]),
              'static_input': tf.TensorShape([_params['static_state_shape']])},
             {
                 '1day': tf.TensorShape([16]),
@@ -87,7 +89,8 @@ regression_params = {
     'InputDirectory': os.path.join('files', 'raw'),
     'OutputDirectory': os.path.join('files', 'prepared'),
     'ZielWarengruppen': [warengruppe],
-    'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None, 'Einheit': None, 'Markt': 6},
+    'StatStateCategoricals': {'MHDgroup': 7, 'Detailwarengruppe': None,
+                              'Einheit': None, 'Markt': 6},
 }
 pipeline = DataPipeLine(**regression_params)
 lab, dyn, stat, split_helper = pipeline.get_regression_data()

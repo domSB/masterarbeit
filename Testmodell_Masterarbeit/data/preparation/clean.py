@@ -75,9 +75,11 @@ def create_frame_from_raw_data(params):
                'Kern', 'Bio', 'Glutenfrei',
                'Laktosefrei', 'MarkeFK', 'Region']
     )
-    artikelstamm = artikelstamm[artikelstamm.Warengruppe.isin(params.warengruppen_maske)]
+    artikelstamm = artikelstamm[
+        artikelstamm.Warengruppe.isin(params.warengruppen_maske)]
     if params.detail_warengruppen_maske is not None:
-        artikelstamm = artikelstamm[artikelstamm.Detailwarengruppe.isin(params.detail_warengruppen_maske)]
+        artikelstamm = artikelstamm[artikelstamm.Detailwarengruppe.isin(
+            params.detail_warengruppen_maske)]
     artikelmaske = pd.unique(artikelstamm.Artikel)
     # endregion
 
@@ -89,23 +91,30 @@ def create_frame_from_raw_data(params):
         names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
     )
     warenausgang = warenausgang[warenausgang.Artikel.isin(artikelmaske)]
-    warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'], format='%d.%m.%y')
-    absatz = warenausgang[warenausgang.Belegtyp.isin(['UMSATZ_SCANNING', 'UMSATZ_AKTION'])]
+    warenausgang['Datum'] = pd.to_datetime(warenausgang['Datum'],
+                                           format='%d.%m.%y')
+    absatz = warenausgang[
+        warenausgang.Belegtyp.isin(['UMSATZ_SCANNING', 'UMSATZ_AKTION'])]
     absatz = absatz.groupby(['Markt', 'Artikel', 'Datum'], as_index=False).sum()
 
     # Verwerfe Artikel, die nicht jedes Jahr verkauft wurden
     absatz['Jahr'] = absatz.Datum.dt.year
     absatz_jahre = absatz.groupby(['Artikel', 'Markt'])['Jahr'].nunique()
     max_abs_jahre = max(absatz_jahre)
-    artikel_mit_durchgehendem_abs = absatz_jahre[absatz_jahre == max_abs_jahre].index.values
+    artikel_mit_durchgehendem_abs = absatz_jahre[
+        absatz_jahre == max_abs_jahre].index.values
     absatz.set_index(['Artikel', 'Markt'], drop=False, inplace=True)
     absatz = absatz.loc[artikel_mit_durchgehendem_abs]
     absatz.reset_index(drop=True, inplace=True)
     # Verwerfe Artikel, die seltener als an 10 Tage p.a. verkauft werden.
-    absatz_vorgaenge = absatz.groupby(['Artikel', 'Jahr', 'Markt'])['Menge'].count()
-    art_abs_mehr_30_art = absatz_vorgaenge[absatz_vorgaenge > 10].index.get_level_values('Artikel').values
-    art_abs_mehr_30_mkt = absatz_vorgaenge[absatz_vorgaenge > 10].index.get_level_values('Markt').values
-    art_abs_mehr_30 = [(art, mkt) for art, mkt in zip(art_abs_mehr_30_art, art_abs_mehr_30_mkt)]
+    absatz_vorgaenge = absatz.groupby(['Artikel', 'Jahr', 'Markt'])[
+        'Menge'].count()
+    art_abs_mehr_30_art = absatz_vorgaenge[
+        absatz_vorgaenge > 10].index.get_level_values('Artikel').values
+    art_abs_mehr_30_mkt = absatz_vorgaenge[
+        absatz_vorgaenge > 10].index.get_level_values('Markt').values
+    art_abs_mehr_30 = [(art, mkt) for art, mkt in
+                       zip(art_abs_mehr_30_art, art_abs_mehr_30_mkt)]
     art_abs_mehr_30 = set(art_abs_mehr_30)
     absatz.set_index(['Artikel', 'Markt'], drop=False, inplace=True)
     absatz = absatz.loc[list(art_abs_mehr_30)]
@@ -122,12 +131,14 @@ def create_frame_from_raw_data(params):
         names=['Markt', 'Artikel', 'Belegtyp', 'Menge', 'Datum']
     )
     wareneingang = wareneingang[wareneingang.Artikel.isin(artikelmaske)]
-    wareneingang['Datum'] = pd.to_datetime(wareneingang['Datum'], format='%d.%m.%y')
+    wareneingang['Datum'] = pd.to_datetime(wareneingang['Datum'],
+                                           format='%d.%m.%y')
 
     bestand = pd.read_csv(
         os.path.join(params.input_dir, '0 Warenbestand.Markt.csv'),
         header=1,
-        names=['Markt', 'Artikel', 'Bestand', 'EK', 'VK', 'Anfangsbestand', 'Datum']
+        names=['Markt', 'Artikel', 'Bestand', 'EK', 'VK', 'Anfangsbestand',
+               'Datum']
     )
     bestand['Datum'] = pd.to_datetime(bestand['Datum'], format='%d.%m.%y')
 
@@ -157,8 +168,10 @@ def create_frame_from_raw_data(params):
         names=['Artikel', 'DatumAb', 'DatumBis', 'Aktionspreis']
     )
     aktionspreise = aktionspreise[aktionspreise.Artikel.isin(artikelmaske)]
-    aktionspreise['DatumAb'] = pd.to_datetime(aktionspreise['DatumAb'], format='%d.%m.%Y')
-    aktionspreise['DatumBis'] = pd.to_datetime(aktionspreise['DatumBis'], format='%d.%m.%Y')
+    aktionspreise['DatumAb'] = pd.to_datetime(aktionspreise['DatumAb'],
+                                              format='%d.%m.%Y')
+    aktionspreise['DatumBis'] = pd.to_datetime(aktionspreise['DatumBis'],
+                                               format='%d.%m.%Y')
     # endregion
 
     # region Wetter
@@ -174,7 +187,8 @@ def create_frame_from_raw_data(params):
     # region numerisches MHD in kategoriale Variable transformieren
     mhd_labels = [0, 1, 2, 3, 4, 5, 6]
     mhd_bins = [0, 1, 7, 14, 28, 100, 1000, 100000]
-    artikelstamm['MHDgroup'] = pd.cut(artikelstamm.MHD, mhd_bins, right=False, labels=mhd_labels)
+    artikelstamm['MHDgroup'] = pd.cut(artikelstamm.MHD, mhd_bins, right=False,
+                                      labels=mhd_labels)
     # endregion
 
     # region fehlende Detailwarengruppen auffüllen
@@ -193,7 +207,8 @@ def create_frame_from_raw_data(params):
                    ['Warengruppe', 'Detailwarengruppe']
                    ].groupby('Warengruppe').median()
         detail_warengruppen_nan_index = wg_group.to_dict()['Detailwarengruppe']
-        artikelstamm['DetailwarengruppeBackup'] = artikelstamm['Warengruppe'].map(
+        artikelstamm['DetailwarengruppeBackup'] = artikelstamm[
+            'Warengruppe'].map(
             detail_warengruppen_nan_index
         )
         artikelstamm['Detailwarengruppe'].fillna(
@@ -205,13 +220,16 @@ def create_frame_from_raw_data(params):
 
         #  region Lückenhafte Fremdschlüssel durch eine durchgehende ID ersetzen
         detail_warengruppen_index = {
-            int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Detailwarengruppe)))
+            int(value): index for index, value in
+            enumerate(np.sort(pd.unique(artikelstamm.Detailwarengruppe)))
         }
         warengruppen_index = {
-            int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Warengruppe)))
+            int(value): index for index, value in
+            enumerate(np.sort(pd.unique(artikelstamm.Warengruppe)))
         }
         einheit_index = {
-            int(value): index for index, value in enumerate(np.sort(pd.unique(artikelstamm.Einheit)))
+            int(value): index for index, value in
+            enumerate(np.sort(pd.unique(artikelstamm.Einheit)))
         }
         mapping = {
             'Detailwarengruppe': detail_warengruppen_index,
@@ -227,27 +245,33 @@ def create_frame_from_raw_data(params):
         with open(os.path.join(params.output_dir, filename), 'r') as file:
             mapping = json.load(file)
             detail_warengruppen_index = mapping['Detailwarengruppe']
-            detail_warengruppen_index = {int(k): int(v) for k, v in detail_warengruppen_index.items()}
+            detail_warengruppen_index = {int(k): int(v) for k, v in
+                                         detail_warengruppen_index.items()}
             """
             Kleines Decoding Problem: Json akzeptiert keine ints als Dict-Keys. Darum werden diese beim Speichern
             automatisch in strings konvertiert. 
             """
             warengruppen_index = mapping['Warengruppe']
-            warengruppen_index = {int(k): int(v) for k, v in warengruppen_index.items()}
+            warengruppen_index = {int(k): int(v) for k, v in
+                                  warengruppen_index.items()}
             einheit_index = mapping['Einheit']
             einheit_index = {int(k): int(v) for k, v in einheit_index.items()}
     artikelstamm['Detailwarengruppe'] = artikelstamm['Detailwarengruppe'].map(
         detail_warengruppen_index)
-    artikelstamm['Warengruppe'] = artikelstamm['Warengruppe'].map(warengruppen_index)
+    artikelstamm['Warengruppe'] = artikelstamm['Warengruppe'].map(
+        warengruppen_index)
     artikelstamm['Einheit'] = artikelstamm['Einheit'].map(einheit_index)
     absatz['Markt'] = absatz['Markt'].map(markt_index)
 
     params.stat_state_category_cols['Einheit'] = len(einheit_index)
-    params.stat_state_category_cols['Detailwarengruppe'] = len(detail_warengruppen_index)
+    params.stat_state_category_cols['Detailwarengruppe'] = len(
+        detail_warengruppen_index)
     # endregion
 
     # region überflüssige Spalten löschen und OSE&Saisonal Kennzeichen auffüllen
-    artikelstamm.drop(columns=['MHD', 'Region', 'MarkeFK', 'Verkaufseinheit', 'OSEText'], inplace=True)
+    artikelstamm.drop(
+        columns=['MHD', 'Region', 'MarkeFK', 'Verkaufseinheit', 'OSEText'],
+        inplace=True)
     artikelstamm['OSE'].fillna(0, inplace=True)
     artikelstamm['Saisonal'].fillna(0, inplace=True)
     # endregion
@@ -255,14 +279,16 @@ def create_frame_from_raw_data(params):
     # region Reindexieren des Absatzes
     cal_cls = get_german_holiday_calendar('SL')
     cal = cal_cls()
-    sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal, weekmask='Mon Tue Wed Thu Fri Sat')
+    sl_bd = pd.tseries.offsets.CustomBusinessDay(calendar=cal,
+                                                 weekmask='Mon Tue Wed Thu Fri Sat')
     zeitraum = pd.date_range(
         pd.to_datetime('2018-01-01'),
         pd.to_datetime('2019-07-01') + pd.DateOffset(7),
         freq=sl_bd
     )
     absatz.set_index('Datum', inplace=True)
-    absatz = absatz.groupby(['Markt', 'Artikel']).apply(lambda x: x.reindex(zeitraum, fill_value=0))
+    absatz = absatz.groupby(['Markt', 'Artikel']).apply(
+        lambda x: x.reindex(zeitraum, fill_value=0))
     absatz.drop(columns=['Markt', 'Artikel'], inplace=True)
     absatz.reset_index(inplace=True)
     absatz.rename(columns={'level_2': 'Datum'}, inplace=True)
@@ -271,8 +297,10 @@ def create_frame_from_raw_data(params):
     absatz['q1'], absatz['q2'] = zip(*absatz.Datum.dt.quarter.apply(quarters))
     absatz['q_m'] = absatz.Datum.dt.quarter.apply(quarter_month)
     absatz['w1'], absatz['w2'] = zip(*absatz.Datum.apply(week_of_month))
-    absatz['t1'], absatz['t2'], absatz['t3'] = zip(*absatz.Datum.dt.dayofweek.apply(day_of_week))
-    absatz["UNIXDatum"] = absatz["Datum"].astype(np.int64) / (1000000000 * 24 * 3600)
+    absatz['t1'], absatz['t2'], absatz['t3'] = zip(
+        *absatz.Datum.dt.dayofweek.apply(day_of_week))
+    absatz["UNIXDatum"] = absatz["Datum"].astype(np.int64) / (
+                1000000000 * 24 * 3600)
     # TODO: Feiertage Hinweis in State aufnehmen
     """
     Feiertage Variable derzeit nicht notwendig, da nur 1,5 Jahre langer Zeitraum
@@ -321,7 +349,8 @@ def create_frame_from_raw_data(params):
         right_on='Datum',
         by='Artikel'
     )
-    absatz['Preis'] = absatz.groupby(['Markt', 'Artikel'])['Preis'].fillna(method='bfill')
+    absatz['Preis'] = absatz.groupby(['Markt', 'Artikel'])['Preis'].fillna(
+        method='bfill')
     neuere_preise = preise.groupby('Artikel').last()
     neuere_preise.drop(columns=['Datum', 'Markt'], inplace=True)
     neuere_preise_index = neuere_preise.to_dict()['Preis']
@@ -333,12 +362,14 @@ def create_frame_from_raw_data(params):
         inplace=True
     )
     absatz.drop(columns=['PreisBackup'], inplace=True)
-    print('{:.2f} % der Daten aufgrund fehlender Preise verworfen.'.format(np.mean(absatz.Preis.isna()) * 100))
+    print('{:.2f} % der Daten aufgrund fehlender Preise verworfen.'.format(
+        np.mean(absatz.Preis.isna()) * 100))
     absatz.dropna(inplace=True)
     # endregion
 
     # region Aktionspreise aufbereiten
-    aktionspreise.sort_values(by=['DatumAb', 'DatumBis', 'Artikel'], inplace=True)
+    aktionspreise.sort_values(by=['DatumAb', 'DatumBis', 'Artikel'],
+                              inplace=True)
     len_vor = absatz.shape[0]
     absatz = pd.merge_asof(
         absatz,
@@ -349,7 +380,8 @@ def create_frame_from_raw_data(params):
         by='Artikel')
     len_nach = absatz.shape[0]
     assert len_vor == len_nach, 'Anfügen der Aktionspreise hat zu einer Verlängerung der Absätze geführt.'
-    absatz['Aktionspreis'].where(~(absatz.DatumBis < absatz.Datum), inplace=True)
+    absatz['Aktionspreis'].where(~(absatz.DatumBis < absatz.Datum),
+                                 inplace=True)
     absatz['absRabatt'] = absatz.Preis - absatz.Aktionspreis
     absatz['relRabatt'] = absatz.absRabatt / absatz.Preis
     absatz.relRabatt.fillna(0., inplace=True)
@@ -360,7 +392,9 @@ def create_frame_from_raw_data(params):
 
         filename = str(params.name) + ' PreisStd.json'
         with open(os.path.join(params.output_dir, filename), 'w') as file:
-            json.dump({'PreisStandardDerivation': preis_std, 'PreisMean': preis_mean}, file)
+            json.dump(
+                {'PreisStandardDerivation': preis_std, 'PreisMean': preis_mean},
+                file)
     else:
         filename = params.name.split('-')[0] + ' PreisStd.json'
         with open(os.path.join(params.output_dir, filename), 'r') as file:
@@ -371,12 +405,18 @@ def create_frame_from_raw_data(params):
     # endregion
 
     # region Targets erzeugen
-    absatz['in1'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-1)
-    absatz['in2'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-2)
-    absatz['in3'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-3)
-    absatz['in4'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-4)
-    absatz['in5'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-5)
-    absatz['in6'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)['Menge'].shift(-6)
+    absatz['in1'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)[
+        'Menge'].shift(-1)
+    absatz['in2'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)[
+        'Menge'].shift(-2)
+    absatz['in3'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)[
+        'Menge'].shift(-3)
+    absatz['in4'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)[
+        'Menge'].shift(-4)
+    absatz['in5'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)[
+        'Menge'].shift(-5)
+    absatz['in6'] = absatz.groupby(['Markt', 'Artikel'], as_index=False)[
+        'Menge'].shift(-6)
     absatz.dropna(axis=0, inplace=True)
     absatz.sort_values(['Markt', 'Artikel', 'Datum'], inplace=True)
     # endregion

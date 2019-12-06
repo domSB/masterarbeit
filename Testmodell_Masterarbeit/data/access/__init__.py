@@ -18,9 +18,11 @@ class Parameter(object):
         Wenn keine Parameter beim Initialisieren übergeben werden, werden Standardwerte verwendet.
         :param kwargs:
         """
-        self.output_dir = kwargs.get('OutputDirectory', os.path.join('files', 'prepared'))
+        self.output_dir = kwargs.get('OutputDirectory',
+                                     os.path.join('files', 'prepared'))
 
-        self.input_dir = kwargs.get('InputDirectory', os.path.join('files', 'raw'))
+        self.input_dir = kwargs.get('InputDirectory',
+                                    os.path.join('files', 'raw'))
 
         self.warengruppen_maske = kwargs.get('ZielWarengruppen', [55])
 
@@ -45,7 +47,8 @@ class Parameter(object):
         :return: str aus Warengruppe und Detailwarengruppe, falls vorhanden.
         """
         if self.detail_warengruppen_maske:
-            name = '-'.join([str(self.warengruppen_maske[0]), str(self.detail_warengruppen_maske[0])])
+            name = '-'.join([str(self.warengruppen_maske[0]),
+                             str(self.detail_warengruppen_maske[0])])
         else:
             name = str(self.warengruppen_maske[0])
         return name
@@ -104,33 +107,44 @@ class DataPipeLine(object):
         :return: lab, dyn, stat, split_helper
         """
         if self.params.npz_name in os.listdir(self.params.output_dir):
-            print('Vorberechnete Daten vorhanden\nLese Numpy Archiv-Dateien ...')
-            files = np.load(os.path.join(self.params.output_dir, self.params.npz_name))
+            print(
+                'Vorberechnete Daten vorhanden\nLese Numpy Archiv-Dateien ...')
+            files = np.load(
+                os.path.join(self.params.output_dir, self.params.npz_name))
             lab = files['lab']
             dyn = files['dyn']
             stat = files['stat']
             split_helper = files['split_helper']
         elif self.params.h5name in os.listdir(self.params.output_dir):
-            print('Teilweise vorberechnete Daten vorhanden\n(1/2)\tLese HDF-Store ...')
-            with pd.HDFStore(os.path.join(self.params.output_dir, self.params.h5name)) as store:
+            print(
+                'Teilweise vorberechnete Daten vorhanden\n(1/2)\tLese HDF-Store ...')
+            with pd.HDFStore(os.path.join(self.params.output_dir,
+                                          self.params.h5name)) as store:
                 absatz = store.get('Absatz')
                 artikelstamm = store.get('Artikelstamm')
             print('(2/2)\tErstelle Numpy-Arrays aus DataFrames')
-            lab, dyn, stat, split_helper = create_numpy_from_frame(self.params, absatz, artikelstamm)
+            lab, dyn, stat, split_helper = create_numpy_from_frame(self.params,
+                                                                   absatz,
+                                                                   artikelstamm)
             np.savez(
                 os.path.join(self.params.output_dir, self.params.npz_name),
                 lab=lab, dyn=dyn, stat=stat, split_helper=split_helper)
 
         else:
-            print('Keine vorberechneten Daten\n(1/2)\tErstelle DataFrames aus Rohdaten')
-            absatz, bewegung, artikelstamm = create_frame_from_raw_data(self.params)
+            print(
+                'Keine vorberechneten Daten\n(1/2)\tErstelle DataFrames aus Rohdaten')
+            absatz, bewegung, artikelstamm = create_frame_from_raw_data(
+                self.params)
             print('Speichere neu berechnete Frames')
-            with pd.HDFStore(os.path.join(self.params.output_dir, self.params.h5name)) as store:
+            with pd.HDFStore(os.path.join(self.params.output_dir,
+                                          self.params.h5name)) as store:
                 store.put('Artikelstamm', artikelstamm, format="table")
                 store.put('Absatz', absatz)
                 store.put('Bewegung', bewegung)
             print('(2/2)\tErstelle Numpy-Arrays aus DataFrames')
-            lab, dyn, stat, split_helper = create_numpy_from_frame(self.params, absatz, artikelstamm)
+            lab, dyn, stat, split_helper = create_numpy_from_frame(self.params,
+                                                                   absatz,
+                                                                   artikelstamm)
             np.savez(
                 os.path.join(self.params.output_dir, self.params.npz_name),
                 lab=lab, dyn=dyn, stat=stat, split_helper=split_helper)
@@ -144,16 +158,20 @@ class DataPipeLine(object):
         """
         if self.params.h5name in os.listdir(self.params.output_dir):
             print('Vorberechnete Daten vorhanden\nLese HDF-Store ...')
-            with pd.HDFStore(os.path.join(self.params.output_dir, self.params.h5name)) as store:
+            with pd.HDFStore(os.path.join(self.params.output_dir,
+                                          self.params.h5name)) as store:
                 absatz = store.get('Absatz')
                 bewegung = store.get('Bewegung')
                 artikelstamm = store.get('Artikelstamm')
         else:
-            print('Keine vorberechneten Daten\nErstelle DataFrames aus Rohdaten')
-            absatz, bewegung, artikelstamm = create_frame_from_raw_data(self.params)
+            print(
+                'Keine vorberechneten Daten\nErstelle DataFrames aus Rohdaten')
+            absatz, bewegung, artikelstamm = create_frame_from_raw_data(
+                self.params)
 
             print('Speichere neu berechnete Frames')
-            with pd.HDFStore(os.path.join(self.params.output_dir, self.params.h5name)) as store:
+            with pd.HDFStore(os.path.join(self.params.output_dir,
+                                          self.params.h5name)) as store:
                 store.put('Artikelstamm', artikelstamm, format="table")
                 store.put('Absatz', absatz)
                 store.put('Bewegung', bewegung)

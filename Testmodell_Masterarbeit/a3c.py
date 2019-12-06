@@ -73,15 +73,19 @@ if not os.path.exists(hps.log_dir):
     os.mkdir(hps.log_dir)
     os.mkdir(hps.model_dir)
 
-predictor_dir = os.path.join('files', 'models', 'PredictorV2', '02RegWG' + str(hps.warengruppe[0]))
+predictor_dir = os.path.join('files', 'models', 'PredictorV2',
+                             '02RegWG' + str(hps.warengruppe[0]))
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
 # endregion
 
-pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe, DetailWarengruppe=hps.detail_warengruppe)
+pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe,
+                        DetailWarengruppe=hps.detail_warengruppe)
 simulation_data = pipeline.get_regression_data()
-train_data, test_data = split_np_arrays(*simulation_data, by_time=hps.use_one_article, only_one=hps.use_one_article)
+train_data, test_data = split_np_arrays(*simulation_data,
+                                        by_time=hps.use_one_article,
+                                        only_one=hps.use_one_article)
 
 print('Artikel', train_data[3][0], test_data[3][0])
 
@@ -116,7 +120,8 @@ hps.set_hparam('state_size', list(simulation.state_size))
 hps.save(os.path.join(hps.log_dir, 'Hyperparameter.yaml'))
 
 with tf.device("/cpu:0"):
-    global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
+    global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes',
+                                  trainable=False)
     trainer = tf.train.AdamOptimizer(hps.learning_rate)
     master_network = A3CNetwork('global', None, hps)
     num_workers = multiprocessing.cpu_count()
@@ -162,5 +167,6 @@ with tf.Session() as sess:
         worker_threads.append(t)
     coord.join(worker_threads)
     validator = StockSimulation(test_data, test_pred, hps)
-    evaluation = Evaluator(master_network, simulation, validator, hps, session=sess)
+    evaluation = Evaluator(master_network, simulation, validator, hps,
+                           session=sess)
     evaluation.show()
