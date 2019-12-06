@@ -1,3 +1,13 @@
+"""
+Datei enthält alle Agenten-Typen.
+Die beiden Agenten im engeren Sinne:
+- Deep Double Duelling Q Agent
+- Asynchronous Advantage Actor-Critic
+Den Prädiktor für den Agent im weiteren Sinne.
+
+Sowie eine Menschen-Klasse für die Heuristik auf Basis der Vorhersage.
+"""
+
 import datetime
 import os
 import random
@@ -13,6 +23,7 @@ tf.get_logger().setLevel('ERROR')
 
 
 def decay(epoch):
+    """ Abfallende Lernrate für den Prädiktor"""
     if epoch < 3:
         return 1e-3
     elif 3 <= epoch < 10:
@@ -22,7 +33,10 @@ def decay(epoch):
 
 
 def normalized_columns_initializer(std=1.0):
-    """ Vorgeschlagen von Arthur Juliani"""
+    """
+    Vorgeschlagen von Arthur Juliani für eine bessere Initialisierung.
+    Quelle: siehe A3CNetwork-Klasse.
+    """
 
     def _initializer(shape, dtype=None, partition_info=None):
         out = np.random.randn(*shape).astype(np.float32)
@@ -34,7 +48,7 @@ def normalized_columns_initializer(std=1.0):
 
 def update_target_graph(from_scope, to_scope):
     """
-    Helper function to copy Parameters from one Network to another.
+    Hilfsfunktion, um die Parameter von TF-Graphen zu kopieren.
     :param from_scope:
     :param to_scope:
     :return: list of ops to execute
@@ -49,7 +63,7 @@ def update_target_graph(from_scope, to_scope):
 
 def discount(x, _gamma):
     """
-    Helper function to discount rewards.
+    Hilfsfunktion, um eine Reihe von Belohnungen abzuzinsen.
     :param x:
     :param _gamma:
     :return:
@@ -57,15 +71,24 @@ def discount(x, _gamma):
     return lfilter([1], [1, -_gamma], x[::-1], axis=0)[::-1]
 
 
-# region Prädiktor
 class Predictor(object):
+    """
+    Prädiktor Objekt nach Kapitel 5.3
+    """
     def __init__(self):
         self.model = None
 
     def build_model(self, **kwargs):
-        dynamic_inputs = tf.keras.Input(shape=(6, kwargs['dynamic_state_shape']),
-                                        name='dynamic_input')
-        static_inputs = tf.keras.Input(shape=(kwargs['static_state_shape'],), name='static_input')
+        """
+        Erstellt ein neuronales Netz nach den übergebenen Parametern.
+        :param kwargs:
+        :return:
+        """
+        dynamic_inputs = tf.keras.Input(
+            shape=(6, kwargs['dynamic_state_shape']),
+            name='dynamic_input')
+        static_inputs = tf.keras.Input(shape=(kwargs['static_state_shape'],),
+                                       name='static_input')
         dynamic_x = tf.keras.layers.LSTM(
             32,
             activation='relu',
@@ -86,26 +109,43 @@ class Predictor(object):
             kernel_regularizer=tf.keras.regularizers.l2(0.001),
             name="Dense_1"
         )(x)
-        predictions_1d = tf.keras.layers.Dense(16, activation='softmax', name="1day")(x)
-        predictions_2d = tf.keras.layers.Dense(16, activation='softmax', name="2day")(x)
-        predictions_3d = tf.keras.layers.Dense(16, activation='softmax', name="3day")(x)
-        predictions_4d = tf.keras.layers.Dense(16, activation='softmax', name="4day")(x)
-        predictions_5d = tf.keras.layers.Dense(16, activation='softmax', name="5day")(x)
-        predictions_6d = tf.keras.layers.Dense(16, activation='softmax', name="6day")(x)
+        predictions_1d = tf.keras.layers.Dense(16, activation='softmax',
+                                               name="1day")(x)
+        predictions_2d = tf.keras.layers.Dense(16, activation='softmax',
+                                               name="2day")(x)
+        predictions_3d = tf.keras.layers.Dense(16, activation='softmax',
+                                               name="3day")(x)
+        predictions_4d = tf.keras.layers.Dense(16, activation='softmax',
+                                               name="4day")(x)
+        predictions_5d = tf.keras.layers.Dense(16, activation='softmax',
+                                               name="5day")(x)
+        predictions_6d = tf.keras.layers.Dense(16, activation='softmax',
+                                               name="6day")(x)
         self.model = tf.keras.Model(
             inputs=[dynamic_inputs, static_inputs],
-            outputs=[predictions_1d, predictions_2d, predictions_3d, predictions_4d, predictions_5d, predictions_6d])
+            outputs=[predictions_1d, predictions_2d, predictions_3d,
+                     predictions_4d, predictions_5d, predictions_6d])
         rms = tf.keras.optimizers.Adam(lr=kwargs.get('learning_rate', 0.001))
         self.model.compile(
             optimizer=rms,
             loss='categorical_crossentropy',
             loss_weights={'1day': 0.6, '2day': 0.5, '3day': 0.4, '4day': 0.3,
                           '5day': 0.3, '6day': 0.3},
+            # stärkere Gewichtung der näheren Tage, da wichtiger für die
+            # Absatzprognose und tendenziell weniger unsicher.
             metrics=[tf.keras.metrics.categorical_accuracy]
         )
 
     def train(self, _dataset, _val_dataset, _params):
-        if os.path.exists(os.path.join('files', 'logging', 'PredictorV2', _params['Name'])):
+        """
+        Training ausführen.
+        :param _dataset: Tensorflow Dataset für einen schnellen Lernprozess
+        :param _val_dataset:
+        :param _params:
+        :return:
+        """
+        if os.path.exists(os.path.join('files', 'logging', 'PredictorV2',
+                                       _params['Name'])):
             name = datetime.datetime.now().__str__()
         else:
             name = _params['Name']
@@ -120,7 +160,8 @@ class Predictor(object):
             update_freq='batch')
         nan_callback = tf.keras.callbacks.TerminateOnNaN()
         save_callback = tf.keras.callbacks.ModelCheckpoint(
-            os.path.join('files', 'models', 'PredictorV2', name, 'weights.{epoch:02d}-{loss:.2f}.hdf5'),
+            os.path.join('files', 'models', 'PredictorV2', name,
+                         'weights.{epoch:02d}-{loss:.2f}.hdf5'),
             monitor='loss',
             verbose=0,
             period=1)
@@ -149,21 +190,30 @@ class Predictor(object):
         return history
 
     def load_from_weights(self, path):
+        """
+        Prädiktor-Parameter aus Datei einlesen.
+        :param path:
+        :return:
+        """
         self.model.load_weights(path)
 
     def predict(self, x):
+        """
+        Absätze prognostizieren.
+        :param x:
+        :return:
+        """
         y = self.model.predict(x)
         y = np.swapaxes(np.array(y), 0, 1)
+        # Ausgabe von Keras für die weitere Verwendung nicht optimal.
+        # Daher Anpassung an Anforderungen für Simulation mit
+        # Big-Batch Prediction
         return y
 
 
-# endregion
-
-
-# region Duelling Double Deep Agent
 class DDDQNetwork:
     """
-    Duelling Double Deep Agent Network
+    Neuronales Netz des Deep Double Duelling Agent
     """
 
     def __init__(self, hparams, name):
@@ -182,19 +232,27 @@ class DDDQNetwork:
                     hparams.lstm_units,
                     return_sequences=True,
                     name='LSTM_1')(self.inputs)
-                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM_2')(self.intermediate_lstm)
+                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units,
+                                                   name='LSTM_2')(
+                    self.intermediate_lstm)
             elif hparams.use_lstm:
                 self.inputs = tf.placeholder(
                     shape=[None, hparams.time_steps, *hparams.state_size],
                     dtype=tf.float32,
                     name='Inputs')
-                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM')(self.inputs)
+                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units,
+                                                   name='LSTM')(self.inputs)
             else:
-                self.inputs = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32, name='Inputs')
-                self.firsts = tf.keras.layers.Flatten(name='FlatInputs')(self.inputs)
-            self.is_weights = tf.placeholder(tf.float32, [None, 1], name='IS_Weights')
+                self.inputs = tf.placeholder(shape=[None, *hparams.state_size],
+                                             dtype=tf.float32, name='Inputs')
+                self.firsts = tf.keras.layers.Flatten(name='FlatInputs')(
+                    self.inputs)
+            self.is_weights = tf.placeholder(tf.float32, [None, 1],
+                                             name='IS_Weights')
 
-            self.actions_ = tf.placeholder(tf.float32, [None, hparams.action_size], name='Actions')
+            self.actions_ = tf.placeholder(tf.float32,
+                                           [None, hparams.action_size],
+                                           name='Actions')
 
             self.target_q = tf.placeholder(tf.float32, [None], name='Target')
 
@@ -202,58 +260,52 @@ class DDDQNetwork:
                 units=hparams.main_size,
                 activation=hparams.main_activation,
                 kernel_regularizer=hparams.main_regularizer,
-                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                # bias_initializer=tf.constant_initializer(0.1),
                 name='EingangsDense'
             )(self.firsts)
             self.value_fc = tf.keras.layers.Dense(
                 units=hparams.value_size,
                 activation=hparams.value_activation,
                 kernel_regularizer=hparams.value_regularizer,
-                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                # bias_initializer=tf.constant_initializer(0.1),
                 name='ValueFC'
             )(self.dense_one)
             self.value = tf.keras.layers.Dense(
                 units=1,
                 activation=None,
-                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                # bias_initializer=tf.constant_initializer(0.1),
                 name='Value'
             )(self.value_fc)
             self.advantage_fc = tf.keras.layers.Dense(
                 units=hparams.avantage_size,
                 activation=hparams.advantage_activation,
                 kernel_regularizer=hparams.advantage_regularizer,
-                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                # bias_initializer=tf.constant_initializer(0.1),
                 name='AdvantageFC'
             )(self.dense_one)
             self.advantage = tf.keras.layers.Dense(
                 units=self.action_size,
                 activation=None,
-                # kernel_initializer=tf.random_normal_initializer(0., 0.3),
-                # bias_initializer=tf.constant_initializer(0.1),
                 name='Advantage'
             )(self.advantage_fc)
 
             # Zusammenführen von V(s) und A(s, a)
             self.output = self.value + tf.subtract(
-                self.advantage, tf.reduce_mean(self.advantage, axis=1, keepdims=True)
+                self.advantage,
+                tf.reduce_mean(self.advantage, axis=1, keepdims=True)
             )
 
-            self.q = tf.reduce_sum(tf.multiply(self.output, self.actions_), axis=1)
+            self.q = tf.reduce_sum(tf.multiply(self.output, self.actions_),
+                                   axis=1)
 
             self.absolute_errors = tf.abs(self.target_q - self.q)
 
-            self.loss = tf.reduce_mean(self.is_weights * tf.squared_difference(self.target_q, self.q))
+            self.loss = tf.reduce_mean(
+                self.is_weights * tf.squared_difference(self.target_q, self.q))
 
-            self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
+            self.optimizer = tf.train.AdamOptimizer(
+                self.learning_rate).minimize(self.loss)
 
 
 class UniformSamplingMemory:
     """
-    Replay Buffer with uniform sampling
+    Erinnerungsspeicher mit unbiased-Sampling
     """
 
     def __init__(self, hparams):
@@ -262,7 +314,7 @@ class UniformSamplingMemory:
 
     def store(self, _experience):
         """
-        Store an experience in the deque
+        Erinnerung speichern
         :param _experience:
         :return:
         """
@@ -284,7 +336,7 @@ class UniformSamplingMemory:
 
     def batch_update(self, tree_idx, abs_errors):
         """
-        Methode für einheitlichen Aufbau.
+        Methode für identischen Aufbau zur Importance-Sampling Variante.
         Macht nix.
         :param tree_idx:
         :param abs_errors:
@@ -295,7 +347,15 @@ class UniformSamplingMemory:
 
 class ImportanceSamplingMemory:
     """
-    Replay-Buffer mit Importance Sampling
+    Replay-Buffer mit Importance Sampling nach SCHAUL et al. (2015)
+    Implementierung in Anlehnung an Thomas Simonini & Morvan Zhou.
+
+    https://github.com/simoninithomas/Deep_reinforcement_learning_Course/
+    tree/master/Dueling%20Double%20DQN%20with%20PER%20and%20fixed-q%20targets
+
+    https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow/
+    blob/master/contents/5.2_Prioritized_Replay_DQN/RL_brain.py
+
     """
 
     def __init__(self, hparams):
@@ -325,14 +385,18 @@ class ImportanceSamplingMemory:
         :return: Experience-Indexes, Experiences, importance_sampling_weights
         """
         memory_b = []
-        b_idx, b_is_weights = np.empty((n,), dtype=np.int32), np.empty((n, 1), dtype=np.float32)
+        b_idx = np.empty((n,), dtype=np.int32)
+        b_is_weights = np.empty((n, 1), dtype=np.float32)
 
         priority_segment = self.tree.total_priority / n
         self.per_beta = np.min([1., self.per_beta + self.per_beta_increment])
 
-        p_min = np.min(self.tree.tree[-self.tree.capacity:]) / self.tree.total_priority
+        p_min = np.min(
+            self.tree.tree[-self.tree.capacity:]) / self.tree.total_priority
         if p_min == 0:
-            # Initialisierungsproblem, p_min auf Epsilon setzen, da Epsilon die minimale Wahrscheinlichkeit ist
+            # Initialisierungsproblem, wenn Buffer noch nicht ganz voll:
+            # p_min auf Epsilon setzen, da Epsilon die minimale
+            # Wahrscheinlichkeit ist
             p_min = self.per_epsilon
         max_weight = (p_min * n) ** (-self.per_beta)
         for k in range(n):
@@ -341,7 +405,8 @@ class ImportanceSamplingMemory:
             index, priority, data = self.tree.get_leaf(value)
 
             sampling_probabilities = priority / self.tree.total_priority
-            b_is_weights[k, 0] = np.power(n * sampling_probabilities, -self.per_beta) / max_weight
+            b_is_weights[k, 0] = np.power(n * sampling_probabilities,
+                                          -self.per_beta) / max_weight
             b_idx[k] = index
             _experience = data
             memory_b.append(_experience)
@@ -364,7 +429,7 @@ class ImportanceSamplingMemory:
 
 class SumTree:
     """
-    SumTree als Laufzeit optimierte Alternative zu einem sortierten Replaybuffer.
+    SumTree als Laufzeit-optimierte Alternative zu einem sortierten Replaybuffer
     Implementierung nach Thomas Simonini & Morvan Zhou.
     """
     data_pointer = 0
@@ -385,7 +450,8 @@ class SumTree:
         self.data[self.data_pointer] = data
         self.update(tree_index, priority)
         self.data_pointer += 1
-        if self.data_pointer >= self.capacity:  # mit neuen Einträgen überschreiben
+        if self.data_pointer >= self.capacity:
+            # mit neuen Einträgen überschreiben
             self.data_pointer = 0
 
     def update(self, tree_index, priority):
@@ -456,7 +522,8 @@ class DDDQAgent:
         self.curr_loss = -1
         self.curr_vs = []
         self.curr_as = []
-        self.possible_actions = np.identity(hparams.action_size, dtype=int).tolist()
+        self.possible_actions = np.identity(hparams.action_size,
+                                            dtype=int).tolist()
         self.dq_network = DDDQNetwork(hparams, name='DQNetwork')
         self.target_network = DDDQNetwork(hparams, name='TargetNetwork')
         if hparams.use_importance_sampling:
@@ -464,39 +531,53 @@ class DDDQAgent:
         else:
             self.memory = UniformSamplingMemory(hparams)
         self.sess.run(tf.global_variables_initializer())
-        # self.update_target()
         self.writer = tf.summary.FileWriter(hparams.log_dir, self.sess.graph)
         with tf.name_scope('Belohnungen'):
             # Belohnung
-            self.v_rewards = tf.placeholder(tf.float32, shape=None, name='v_Belohnungen')
-            self.reward_histo = tf.summary.histogram('Verteilung', self.v_rewards)
+            self.v_rewards = tf.placeholder(tf.float32, shape=None,
+                                            name='v_Belohnungen')
+            self.reward_histo = tf.summary.histogram('Verteilung',
+                                                     self.v_rewards)
             self.v_rewards_sum = tf.math.reduce_sum(self.v_rewards)
-            self.summary_reward_sum = tf.summary.scalar('Summe', self.v_rewards_sum)
+            self.summary_reward_sum = tf.summary.scalar('Summe',
+                                                        self.v_rewards_sum)
             self.v_rewards_min = tf.math.reduce_min(self.v_rewards)
-            self.summary_reward_min = tf.summary.scalar('Minimum', self.v_rewards_min)
+            self.summary_reward_min = tf.summary.scalar('Minimum',
+                                                        self.v_rewards_min)
 
             # Validierungs Belohnung
-            self.v_val_rewards = tf.placeholder(tf.float32, shape=None, name='v_val_Belohnungen')
-            self.val_reward_histo = tf.summary.histogram('Val_Verteilung', self.v_val_rewards)
+            self.v_val_rewards = tf.placeholder(tf.float32, shape=None,
+                                                name='v_val_Belohnungen')
+            self.val_reward_histo = tf.summary.histogram('Val_Verteilung',
+                                                         self.v_val_rewards)
             self.v_val_rewards_sum = tf.math.reduce_sum(self.v_val_rewards)
-            self.summary_val_reward_sum = tf.summary.scalar('Val_Summe', self.v_val_rewards_sum)
+            self.smry_val_reward_sum = tf.summary.scalar('Val_Summe',
+                                                         self.v_val_rewards_sum)
 
         with tf.name_scope('Values'):
             # StateValues
-            self.v_vs = tf.placeholder(tf.float32, shape=None, name='v_StateValues')
-            self.summary_v_values = tf.summary.histogram('StateValues', self.v_vs)
+            self.v_vs = tf.placeholder(tf.float32, shape=None,
+                                       name='v_StateValues')
+            self.summary_v_values = tf.summary.histogram('StateValues',
+                                                         self.v_vs)
             self.v_mean_v = tf.math.reduce_mean(self.v_vs)
-            self.summary_mean_v_value = tf.summary.scalar('StateValue', self.v_mean_v)
+            self.summary_mean_v_value = tf.summary.scalar('StateValue',
+                                                          self.v_mean_v)
 
             # AdvantageValues
-            self.v_as = tf.placeholder(tf.float32, shape=None, name='v_AdvantageValues')
+            self.v_as = tf.placeholder(tf.float32, shape=None,
+                                       name='v_AdvantageValues')
             self.v_best_as = tf.math.reduce_max(self.v_as, axis=0)
-            self.summary_a_values = tf.summary.histogram('AdvantageValues', self.v_as)
-            self.summary_best_a_values = tf.summary.histogram('BestAdvantageValues', self.v_best_as)
+            self.summary_a_values = tf.summary.histogram('AdvantageValues',
+                                                         self.v_as)
+            self.summary_best_a_values = tf.summary.histogram(
+                'BestAdvantageValues', self.v_best_as)
             self.v_mean_a = tf.math.reduce_mean(self.v_best_as)
             self.v_std_a = tf.math.reduce_std(self.v_best_as)
-            self.summary_mean_a_value = tf.summary.scalar('BestAdvantageValueMean', self.v_mean_a)
-            self.summary_std_a_value = tf.summary.scalar('BestAdvantageValueVariance', self.v_std_a)
+            self.summary_mean_a_value = tf.summary.scalar(
+                'BestAdvantageValueMean', self.v_mean_a)
+            self.summary_std_a_value = tf.summary.scalar(
+                'BestAdvantageValueVariance', self.v_std_a)
 
             # Loss
             self.v_loss = tf.placeholder(tf.float32, shape=None, name='Loss')
@@ -504,73 +585,100 @@ class DDDQAgent:
 
         with tf.name_scope('Hyperparameter'):
             # Epsilon
-            self.v_epsilon = tf.placeholder(tf.float32, shape=None, name='v_Epsilon')
+            self.v_epsilon = tf.placeholder(tf.float32, shape=None,
+                                            name='v_Epsilon')
             self.summary_epsilon = tf.summary.scalar('Epsilon', self.v_epsilon)
             # Beta
             self.v_beta = tf.placeholder(tf.float32, shape=None, name='v_Beta')
             self.summary_beta = tf.summary.scalar('Beta', self.v_beta)
             # TargetUpdates
-            self.v_target_updates = tf.placeholder(tf.float32, shape=None, name='v_TargetUpdates')
-            self.summary_target_update = tf.summary.scalar('TargetUpdates', self.v_target_updates)
+            self.v_target_updates = tf.placeholder(tf.float32, shape=None,
+                                                   name='v_TargetUpdates')
+            self.smry_target_update = tf.summary.scalar('TargetUpdates',
+                                                        self.v_target_updates)
 
         with tf.name_scope('Bestand'):
             # Bestand
-            self.v_bestand = tf.placeholder(tf.float32, shape=None, name='v_Bestand')
+            self.v_bestand = tf.placeholder(tf.float32, shape=None,
+                                            name='v_Bestand')
             self.v_bestand_max = tf.math.reduce_max(self.v_bestand)
-            self.summary_bestand_max = tf.summary.scalar('Maximum', self.v_bestand_max)
+            self.summary_bestand_max = tf.summary.scalar('Maximum',
+                                                         self.v_bestand_max)
 
             self.v_bestand_mean = tf.math.reduce_mean(self.v_bestand)
-            self.summary_bestand_mean = tf.summary.scalar('Durchschnitt', self.v_bestand_mean)
+            self.summary_bestand_mean = tf.summary.scalar('Durchschnitt',
+                                                          self.v_bestand_mean)
 
             # Actions
-            self.v_actions = tf.placeholder(tf.float32, shape=None, name='v_Aktionen')
+            self.v_actions = tf.placeholder(tf.float32, shape=None,
+                                            name='v_Aktionen')
             self.action_histo = tf.summary.histogram('Aktionen', self.v_actions)
             self.v_actions_sum = tf.math.reduce_sum(self.v_actions)
-            self.summary_actions_sum = tf.summary.scalar('Bestellmenge', self.v_actions_sum)
+            self.summary_actions_sum = tf.summary.scalar('Bestellmenge',
+                                                         self.v_actions_sum)
 
             # Validation Actions
-            self.v_val_actions = tf.placeholder(tf.float32, shape=None, name='v_val_Aktionen')
+            self.v_val_actions = tf.placeholder(tf.float32, shape=None,
+                                                name='v_val_Aktionen')
             self.v_val_actions_sum = tf.math.reduce_sum(self.v_val_actions)
 
         with tf.name_scope('Bewegungen'):
             # Absatz
-            self.v_absatz = tf.placeholder(tf.float32, shape=None, name='v_Absatz')
+            self.v_absatz = tf.placeholder(tf.float32, shape=None,
+                                           name='v_Absatz')
             self.v_absatz_sum = tf.math.reduce_sum(self.v_absatz)
-            self.summary_absatz_sum = tf.summary.scalar('Absatz', self.v_absatz_sum)
+            self.summary_absatz_sum = tf.summary.scalar('Absatz',
+                                                        self.v_absatz_sum)
 
             # Validation Absatz
-            self.v_val_absatz = tf.placeholder(tf.float32, shape=None, name='v_val_Absatz')
+            self.v_val_absatz = tf.placeholder(tf.float32, shape=None,
+                                               name='v_val_Absatz')
             self.v_val_absatz_sum = tf.math.reduce_sum(self.v_val_absatz)
 
             # Abschriften
-            self.v_abschriften = tf.placeholder(tf.float32, shape=None, name='v_Abschriften')
+            self.v_abschriften = tf.placeholder(tf.float32, shape=None,
+                                                name='v_Abschriften')
             self.v_abschriften_sum = tf.math.reduce_sum(self.v_abschriften)
-            self.summary_abschriften_sum = tf.summary.scalar('Abschriften', self.v_abschriften_sum)
+            self.smry_abschr_sum = tf.summary.scalar('Abschriften',
+                                                     self.v_abschriften_sum)
 
-            self.v_abschrift_proz = tf.math.divide(self.v_abschriften_sum, self.v_actions_sum)
-            self.summary_abschrift_proz = tf.summary.scalar('AbschriftProzent', self.v_abschrift_proz)
+            self.v_abschrift_proz = tf.math.divide(self.v_abschriften_sum,
+                                                   self.v_actions_sum)
+            self.smry_abschrift_proz = tf.summary.scalar('AbschriftProzent',
+                                                         self.v_abschrift_proz)
 
             # Validation Abschriften
-            self.v_val_abschriften = tf.placeholder(tf.float32, shape=None, name='v_val_Abschriften')
-            self.v_val_abschriften_sum = tf.math.reduce_sum(self.v_val_abschriften)
+            self.v_val_abschriften = tf.placeholder(tf.float32, shape=None,
+                                                    name='v_val_Abschriften')
+            self.v_val_abschriften_sum = tf.math.reduce_sum(
+                self.v_val_abschriften)
 
-            self.v_val_abschrift_proz = tf.math.divide(self.v_val_abschriften_sum, self.v_val_actions_sum)
-            self.summary_val_abschrift_proz = tf.summary.scalar('Val_AbschriftProzent', self.v_val_abschrift_proz)
+            self.v_val_abschrift_proz = tf.math.divide(
+                self.v_val_abschriften_sum, self.v_val_actions_sum)
+            self.summary_val_abschrift_proz = tf.summary.scalar(
+                'Val_AbschriftProzent', self.v_val_abschrift_proz)
 
             # Fehlmenge
-            self.v_fehlmenge = tf.placeholder(tf.float32, shape=None, name='v_Fehlmenge')
+            self.v_fehlmenge = tf.placeholder(tf.float32, shape=None,
+                                              name='v_Fehlmenge')
             self.v_fehlmenge_sum = tf.math.reduce_sum(self.v_fehlmenge)
-            self.summary_fehlmenge_sum = tf.summary.scalar('Fehlmenge', self.v_fehlmenge_sum)
+            self.summary_fehlmenge_sum = tf.summary.scalar('Fehlmenge',
+                                                           self.v_fehlmenge_sum)
 
-            self.v_fehlmenge_proz = tf.math.divide(self.v_fehlmenge_sum, self.v_absatz_sum)
-            self.summary_fehlmenge_proz = tf.summary.scalar('FehlmengeProzent', self.v_fehlmenge_proz)
+            self.v_fehlmenge_proz = tf.math.divide(self.v_fehlmenge_sum,
+                                                   self.v_absatz_sum)
+            self.smry_fehlmenge_proz = tf.summary.scalar('FehlmengeProzent',
+                                                         self.v_fehlmenge_proz)
 
             # Validation Fehlmenge
-            self.v_val_fehlmenge = tf.placeholder(tf.float32, shape=None, name='v_val_Fehlmenge')
+            self.v_val_fehlmenge = tf.placeholder(tf.float32, shape=None,
+                                                  name='v_val_Fehlmenge')
             self.v_val_fehlmenge_sum = tf.math.reduce_sum(self.v_val_fehlmenge)
 
-            self.v_val_fehlmenge_proz = tf.math.divide(self.v_val_fehlmenge_sum, self.v_val_absatz_sum)
-            self.summary_val_fehlmenge_proz = tf.summary.scalar('Val_FehlmengeProzent', self.v_val_fehlmenge_proz)
+            self.v_val_fehlmenge_proz = tf.math.divide(self.v_val_fehlmenge_sum,
+                                                       self.v_val_absatz_sum)
+            self.summary_val_fehlmenge_proz = tf.summary.scalar(
+                'Val_FehlmengeProzent', self.v_val_fehlmenge_proz)
 
         self.merged = tf.summary.merge_all()
 
@@ -643,7 +751,8 @@ class DDDQAgent:
             if terminal:
                 target_qs_batch.append(reward_batch[i])
             else:
-                target = reward_batch[i] + self.gamma * q_target_next_state[i][action]
+                target = reward_batch[i] + self.gamma * q_target_next_state[i][
+                    action]
                 target_qs_batch.append(target)
 
         target_qs_batch = np.array(target_qs_batch)
@@ -668,10 +777,6 @@ class DDDQAgent:
         self.curr_as = advantages
 
 
-# endregion
-
-
-# region Asynchronous Advantage Actor Critic
 class A3CNetwork:
     """
     Neuronales Netz des Actor-Critic.
@@ -688,34 +793,42 @@ class A3CNetwork:
                     hparams.lstm_units,
                     return_sequences=True,
                     name='LSTM_1')(self.inputs)
-                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM_2')(self.intermediate_lstm)
+                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units,
+                                                   name='LSTM_2')(
+                    self.intermediate_lstm)
             elif hparams.use_lstm:
                 self.inputs = tf.placeholder(
                     shape=[None, hparams.time_steps, *hparams.state_size],
                     dtype=tf.float32,
                     name='Inputs')
-                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units, name='LSTM')(self.inputs)
+                self.firsts = tf.keras.layers.LSTM(hparams.lstm_units,
+                                                   name='LSTM')(self.inputs)
             else:
-                self.inputs = tf.placeholder(shape=[None, *hparams.state_size], dtype=tf.float32, name='Inputs')
-                self.firsts = tf.keras.layers.Flatten(name='FlatInputs')(self.inputs)
+                self.inputs = tf.placeholder(shape=[None, *hparams.state_size],
+                                             dtype=tf.float32, name='Inputs')
+                self.firsts = tf.keras.layers.Flatten(name='FlatInputs')(
+                    self.inputs)
             self.fc_main = tf.keras.layers.Dense(
                 hparams.main_size,
                 activation=hparams.main_activation,
                 kernel_regularizer=hparams.main_regularizer
             )(self.firsts)
-            self.dropout_main = tf.keras.layers.Dropout(hparams.drop_out_rate)(self.fc_main)
+            self.dropout_main = tf.keras.layers.Dropout(hparams.drop_out_rate)(
+                self.fc_main)
             self.fc_policy = tf.keras.layers.Dense(
                 hparams.avantage_size,
                 activation=hparams.advantage_activation,
                 kernel_regularizer=hparams.advantage_regularizer
             )(self.dropout_main)
-            self.dropout_policy = tf.keras.layers.Dropout(hparams.drop_out_rate)(self.fc_policy)
+            self.dropout_policy = tf.keras.layers.Dropout(
+                hparams.drop_out_rate)(self.fc_policy)
             self.fc_value = tf.keras.layers.Dense(
                 hparams.value_size,
                 activation=hparams.value_activation,
                 kernel_regularizer=hparams.value_regularizer
             )(self.dropout_main)
-            self.dropout_value = tf.keras.layers.Dropout(hparams.drop_out_rate)(self.fc_value)
+            self.dropout_value = tf.keras.layers.Dropout(hparams.drop_out_rate)(
+                self.fc_value)
             self.policy = tf.keras.layers.Dense(
                 hparams.action_size,
                 activation=tf.keras.activations.softmax,
@@ -723,7 +836,8 @@ class A3CNetwork:
                 bias_initializer=None
             )(self.dropout_policy)
             self.policy += 1e-7
-            # verhindert NANs wenn log(policy) berechnet wird. Führt sonst zum Abbruch des Worker-Threads
+            # verhindert NANs wenn log(policy) berechnet wird.
+            # Führt sonst zum Abbruch des Worker-Threads
             self.value = tf.keras.layers.Dense(
                 1,
                 activation=None,
@@ -732,54 +846,66 @@ class A3CNetwork:
             )(self.dropout_value)
 
         if scope != 'global':
+            # Trainingsbereich nur für Arbeiter
             self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
-            self.actions_onehot = tf.one_hot(self.actions, hparams.action_size, dtype=tf.float32)
+            self.actions_onehot = tf.one_hot(self.actions, hparams.action_size,
+                                             dtype=tf.float32)
             self.target_v = tf.placeholder(shape=[None], dtype=tf.float32)
             self.advantages = tf.placeholder(shape=[None], dtype=tf.float32)
 
-            self.responsible_outputs = tf.reduce_sum(self.policy * self.actions_onehot, [1])
+            self.responsible_outputs = tf.reduce_sum(
+                self.policy * self.actions_onehot, [1])
 
             # Loss functions
-            self.value_loss = 0.5 * tf.reduce_sum(tf.square(self.target_v - tf.reshape(self.value, [-1])))
+            self.value_loss = 0.25 * tf.reduce_sum(
+                tf.square(self.target_v - tf.reshape(self.value, [-1])))
+            # Value Loss mit 0.25 auf das Skalen-Niveau des Policy Loss anpassen
             self.entropy = - tf.reduce_sum(self.policy * tf.log(self.policy))
-            self.policy_loss = -tf.reduce_sum(tf.log(self.responsible_outputs) * self.advantages)
-            self.loss = 0.5 * self.value_loss + self.policy_loss - self.entropy * 0.01
+            self.policy_loss = -tf.reduce_sum(
+                tf.log(self.responsible_outputs) * self.advantages)
+            self.loss = self.value_loss + self.policy_loss - self.entropy * 0.01
 
-            # Get gradients from local network using local losses
-            local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope)
+            # Lokale Gradienten berechnen
+            local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                           scope)
             self.gradients = tf.gradients(self.loss, local_vars)
             self.var_norms = tf.global_norm(local_vars)
-            grads, self.grad_norms = tf.clip_by_global_norm(self.gradients, 40.0)
+            grads, self.grad_norms = tf.clip_by_global_norm(self.gradients,
+                                                            40.0)
 
-            # Apply local gradients to global network
-            global_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'global')
+            # Lokale Gradienten auf das globale Netz anwenden
+            global_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                            'global')
             self.apply_grads = _trainer.apply_gradients(zip(grads, global_vars))
 
 
 class Worker:
     """
-    Workerclass for Actor Critic
+    Arbeiter-Klasse für den Actor Critic Agenten
+    Implementierung in Anlehnung an Arthur Juliani:
+    https://github.com/awjuliani/DeepRL-Agents/blob/master/A3C-Doom.ipynb
     """
 
-    def __init__(self, env, name, _trainer, _global_episodes, hparams, use_as_validator=False):
+    def __init__(self, env, name, _trainer, _global_episodes, hparams,
+                 use_as_validator=False):
         self.name = "worker_" + str(name)
         self.number = name
         self.model_path = hparams.model_dir
         self.gamma = hparams.gamma
         self.trainer = _trainer
         self.global_episodes = _global_episodes
-        self.max_episodes = hparams.episodes
+        self.max_runs = hparams.episodes
         self.use_as_validator = use_as_validator
         self.increment = self.global_episodes.assign_add(1)
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_mean_values = []
-        self.summary_writer = tf.summary.FileWriter(os.path.join(hparams.log_dir, "train_" + str(self.number)))
-
-        # Create the local copy of the network and the tensorflow op to copy global paramters to local network
+        self.summary_writer = tf.summary.FileWriter(
+            os.path.join(hparams.log_dir, "train_" + str(self.number)))
         self.local_AC = A3CNetwork(self.name, _trainer, hparams)
+        # Lokale Kopie des globalen Netzes mit identischer Struktur erzeugen
         self.update_local_ops = update_target_graph('global', self.name)
-
+        # kleiner Helfer, der die Kopier-Operation hält.
         self.actions = np.identity(hparams.action_size, dtype=bool).tolist()
         self.env = env
         self.rewards_plus = None
@@ -787,13 +913,22 @@ class Worker:
         self.hparams = hparams
 
     def train(self, rollout, _sess, bootstrap_value):
+        """
+        Einen Trainingsdurchlauf mit den aktuellen Erfahrungen durchführen.
+        :param rollout:
+        :param _sess:
+        :param bootstrap_value:
+        :return:
+        """
         if self.use_as_validator:
+            # Validierung erfolgt hier durch einen Arbeiter, der eine andere
+            # Simulation erhält und keine Updates auf dem globlen Netz
+            # durchführen darf.
             return None, None, None, None, None
         rollout = np.array(rollout)
         observations = rollout[:, 0]
         actions = rollout[:, 1]
         rewards = rollout[:, 2]
-        # next_observations = rollout[:, 3]
         values = rollout[:, 5]
 
         # Here we take the rewards and values from the rollout, and use them to
@@ -802,7 +937,8 @@ class Worker:
         self.rewards_plus = np.asarray(rewards.tolist() + [bootstrap_value])
         discounted_rewards = discount(self.rewards_plus, self.gamma)[:-1]
         self.value_plus = np.asarray(values.tolist() + [bootstrap_value])
-        advantages = rewards + self.gamma * self.value_plus[1:] - self.value_plus[:-1]
+        advantages = rewards + self.gamma * self.value_plus[
+                                            1:] - self.value_plus[:-1]
         advantages = discount(advantages, self.gamma)
 
         # Update the global network using gradients from loss
@@ -822,9 +958,17 @@ class Worker:
             ],
             feed_dict=feed_dict
         )
-        return v_l / len(rollout), p_l / len(rollout), e_l / len(rollout), g_n, v_n
+        return v_l / len(rollout), p_l / len(rollout), e_l / len(
+            rollout), g_n, v_n
 
     def work(self, _sess, _coord, _saver):
+        """
+        Methode startet den Arbeitsprozess.
+        :param _sess:
+        :param _coord:
+        :param _saver:
+        :return:
+        """
         episode_count = _sess.run(self.global_episodes)
         total_steps = 0
         print("Starting worker " + str(self.number))
@@ -833,16 +977,13 @@ class Worker:
                 _sess.run(self.update_local_ops)
                 episode_buffer = []
                 episode_values = []
-                # episode_states = []
                 episode_reward = 0
                 episode_step_count = 0
                 done = False
                 state_op = StateOperator(self.hparams)
                 state, info = self.env.reset()
                 state_op.start(state)
-                # episode_states.append(state_op.state)
                 while not done:
-                    # Take an action using probabilities from policy network output.
                     a_dist, v = _sess.run(
                         [self.local_AC.policy, self.local_AC.value],
                         feed_dict={self.local_AC.inputs: [state_op.state]})
@@ -851,25 +992,26 @@ class Worker:
 
                     reward, done, next_state = self.env.make_action(a)
                     state_op.add(next_state)
-                    # episode_states.append(state_op.state)
 
-                    episode_buffer.append([state_op.pre_state, a, reward, state_op.state, done, v[0, 0]])
+                    episode_buffer.append(
+                        [state_op.pre_state, a, reward, state_op.state, done,
+                         v[0, 0]])
                     episode_values.append(v[0, 0])
 
                     episode_reward += reward
                     total_steps += 1
                     episode_step_count += 1
 
-                    # If the episode hasn't ended, but the experience buffer is full, then we
-                    # make an update step using that experience rollout.
+                    # Updates werden schon vor Ende der Episode ausgeführt.
                     if len(episode_buffer) == 30 and not done:
-                        # Since we don't know what the true final return is, we "bootstrap" from our current
-                        # value estimation.
+                        # Da Episode noch nicht fertig, wird der Wert des
+                        # anschließenden Zustandes geschätzt.
                         target_v = _sess.run(
                             self.local_AC.value,
                             feed_dict={self.local_AC.inputs: [state_op.state]}
                         )[0, 0]
-                        v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, _sess, target_v)
+                        v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer,
+                                                             _sess, target_v)
                         episode_buffer = []
                         _sess.run(self.update_local_ops)
                     if done:
@@ -879,14 +1021,15 @@ class Worker:
                 self.episode_lengths.append(episode_step_count)
                 self.episode_mean_values.append(np.mean(episode_values))
 
-                # Update the network using the episode buffer at the end of the episode.
+                # Abschließendes Update am Ende der Episode
                 if len(episode_buffer) != 0:
-                    v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, _sess, 0.0)
+                    v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, _sess,
+                                                         0.0)
 
-                # Periodically save model parameters and summary statistics.
                 if episode_count % 5 == 0 and episode_count != 0:
                     if episode_count % 250 == 0 and self.name == 'worker_0':
-                        _saver.save(_sess, self.model_path + '/model-' + str(episode_count) + '.cptk')
+                        _saver.save(_sess, self.model_path + '/model-' + str(
+                            episode_count) + '.cptk')
                         print("Saved Model")
 
                     mean_reward = np.mean(self.episode_rewards[-5:])
@@ -900,33 +1043,45 @@ class Worker:
                     abschrift_quote = abschrift_menge / bestell_menge
                     fehl_quote = fehlmenge / absatz_menge
                     summary = tf.Summary()
-                    summary.value.add(tag='Perf/Reward', simple_value=float(mean_reward))
-                    summary.value.add(tag='Perf/Length', simple_value=float(mean_length))
-                    summary.value.add(tag='Perf/Value', simple_value=float(mean_value))
+                    summary.value.add(tag='Perf/Reward',
+                                      simple_value=float(mean_reward))
+                    summary.value.add(tag='Perf/Length',
+                                      simple_value=float(mean_length))
+                    summary.value.add(tag='Perf/Value',
+                                      simple_value=float(mean_value))
                     if not self.use_as_validator:
-                        summary.value.add(tag='Losses/Value Loss', simple_value=float(v_l))
-                        summary.value.add(tag='Losses/Policy Loss', simple_value=float(p_l))
-                        summary.value.add(tag='Losses/Entropy', simple_value=float(e_l))
-                        summary.value.add(tag='Losses/Grad Norm', simple_value=float(g_n))
-                        summary.value.add(tag='Losses/Var Norm', simple_value=float(v_n))
-                    summary.value.add(tag='Model/Bestellmenge', simple_value=float(bestell_menge))
-                    summary.value.add(tag='Model/Absatz', simple_value=float(absatz_menge))
-                    summary.value.add(tag='Model/Abschriften', simple_value=float(abschrift_menge))
-                    summary.value.add(tag='Model/AbschriftQuote', simple_value=float(abschrift_quote))
-                    summary.value.add(tag='Model/Fehlmenge', simple_value=float(fehlmenge))
-                    summary.value.add(tag='Model/FehlmengeQuote', simple_value=float(fehl_quote))
-                    summary.value.add(tag='Model/Höchstbestand', simple_value=float(max_bestand))
+                        summary.value.add(tag='Losses/Value Loss',
+                                          simple_value=float(v_l))
+                        summary.value.add(tag='Losses/Policy Loss',
+                                          simple_value=float(p_l))
+                        summary.value.add(tag='Losses/Entropy',
+                                          simple_value=float(e_l))
+                        summary.value.add(tag='Losses/Grad Norm',
+                                          simple_value=float(g_n))
+                        summary.value.add(tag='Losses/Var Norm',
+                                          simple_value=float(v_n))
+                    summary.value.add(tag='Model/Bestellmenge',
+                                      simple_value=float(bestell_menge))
+                    summary.value.add(tag='Model/Absatz',
+                                      simple_value=float(absatz_menge))
+                    summary.value.add(tag='Model/Abschriften',
+                                      simple_value=float(abschrift_menge))
+                    summary.value.add(tag='Model/AbschriftQuote',
+                                      simple_value=float(abschrift_quote))
+                    summary.value.add(tag='Model/Fehlmenge',
+                                      simple_value=float(fehlmenge))
+                    summary.value.add(tag='Model/FehlmengeQuote',
+                                      simple_value=float(fehl_quote))
+                    summary.value.add(tag='Model/Höchstbestand',
+                                      simple_value=float(max_bestand))
                     self.summary_writer.add_summary(summary, episode_count)
 
                     self.summary_writer.flush()
                 if self.name == 'worker_0':
                     _sess.run(self.increment)
                 episode_count += 1
-                if episode_count > self.max_episodes and self.name == 'worker_0':
+                if episode_count > self.max_runs and self.name == 'worker_0':
                     _coord.request_stop()
-
-
-# endregion
 
 
 class Mensch:
@@ -951,8 +1106,8 @@ class Mensch:
         prediction = state[5:]
         prognose = prediction[0:self.zyklus].sum()
         optimale_menge = max(prognose - bestand, 0)
-        #         if optimale_menge > 0:
-        optimale_menge += self.sicherheitsaufschlag
+        if optimale_menge > 0:
+            optimale_menge += self.sicherheitsaufschlag
         restmenge = optimale_menge % ose
         bruchmenge = optimale_menge / ose
         if 0 < bruchmenge < 1:

@@ -1,5 +1,8 @@
 """
-Datei enthält Klassen für das Evaluieren der Agenten
+Datei enthält Klasse für das Evaluieren der Agenten.
+Diese lässt den Agent jeden Artikel einmal voll durchlaufen und gibt eine
+Grafik zurück.
+
 """
 import os
 
@@ -12,8 +15,9 @@ from utils import StateOperator
 
 def get_statistik(env):
     """
-    Takes the results out of the Simulation-Statistics Object
-    :param env:
+    Nimmt die Ergebnisse des Statistik-Objektes und füllt sie in einen
+    Numpy-Array
+    :param env: Simulation
     :return:
     """
     artikels = env.possibles
@@ -39,7 +43,8 @@ class Evaluator:
     Evaluationsklasse
     """
 
-    def __init__(self, agent, training_simulation, testing_simulation, hparams, session=None, validation=True):
+    def __init__(self, agent, training_simulation, testing_simulation, hparams,
+                 session=None, validation=True):
         self.agent = agent
         if hasattr(agent, 'rundung'):
             self.agent_type = 'Mensch'
@@ -58,15 +63,23 @@ class Evaluator:
             self.name += '-' + str(hparams.detail_warengruppe[0])
 
     def show(self):
+        """
+        Erzeugt die Ergebnisse und speichert die Resultate als Grafik
+        :return: None
+        """
         if self.validation:
             stats = self.run(self.train_env)
-            self.plot(stats, path=os.path.join('files', 'graphics'), category='Train')
+            self.plot(stats, path=os.path.join('files', 'graphics'),
+                      category='Train')
         stats = self.run(self.test_env)
-        self.plot(stats, path=os.path.join('files', 'graphics'), category='Test')
+        self.plot(stats, path=os.path.join('files', 'graphics'),
+                  category='Test')
+
+        return
 
     def run(self, env):
         """
-        Method to run all possible episodes with the agent
+        Methode führt die Episoden für die verschiedenen Agenten-Typen aus.
         :return:
         """
         state_op = StateOperator(self.hparams)
@@ -79,7 +92,9 @@ class Evaluator:
                 while not done:
                     action = self.agent.act(state_op.state)
                     if self.agent_type == 'DDDQN-Agent':
-                        reward, done, next_state = env.make_action(np.argmax(action))
+                        reward, done, next_state = env.make_action(
+                            np.argmax(action)
+                        )
                     else:
                         reward, done, next_state = env.make_action(action)
                     state_op.add(next_state)
@@ -104,7 +119,8 @@ class Evaluator:
 
     def plot(self, statistik, path=None, reward_range=(0, 3), category=''):
         """
-        Plots the results. If Path is specified, then Image is directly saved
+        Plottet die Ergebnisse. Wenn Pfad spezifiziert, wird die Grafik direkt
+        gespeichert.
         :param path:
         :param statistik: np.ndarray
         :param reward_range
@@ -112,18 +128,22 @@ class Evaluator:
         :return:
         """
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
-        ax1.set_title('{typ}-Agent im {cat}-Datensatz der Warengruppe {name}'.format(
-            typ=self.agent_type,
-            name=self.name,
-            cat=category))
-        ax1.hist(statistik[:, 0], bins=100, range=reward_range, label=r'$\emptyset$-Belohnung', color='orangered')
+        ax1.set_title(
+            '{typ}-Agent im {cat}-Datensatz der Warengruppe {name}'.format(
+                typ=self.agent_type,
+                name=self.name,
+                cat=category))
+        ax1.hist(statistik[:, 0], bins=100, range=reward_range,
+                 label=r'$\emptyset$-Belohnung', color='orangered')
         ax1.legend()
 
-        ax2.hist(statistik[:, 1], bins=100, range=(0, 1), label=r'$\emptyset$-Abschriften Quote', color='limegreen')
+        ax2.hist(statistik[:, 1], bins=100, range=(0, 1),
+                 label=r'$\emptyset$-Abschriften Quote', color='limegreen')
         ax2.set_ylabel('Anzahl Artikel')
         ax2.legend()
 
-        ax3.hist(statistik[:, 2], bins=100, range=(0, 1), label=r'$\emptyset$-Fehlmengen Quote', color='dodgerblue')
+        ax3.hist(statistik[:, 2], bins=100, range=(0, 1),
+                 label=r'$\emptyset$-Fehlmengen Quote', color='dodgerblue')
         ax3.legend()
 
         if path:
@@ -131,6 +151,7 @@ class Evaluator:
                 os.path.join(
                     path,
                     '{typ} Eval {run_id}-{cat} Warengruppe {name}',
-                ).format(typ=self.agent_type, run_id=self.run_id, cat=category, name=self.name))
+                ).format(typ=self.agent_type, run_id=self.run_id, cat=category,
+                         name=self.name))
         else:
             plt.show()
