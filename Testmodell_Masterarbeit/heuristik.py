@@ -1,3 +1,7 @@
+"""
+Evaluierung der Heuristik eines Menschen, wenn die Prognose durch den
+Prädiktor gegeben ist.
+"""
 import os
 
 import matplotlib.pyplot as plt
@@ -13,7 +17,6 @@ from utils import Hyperparameter
 plt.style.use('ggplot')
 tf.get_logger().setLevel('ERROR')
 
-# region Hyperparams
 hps = Hyperparameter(
     run_id=20,
     warengruppe=[17],
@@ -41,7 +44,6 @@ predictor_dir = os.path.join('files', 'models', 'PredictorV2',
 available_weights = os.listdir(predictor_dir)
 available_weights.sort()
 predictor_path = os.path.join(predictor_dir, available_weights[-1])
-# endregion
 
 pipeline = DataPipeLine(ZielWarengruppen=hps.warengruppe,
                         DetailWarengruppe=hps.detail_warengruppe)
@@ -63,7 +65,6 @@ pred = predictor.predict(
 )
 print('and done ;)')
 
-# endregion
 for aufschlag in [1, 2, 3]:
     hps.set_hparam('sicherheitsaufschlag', aufschlag)
 

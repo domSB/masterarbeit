@@ -5,8 +5,7 @@ from scipy.stats import entropy
 
 
 def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3,
-                                 ek_preis=0.7,
-                                 kap_kosten=0.05 / 365):
+                                 ek_preis=0.7, kap_kosten=0.05 / 365):
     """
     Entspricht der Reichweiten-orientierten Belohnungsfunktion 3
     """
@@ -41,24 +40,27 @@ def belohnung_bestandsreichweite(bestand, absatz, order_zyklus, rohertrag=0.3,
 
     # 2. Fall Bestandsreichweite < Orderzyklus
     # ==> Unterbestand mit Fehlmenge
-    # elif bestandsreichweite < order_zyklus:
-    #     fehlmenge = real_bestand[order_zyklus - 1]
-    #     reward = -rohertrag * fehlmenge
-    #
-    # # 3. Fall Bestandsreichweite > Orderzyklus & Bestand bei Orderzyklus == 0
-    # # ==> Bestandsreichweite per Definition höher als Orderzyklus, aber Bestellmenge optimal
-    # else:
-    #     end_bestand = real_bestand[order_zyklus - 1]
-    #     if end_bestand == 0:
-    #         reward = 0.1 + 0.3 * kum_absatz[order_zyklus - 1]**2
-    #
-    # # 4. Fall Bestandsreichweite > Orderzyklus & Bestand bei Orderzyklus > 0
-    # # ==> Noch Bestand bei nächstem Liefereingang.
-    #     else:
-    #         unvermeidbare_abschriften = -abschriften[order_zyklus-1:].sum()
-    #         # Bei MHD > 2x Orderzyklus werden Abschriften ggf. mehrfach bestraft.
-    #         verkaufbarer_mehrbestand = end_bestand - unvermeidbare_abschriften
-    #         reward = (unvermeidbare_abschriften * -ek_preis) + (verkaufbarer_mehrbestand * -ek_preis * kap_kosten)
+    elif bestandsreichweite < order_zyklus:
+        fehlmenge = real_bestand[order_zyklus - 1]
+        reward = -rohertrag * fehlmenge
+
+    # 3. Fall Bestandsreichweite > Orderzyklus & Bestand bei Orderzyklus == 0
+    # ==> Bestandsreichweite per Definition höher als Orderzyklus,
+    # aber Bestellmenge optimal
+    else:
+        end_bestand = real_bestand[order_zyklus - 1]
+        if end_bestand == 0:
+            reward = 0.1 + 0.3 * kum_absatz[order_zyklus - 1] ** 2
+
+        # 4. Fall Bestandsreichweite > Orderzyklus & Bestand bei Orderzyklus > 0
+        # ==> Noch Bestand bei nächstem Liefereingang.
+        else:
+            unvermeidbare_abschriften = -abschriften[order_zyklus - 1:].sum()
+            # BUG: Bei MHD > 2x Orderzyklus werden Abschriften ggf. mehrfach
+            # bestraft
+            verkaufbarer_mehrbestand = end_bestand - unvermeidbare_abschriften
+            reward = unvermeidbare_abschriften * -ek_preis
+            reward += verkaufbarer_mehrbestand * -ek_preis * kap_kosten
 
     return reward
 
@@ -93,8 +95,8 @@ def belohnung_bestands_orientiert(bestand):
 
 class Statistics(object):
     """
-    Das Objekt speichert die Statistiken zum Verhalten der Simulation während des Trainings.
-    Neue Daten für bereits gesehene Artikel werden überschrieben.
+    Das Objekt speichert die Statistiken zum Verhalten der Simulation während
+    des Trainings. Neue Daten für bereits gesehene Artikel werden überschrieben.
     """
 
     def __init__(self):
@@ -103,7 +105,8 @@ class Statistics(object):
 
     def set_artikel(self, artikel):
         """
-        Legt den Artikel fest, für den die aktuellen Statistiken erfasst werden sollen
+        Legt den Artikel fest, für den die aktuellen Statistiken erfasst werden
+        sollen
         :param artikel: Artikelnummer
         :return:
         """
@@ -113,8 +116,8 @@ class Statistics(object):
     def add(self, other):
         """
         Fügt einen neuen Statistikdatensatz für einen Tag hinzu.
-        self.vergangene_tage, action, absatz, reward, self.bestand, self.fehlmenge, self.abschriften
-        :param other: np.array([day, action, reward, bestand, fehlmenge, abschrift])
+        :param other: np.array([day, action, reward, bestand, fehlmenge,
+        abschrift])
         :return:
         """
         assert other.shape == (7,)
@@ -128,7 +131,10 @@ class Statistics(object):
         return self.data[artikel][:, 0]
 
     def actions(self, artikel=None):
-        """ Bestellmenge des Agenten. Berücksichtig bereits Ordersatzeinheits-Multiplikator """
+        """
+        Bestellmenge des Agenten.
+        Berücksichtigt bereits Ordersatzeinheits-Multiplikator
+        """
         if artikel is None:
             artikel = self.artikel
         return self.data[artikel][:, 1]
@@ -209,12 +215,15 @@ class StockSimulation(object):
 
     def __init__(self, simulation_data, pred, hparams):
         """
-        :param simulation_data: 4er Tupel aus Labels, dynamischem Zustand, statischem Zustand und der Ids zum zuordnen
+        :param simulation_data: 4er Tupel aus Labels, dynamischem Zustand,
+        statischem Zustand und der Ids zum zuordnen
         :param pred: Vorberechnete Predictions für schnelleres Training
         :param state_flag: Gibt an, welcher Zustand zurückgegeben werden soll
-        0 Nur prediction und Bestandsdaten, 1 mit Zeitstempel, 2 mit statischen Artikelinformationen
-        :param reward_flag: Gibt an, welche Belohnungsfunktion verwendet werden soll
-        Wählen aus Bestandsreichweite, Bestand, MCGewinn, TDGewinn & Bestandsreichweite V2
+        0 Nur prediction und Bestandsdaten, 1 mit Zeitstempel, 2 mit statischen
+        Artikelinformationen
+        :param reward_flag: Gibt an, welche Belohnungsfunktion verwendet werden
+        soll. Wählen aus Bestandsreichweite, Bestand, MCGewinn, TDGewinn,
+        TDGewinn V2 & Bestandsreichweite V2
         """
         self.lab, self.dyn, self.stat, self.ids = simulation_data
         self.pred = pred
@@ -228,6 +237,8 @@ class StockSimulation(object):
             'ArtikelInfo': hparams.state_ArtikelInfo
         }
         self.reward_flag = hparams.reward_func
+        # Zum Initialisieren all dieser Werte, muss die Simulation vor der
+        # ersten Verwendung einmal zurückgesetzt werden.
         self.aktueller_markt = None
         self.aktueller_artikel = None
         self.artikel_absatz = None
@@ -247,20 +258,23 @@ class StockSimulation(object):
         self.gesamt_belohnung = None
         self.anz_abschriften = 0
         self.anz_fehlmengen = 0
-        self.artikel_einkaufspreis = 0.7
+        self.artikel_ek_preis = 0.7
         self.artikel_verkaufspreis = 1
         self.artikel_rohertrag = 0.3
         self.kap_kosten = 0.05 / 365
-        self.optimaler_reward = None
+        self.opt_reward = None
         self.placeholder_mhd = hparams.rest_laufzeit
         self.order_satzeinheit = hparams.ordersatz_einheit
         self.ose = None
         if self.order_satzeinheit == -1:
+            # OSE nicht konsistend im Artikelstamm gepflegt. Daher Wahl von
+            # zufälligen Mengen, die aber für den Artikel über mehrere Märkte
+            # gleich bleiben sollen.
             self.ose_dict = {int(str(artikel)[-6:]): np.random.randint(1, 10)
                              for artikel in self.possibles}
         else:
             self.ose = hparams.ordersatz_einheit
-        self.bestellrythmus = hparams.bestell_zyklus
+        self.zyklus = hparams.bestell_zyklus
         # TODO: Lookup für MHD und OSE, Preise
         self.statistics = Statistics()
 
@@ -281,18 +295,18 @@ class StockSimulation(object):
             state = np.concatenate((state, prediction), axis=0)
 
         if self.state_flag['Sales']:
-            sales = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0,
+            sales = self.dynamic_state[day + 1 - self.zyklus:day + 1, 0,
                     0].reshape(-1)
             state = np.concatenate((state, sales), axis=0)
 
         if self.state_flag['Weather']:
             weather_and_prices = self.dynamic_state[
-                                 day + 1 - self.bestellrythmus:day + 1, 0,
+                                 day + 1 - self.zyklus:day + 1, 0,
                                  1:-9].reshape(-1)
             state = np.concatenate((state, weather_and_prices), axis=0)
 
         if self.state_flag['Time']:
-            time = self.dynamic_state[day + 1 - self.bestellrythmus:day + 1, 0,
+            time = self.dynamic_state[day + 1 - self.zyklus:day + 1, 0,
                    -9:].reshape(-1)
             state = np.concatenate((state, time), axis=0)
 
@@ -304,14 +318,18 @@ class StockSimulation(object):
 
     @property
     def info(self):
-        """ Info für Debuggingzwecke. Optimaler Reward nur bei kostenorientierter Belohnung richtig"""
+        """
+        Info für Debuggingzwecke. Optimaler Reward nur bei kostenorientierter
+        Belohnung richtig
+        """
         return {'Artikel': self.aktueller_artikel,
-                'Markt': self.aktueller_markt, 'Optimal': self.optimaler_reward}
+                'Markt': self.aktueller_markt, 'Optimal': self.opt_reward}
 
     @property
     def state_size(self):
         """
-        Größe des zurückgegebenen Zustandes, da Zustandsinformationen dynamisch gewählt werden können.
+        Größe des zurückgegebenen Zustandes, da Zustandsinformationen dynamisch
+        gewählt werden können.
         :return: int : size
         """
         state_size = np.array([5])
@@ -322,13 +340,13 @@ class StockSimulation(object):
                 state_size += 6
 
         if self.state_flag['Time']:
-            state_size += 9 * self.bestellrythmus
+            state_size += 9 * self.zyklus
 
         if self.state_flag['Weather']:
-            state_size += 11 * self.bestellrythmus
+            state_size += 11 * self.zyklus
 
         if self.state_flag['Sales']:
-            state_size += 1 * self.bestellrythmus
+            state_size += 1 * self.zyklus
 
         if self.state_flag['ArtikelInfo']:
             state_size += self.stat.shape[1]
@@ -385,7 +403,7 @@ class StockSimulation(object):
         if self.order_satzeinheit is -1:
             self.ose = self.ose_dict[self.aktueller_artikel]
 
-        self.vergangene_tage = self.bestellrythmus - 1
+        self.vergangene_tage = self.zyklus - 1
         self.tage = self.dynamic_state.shape[0]
 
         self.abschriften = 0
@@ -395,25 +413,29 @@ class StockSimulation(object):
         self.anz_abschriften = 0
         self.anz_fehlmengen = 0
 
-        self.optimaler_reward = self.artikel_absatz.sum() * self.artikel_rohertrag
+        self.opt_reward = self.artikel_absatz.sum() * self.artikel_rohertrag
         self.statistics.set_artikel(self.aktueller_artikel)
         return self.state, self.info
 
     def make_action(self, action):
         """
-        Wahl einer Bestellmenge. Simualtion springt automatisch bis zum nächsten Bestelltag weiter.
+        Wahl einer Bestellmenge. Simualtion springt automatisch bis zum nächsten
+        Bestelltag weiter.
         :param action:
         :return:
         """
-        self.vergangene_tage += self.bestellrythmus
-        self.abschriften = 0  # Werden in self.state verwendet, daher keine lokale Var. der Methode
+        self.vergangene_tage += self.zyklus
+        self.abschriften = 0
+        # Werden in self.state verwendet, daher keine lokale Var. der Methode
         self.fehlmenge = 0
         action = int(action) * self.ose
         absatz = self.artikel_absatz[
-                 self.vergangene_tage - self.bestellrythmus:self.vergangene_tage].sum()
-        done = self.tage <= self.vergangene_tage + self.bestellrythmus
-        # BUG: Nach aktueller Implementierung trifft Bestellung am Tag der Bestellung ein und nicht mit 1 Tag Verzug
-        # Bei Beachtung der OrderLeadTime, muss der folgende Teil des Skriptes 2-fach ausgeführt werden:
+                 self.vergangene_tage - self.zyklus:self.vergangene_tage].sum()
+        done = self.tage <= self.vergangene_tage + self.zyklus
+        # BUG: Nach aktueller Implementierung trifft Bestellung am Tag der
+        # Bestellung ein und nicht mit 1 Tag Verzug
+        # Bei Beachtung der OrderLeadTime,
+        # müsste der folgende Teil des Skriptes 2-fach ausgeführt werden:
         # - Betrachtung bis Bestellungseingang
         # - Betrachtung ab Bestellungseingang
         self.bestand += action
@@ -422,8 +444,9 @@ class StockSimulation(object):
              np.ones((action,), dtype=np.int64) * self.placeholder_mhd))
 
         # Produkte sind ein Tag älter
-        self.bestands_frische -= self.bestellrythmus
-        # BUG: Wenn ein Feier- oder Sonntag zwischen den Absatztagen lag, altern die Produkte trotzdem nur um einen Tag
+        self.bestands_frische -= self.zyklus
+        # BUG: Wenn ein Feier- oder Sonntag zwischen den Absatztagen lag,
+        # altern die Produkte trotzdem nur um einen Tag
         abgelaufene = np.argwhere(self.bestands_frische <= 0).reshape(-1)
         if len(abgelaufene) > 0:
             self.bestands_frische = np.delete(self.bestands_frische,
@@ -446,15 +469,16 @@ class StockSimulation(object):
         # Rewardberechnung
         if self.reward_flag == 'MCGewinn' or self.reward_flag == 'TDGewinn':
             # Abschrift
-            r_abschrift = self.abschriften * -self.artikel_einkaufspreis
+            r_abschrift = self.abschriften * -self.artikel_ek_preis
             # Umsatzausfall
             r_ausfall = self.fehlmenge * -self.artikel_rohertrag
             # Umsatz
             r_umsatz = 0
             # r_umsatz = absatz * self.artikel_rohertrag
+            # Keine Belohnung für Umsatz
             # Kapitalbindung
             r_bestand = -(
-                        self.bestand * self.artikel_einkaufspreis) * self.kap_kosten
+                    self.bestand * self.artikel_ek_preis) * self.kap_kosten
             # Belohnung für optimale Bestell-Strategien
             if self.reward_flag == 'TDGewinn':
                 # Temporal Difference Gewinn gibt jeden Tag eine Belohnung
@@ -462,9 +486,10 @@ class StockSimulation(object):
                 reward = reward / 100
 
             else:
-                # Monte Carlo Gewinn summiert alle Gewinne auf und gibt die Summe am Ende der Episode zurück
+                # Monte Carlo Gewinn summiert alle Gewinne auf und gibt die
+                # Summe am Ende der Episode zurück
                 self.gesamt_belohnung += (
-                            r_abschrift + r_ausfall + r_bestand + r_umsatz)
+                        r_abschrift + r_ausfall + r_bestand + r_umsatz)
                 if done:
                     reward = self.gesamt_belohnung
                     if self.optimal_flag:
@@ -484,13 +509,13 @@ class StockSimulation(object):
         elif self.reward_flag == 'TDGewinn V2':
             reward = gradienten_belohnung(self.fehlmenge, self.abschriften,
                                           self.bestand)
-            reward = reward / (
-                    self.tage / self.bestellrythmus)  # eine Art Reward Clipping, damit Q(s) nicht so groß werden
+            reward = reward / (self.tage / self.zyklus)
+            # eine Art Reward Clipping, damit Q(s) nicht so groß werden
 
         elif self.reward_flag == 'Bestandsreichweite':
+            start = self.vergangene_tage + 1
             kommende_absaetze = np.sum(
-                self.artikel_absatz[
-                self.vergangene_tage + 1:self.vergangene_tage + 1 + self.bestellrythmus]
+                self.artikel_absatz[start:start + self.zyklus]
             )
             reichweite = self.bestand - kommende_absaetze
             if reichweite == 0:
@@ -504,7 +529,7 @@ class StockSimulation(object):
 
         elif self.reward_flag == 'Bestandsreichweite V2':
             if done:
-                reward = self.bestand * self.kap_kosten * -self.artikel_einkaufspreis
+                reward = self.bestand * self.kap_kosten * -self.artikel_ek_preis
             else:
                 analyse_start = self.vergangene_tage + 1
                 analyse_stop = min(self.tage + 1,
@@ -523,7 +548,7 @@ class StockSimulation(object):
                 reward = belohnung_bestandsreichweite(
                     self.bestands_frische,
                     kommende_absaetze,
-                    self.bestellrythmus,
+                    self.zyklus,
                     rohertrag=0.3,
                     ek_preis=0.7,
                     kap_kosten=0.05 / 365
@@ -534,13 +559,13 @@ class StockSimulation(object):
             theoretischer_bestand = self.bestand - self.fehlmenge
             reward = belohnung_bestands_orientiert(theoretischer_bestand)
 
+            # Abbruch der Episode bei hoffnungslosem Überbestand
+            if self.bestand > self.break_bestand:
+                reward = -300
+                done = True
+
         else:
             raise NotImplementedError('Unbekannte Belohnungsart')
-
-        # Abbruch der Episode bei hoffnungslosem Überbestand
-        # if self.bestand > self.break_bestand:
-        #     reward = -300
-        #     done = True
 
         self.statistics.add(
             np.array(

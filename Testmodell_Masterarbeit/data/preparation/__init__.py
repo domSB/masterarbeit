@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow as tf
 
 
 def split_np_arrays(lab, dyn, stat, split_helper, by_time=False, percentage=0.3,
@@ -71,3 +72,60 @@ def split_np_arrays(lab, dyn, stat, split_helper, by_time=False, percentage=0.3,
     assert not np.isnan(stat_test).any()
     return (lab_train, dyn_train, stat_train, idx[train_mask]), (
     lab_test, dyn_test, stat_test, idx[test_mask])
+
+
+def create_dataset(_lab, _dyn, _stat, _params):
+    """
+    Erzeugt ein Tensorflow Dataset aus den Numpy Arrays
+    :param _lab:
+    :param _dyn:
+    :param _stat:
+    :param _params:
+    :return:
+    """
+    def gen():
+        while True:
+            rand_idx = np.random.randint(0, _lab.shape[0])
+            labels = _lab[rand_idx]
+            yield {'dynamic_input': _dyn[rand_idx],
+                   'static_input': _stat[rand_idx]}, \
+                  {
+                      '1day': labels[0],
+                      '2day': labels[1],
+                      '3day': labels[2],
+                      '4day': labels[3],
+                      '5day': labels[4],
+                      '6day': labels[5],
+                  }
+
+    _dataset = tf.data.Dataset.from_generator(
+        gen,
+        output_types=(
+            {'dynamic_input': tf.float32, 'static_input': tf.int8},
+            {
+                '1day': tf.int8,
+                '2day': tf.int8,
+                '3day': tf.int8,
+                '4day': tf.int8,
+                '5day': tf.int8,
+                '6day': tf.int8,
+            }
+        ),
+        output_shapes=(
+            {'dynamic_input': tf.TensorShape(
+                [_params['time_steps'], _params['dynamic_state_shape']]),
+             'static_input': tf.TensorShape([_params['static_state_shape']])},
+            {
+                '1day': tf.TensorShape([16]),
+                '2day': tf.TensorShape([16]),
+                '3day': tf.TensorShape([16]),
+                '4day': tf.TensorShape([16]),
+                '5day': tf.TensorShape([16]),
+                '6day': tf.TensorShape([16]),
+            }
+        )
+    )
+    _dataset = _dataset.batch(_params['batch_size'])
+    _dataset = _dataset.repeat()
+    _dataset = _dataset.prefetch(tf.contrib.data.AUTOTUNE)
+    return _dataset
