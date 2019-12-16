@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from calender.german_holidays import get_german_holiday_calendar
+from calendar.german_holidays import get_german_holiday_calendar
 
 
 def quarters(q):

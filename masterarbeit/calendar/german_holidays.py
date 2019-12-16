@@ -12,7 +12,7 @@ try:
 except ImportError:
     print('Pandas could not be imported')
     raise
-from calender.state_codes import STATE_CODE_MAP, StateCodeError
+from calendar.state_codes import STATE_CODE_MAP, StateCodeError
 
 
 class ChristiHimmelfahrt(Easter):
@@ -160,7 +160,7 @@ HOLIDAY_MAP = {k: (set(ALL_GERMAN_HOLIDAY_RULES.keys()) - v)
 
 
 def get_german_holiday_calendar(state_code):
-    """Get german holiday calender class for a specific state.
+    """Get german holiday calendar class for a specific state.
 
     Valid state code abbreviations are found in the ``STATE_CODE_MAP``.
 
